@@ -85,7 +85,7 @@ contract Sample {
    * @dev Connector Details. DSA team will set the ID at the time of deployment.
   */
   function connectorID() public pure returns(uint _type, uint _id) {
-      (_type, _id) = (1, 3);
+      (_type, _id) = (1, 0);
   }
   /**
    * @dev Return InstaEvent Address.
@@ -93,6 +93,9 @@ contract Sample {
   function getEventAddr() internal pure returns (address) {
       return 0x2af7ea6Cb911035f3eb1ED895Cb6692C39ecbA97; // InstaEvent Address
   }
+
+  // Smaple Event
+  event LogDeposit(address indexed token, address cToken, uint256 tokenAmt, uint256 getId, uint256 setId);
 
   /**
    * @dev Sample function
