@@ -1,0 +1,32 @@
+{
+  "name": "dsa-connectors",
+  "version": "1.0.0",
+  "description": "",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "npm run ganache sleep 5 && truffle test && npm run stop"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/InstaDApp/dsa-connectors.git"
+  },
+  "author": "InstaDApp",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/InstaDApp/dsa-connectors/issues"
+  },
+  "homepage": "https://github.com/InstaDApp/dsa-connectors#readme",
+  "dependencies": {
+    "@truffle/artifactor": "^4.0.45",
+    "dotenv": "^7.0.0",
+    "ethereumjs-abi": "^0.6.8",
+    "solc": "^0.6.0",
+    "truffle-assertions": "^0.9.2",
+    "truffle-hdwallet-provider": "^1.0.17",
+    "truffle-plugin-verify": "^0.3.10",
+    "truffle-verify": "^1.0.8"
+  }
+}
