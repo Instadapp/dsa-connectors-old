@@ -4,7 +4,9 @@
   "description": "",
   "main": "truffle-config.js",
   "directories": {
-    "test": "npm run ganache sleep 5 && truffle test && npm run stop"
+    "test": "npm run ganache sleep 5 && truffle test && npm run stop",
+    "coverage": "./node_modules/.bin/solidity-coverage",
+    "solium": "solium -d contracts/"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -28,5 +30,9 @@
     "truffle-hdwallet-provider": "^1.0.17",
     "truffle-plugin-verify": "^0.3.10",
     "truffle-verify": "^1.0.8"
+  },
+  "devDependencies": {
+    "solidity-coverage": "0.5.11",
+    "solium": "1.2.3"
   }
 }
