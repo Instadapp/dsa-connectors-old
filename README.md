@@ -1,4 +1,4 @@
-# DeFi Smart Account Connectors
+# DSA Connectors
 
 Connectors are standardized modules that let Smart Account interact with various smart contracts, and make the important actions accessible to smart accounts.
 
