@@ -8,7 +8,7 @@ Connectors are standardized modules that let Smart Account interact with various
 2. Create a feature branch: `git checkout -b new-connector`
 3. Commit changes: `git commit -am 'Added a connector'`
 4. Push to the remote branch: `git push origin new-connector`
-5. Create a new [Pull Request](https://github.com/InstaDApp/dsa-connectors/pull/new/master)
+5. Create a new Pull Request
 
 Check out [mock.sol](https://github.com/InstaDApp/dsa-connectors/blob/master/contracts/connectors/mock.sol) for reference.
 
