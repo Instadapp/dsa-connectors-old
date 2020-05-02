@@ -10,6 +10,8 @@ Connectors are standardized modules that let Smart Account interact with various
 4. Push to the remote branch: `git push origin new-connector`
 5. Create a new [Pull Request](https://github.com/InstaDApp/dsa-connectors/pull/new/master)
 
+Check out [mock.sol](https://github.com/InstaDApp/dsa-connectors/blob/master/contracts/connectors/mock.sol) for reference.
+
 ## Requirements
 
 - The contracts should not have `selfdestruct()`.
