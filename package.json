@@ -4,12 +4,12 @@
   "description": "",
   "main": "truffle-config.js",
   "directories": {
-    "test": "npm run ganache sleep 5 && truffle test && npm run stop",
-    "coverage": "./node_modules/.bin/solidity-coverage",
-    "solium": "solium -d contracts/"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run ganache sleep 5 && truffle test && npm run stop",
+    "coverage": "./node_modules/.bin/solidity-coverage",
+    "solium": "solium -d contracts/",
+    "build-contracts": "sol-merger \"./contracts/connectors/mock.sol\" ./contracts/build",
   },
   "repository": {
     "type": "git",
@@ -29,9 +29,12 @@
     "truffle-assertions": "^0.9.2",
     "truffle-hdwallet-provider": "^1.0.17",
     "truffle-plugin-verify": "^0.3.10",
-    "truffle-verify": "^1.0.8"
+    "truffle-verify": "^1.0.8",
+    "minimist": "^1.2.5",
+    "chalk": "^4.0.0"
   },
   "devDependencies": {
+    "sol-merger": "^2.0.1",
     "solidity-coverage": "0.5.11",
     "solium": "1.2.3"
   }
