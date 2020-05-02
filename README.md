@@ -1,12 +1,14 @@
-
 # DeFi Smart Account Connectors
 
 ## Requirements
 
 - The contracts should not have `selfdestruct()`.
 - The contracts should not have `delegatecall()`.
-- Use `uint(-1)` for maximum amount everywhere.
-- Import `contracts/common` files.
+- Use `uint(-1)` for maximum amount everywhere ([example](/)).
+- Import `contracts/common` files ([example](/)).
+- Add `getId` & `setId`, two additional parameter for external public facing functions ([example](/)).
+- Use `getUint()` or `setUint()` functions to fetch or store values ([example](/)).
+- Use address returned by `getEthAddr()` to denote Ethereum in all Ethereum related operations ([example](/)).
 
 ```javascript
 contract Sample {

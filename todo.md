@@ -1,2 +1,3 @@
-- add the static connectors in "contracts/static" folder 
+- add the static connectors in "contracts/static" folder
 - why ^ in ^0.6.0? Do we need it?
+- use the `contract/connectors/mock.sol` structure for yet-to-be-deployed connectors

@@ -1,8 +1,12 @@
 pragma solidity ^0.6.0;
 
 interface MemoryInterface {
-    function getUint(uint _id) external returns (uint _num);
-    function setUint(uint _id, uint _val) external;
+    function getUint(uint id) external returns (uint num);
+    function setUint(uint id, uint val) external;
+}
+
+interface EventInterface {
+    function emitEvent(uint connectorType, uint connectorID, bytes32 eventCode, bytes calldata eventData) external;
 }
 
 contract Stores {
@@ -10,12 +14,12 @@ contract Stores {
     /**
      * @dev Return ethereum address
      */
-    function getAddressETH() internal pure returns (address) {
+    function getEthAddr() internal pure returns (address) {
         return 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE; // ETH Address
     }
 
     /**
-     * @dev Return Memory Variable Address
+     * @dev Return memory variable address
      */
     function getMemoryAddr() internal pure returns (address) {
         return 0x8a5419CfC711B2343c17a6ABf4B2bAFaBb06957F; // InstaMemory Address
@@ -30,23 +34,31 @@ contract Stores {
 
     /**
      * @dev Get Uint value from InstaMemory Contract.
-    */
+     */
     function getUint(uint getId, uint val) internal returns (uint returnVal) {
         returnVal = getId == 0 ? val : MemoryInterface(getMemoryAddr()).getUint(getId);
     }
 
     /**
      * @dev Set Uint value in InstaMemory Contract.
-    */
+     */
     function setUint(uint setId, uint val) internal {
         if (setId != 0) MemoryInterface(getMemoryAddr()).setUint(setId, val);
     }
 
     /**
      * @dev Connector Details
-    */
-    function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 3);
+     */
+    function connectorID() public pure returns(uint model, uint id) {
+        (model, id) = (0, 0);
+    }
+
+    /**
+     * @dev emit event on event contract
+     */
+    function emitEvent(bytes32 eventCode, bytes memory eventData) internal {
+        (uint model, uint id) = connectorID();
+        EventInterface(getEventAddr()).emitEvent(model, id, eventCode, eventData);
     }
 
 }
