@@ -3,7 +3,9 @@
 
 ## Requirements
 
-- Should not have delegate call in it.
+- The contracts should not have delegate call in it.
+
+- - The contracts should not have `SelfDestruct()` function.
 
 - Use `uint(-1)` for maximum amount everywhere.
 
