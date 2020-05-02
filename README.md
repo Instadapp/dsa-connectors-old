@@ -19,6 +19,7 @@ Check out [mock.sol](https://github.com/InstaDApp/dsa-connectors/blob/master/con
 - Use `uint(-1)` for maximum amount everywhere.
 - Import files from common directory.
 - If needed, add `getId` & `setId`, two additional parameter for external public facing functions to fetch or store values.
+- Use `getEthAddr()` to get an address to denote Ethereum (non-ERC20) related operations.
 - Use `getUint()` or `setUint()` functions to fetch or store values.
 - Call `emitEvent()` after every external public facing functions to follow a common event standard for better analytics.
 
