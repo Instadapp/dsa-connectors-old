@@ -10,8 +10,6 @@ Connectors are standardized modules that let Smart Account interact with various
 4. Push to the remote branch: `git push origin new-connector`
 5. Create a new Pull Request
 
-Check out [mock.sol](https://github.com/InstaDApp/dsa-connectors/blob/master/contracts/connectors/mock.sol) for reference.
-
 ## Requirements
 
 - The contracts should not have `selfdestruct()`.
@@ -22,6 +20,8 @@ Check out [mock.sol](https://github.com/InstaDApp/dsa-connectors/blob/master/con
 - Use `getEthAddr()` to get an address to denote Ethereum (non-ERC20) related operations.
 - Use `getUint()` or `setUint()` functions to fetch or store values.
 - Call `emitEvent()` after every external public facing functions to follow a common event standard for better analytics.
+
+Check out [mock.sol](https://github.com/InstaDApp/dsa-connectors/blob/master/contracts/connectors/mock.sol) for reference.
 
 ## Support
 
