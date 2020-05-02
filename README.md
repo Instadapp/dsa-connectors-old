@@ -3,11 +3,10 @@
 
 ## Requirements
 
-- The contracts should not have delegate call in it.
-
-- - The contracts should not have `SelfDestruct()` function.
-
+- The contracts should not have `selfdestruct()`.
+- The contracts should not have `delegatecall()`.
 - Use `uint(-1)` for maximum amount everywhere.
+- Import `contracts/common` files.
 
 ```javascript
 contract Sample {

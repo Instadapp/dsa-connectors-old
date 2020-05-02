@@ -5,57 +5,48 @@ interface MemoryInterface {
     function setUint(uint _id, uint _val) external;
 }
 
-interface EventInterface {
-    function emitEvent(uint _connectorType, uint _connectorID, bytes32 _eventCode, bytes calldata _eventData) external;
-}
-
-
-contract Memory {
+contract Stores {
 
     /**
-     * @dev ETH Address.
+     * @dev Return ethereum address
      */
-    function getEthAddr() public pure returns (address) {
-        return 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    function getAddressETH() internal pure returns (address) {
+        return 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE; // ETH Address
     }
 
     /**
-     * @dev Return InstaMemory Address.
+     * @dev Return Memory Variable Address
      */
-    function getMemoryAddr() public pure returns (address) {
+    function getMemoryAddr() internal pure returns (address) {
         return 0x8a5419CfC711B2343c17a6ABf4B2bAFaBb06957F; // InstaMemory Address
     }
 
     /**
      * @dev Return InstaEvent Address.
      */
-    function getEventAddr() public pure returns (address) {
+    function getEventAddr() internal pure returns (address) {
         return 0x2af7ea6Cb911035f3eb1ED895Cb6692C39ecbA97; // InstaEvent Address
     }
 
     /**
-     * @dev Get Stored Uint Value From InstaMemory.
-     * @param getId Storage ID.
-     * @param val if any value.
-     */
+     * @dev Get Uint value from InstaMemory Contract.
+    */
     function getUint(uint getId, uint val) internal returns (uint returnVal) {
         returnVal = getId == 0 ? val : MemoryInterface(getMemoryAddr()).getUint(getId);
     }
 
     /**
-     * @dev Store Uint Value In InstaMemory.
-     * @param setId Storage ID.
-     * @param val Value To store.
-     */
+     * @dev Set Uint value in InstaMemory Contract.
+    */
     function setUint(uint setId, uint val) internal {
         if (setId != 0) MemoryInterface(getMemoryAddr()).setUint(setId, val);
     }
 
     /**
-     * @dev Connector ID and Type.
-     */
+     * @dev Connector Details
+    */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 2);
+        (_type, _id) = (1, 3);
     }
 
 }
