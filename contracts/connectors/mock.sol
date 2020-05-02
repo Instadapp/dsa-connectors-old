@@ -1,8 +1,8 @@
 pragma solidity ^0.6.0;
 
 // import files from common directory
-import { DSMath } from "../common/math.sol";
 import { Stores } from "../common/stores.sol";
+import { DSMath } from "../common/math.sol";
 
 contract MockProtocol is Stores, DSMath {
 
