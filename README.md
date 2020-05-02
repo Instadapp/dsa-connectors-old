@@ -14,10 +14,11 @@ Connectors are standardized modules that let Smart Account interact with various
 
 - The contracts should not have `selfdestruct()`.
 - The contracts should not have `delegatecall()`.
-- Use `uint(-1)` for maximum amount everywhere ([example](/)).
-- Import `contracts/common` files ([example](/)).
-- Add `getId` & `setId`, two additional parameter for external public facing functions ([example](/)).
-- Use `getUint()` or `setUint()` functions to fetch or store values ([example](/)).
+- Use `uint(-1)` for maximum amount everywhere.
+- Import files from common directory.
+- If needed, add `getId` & `setId`, two additional parameter for external public facing functions to fetch or store values.
+- Use `getUint()` or `setUint()` functions to fetch or store values.
+- Call `emitEvent()` after every external public facing functions to follow a common event standard for better analytics.
 
 ## Support
 
