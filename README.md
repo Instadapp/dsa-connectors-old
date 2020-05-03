@@ -1,6 +1,6 @@
 # DSA Connectors
 
-Connectors are standardized modules that let Smart Account interact with various smart contracts, and make the important actions accessible to smart accounts.
+Connectors are standard modules that let DeFi Smart Account interact with various smart contracts, and make the important actions accessible.
 
 ## Add Custom Connectors
 
@@ -13,17 +13,17 @@ Connectors are standardized modules that let Smart Account interact with various
 
 ## Requirements
 
+- Import common files from `contracts/common` directory.
 - The contracts should not have `selfdestruct()`.
 - The contracts should not have `delegatecall()`.
 - Use `uint(-1)` for maximum amount everywhere.
-- Import files from common directory.
-- Use `getEthAddr()` to get an address to denote Ethereum (non-ERC20) related operations.
+- Use `getEthAddr()` to denote Ethereum (non-ERC20).
 - Use `address(this)` instead of `msg.sender` for fetching balance on-chain, etc.
-- If needed, add `getId` & `setId`, two additional parameter for external public facing functions to fetch or store values.
+- If required, Add two additional parameter, `getId` & `setId` in external public functions.
 - Use `getUint()` or `setUint()` functions to fetch or store values.
-- Call `emitEvent()` after every external public facing functions to follow a common event standard for better analytics.
+- Call `emitEvent()` after every external public functions.
 
-Check out [mock.sol](https://github.com/InstaDApp/dsa-connectors/blob/master/contracts/connectors/mock.sol) for reference.
+Be sure to check [this mock file](https://github.com/InstaDApp/dsa-connectors/blob/master/contracts/connectors/mock.sol) for reference.
 
 ## Support
 
