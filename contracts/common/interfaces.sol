@@ -9,12 +9,3 @@ interface TokenInterface {
     function balanceOf(address) external view returns (uint);
 }
 
-interface MemoryInterface {
-    function getUint(uint id) external returns (uint num);
-    function setUint(uint id, uint val) external;
-}
-
-interface EventInterface {
-    function emitEvent(uint connectorType, uint connectorID, bytes32 eventCode, bytes calldata eventData) external;
-}
-

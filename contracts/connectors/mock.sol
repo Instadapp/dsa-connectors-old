@@ -1,6 +1,7 @@
 pragma solidity ^0.6.0;
 
 // import files from common directory
+import "../common/interfaces.sol";
 import { Stores } from "../common/stores.sol";
 import { DSMath } from "../common/math.sol";
 
