@@ -1,7 +1,7 @@
 pragma solidity ^0.6.0;
 
 // import files from common directory
-import "../common/interfaces.sol";
+import { ERC20 } from "../common/ERC20.sol";
 import { Stores } from "../common/stores.sol";
 import { DSMath } from "../common/math.sol";
 
@@ -11,6 +11,8 @@ contract MockProtocol is Stores, DSMath {
 
     // added two additional parameter (getId & setId) for external public facing functions
     function mockFunction(uint mockNumber, uint getId, uint setId) external payable {
+
+        // protocol specific logics goes here
 
         // fetch value of specific id
         uint mockBalance = getUint(getId, mockNumber);
