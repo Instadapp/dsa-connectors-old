@@ -3,13 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "truffle-config.js",
-  "directories": {
-  },
+  "directories": {},
   "scripts": {
     "test": "npm run ganache sleep 5 && truffle test && npm run stop",
     "coverage": "./node_modules/.bin/solidity-coverage",
     "solium": "solium -d contracts/",
-    "build-contracts": "sol-merger \"./contracts/connectors/mock.sol\" ./contracts/build",
+    "build-contracts": "sol-merger \"./contracts/connectors/mock.sol\" ./contracts/build"
   },
   "repository": {
     "type": "git",
