@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-interface ERC20 {
+interface TokenInterface {
     function approve(address, uint) external;
     function transfer(address, uint) external;
     function transferFrom(address, address, uint) external;
