@@ -6,9 +6,10 @@ Connectors are standardized modules that let Smart Account interact with various
 
 1. Fork and clone it
 2. Create a feature branch: `git checkout -b new-connector`
-3. Commit changes: `git commit -am 'Added a connector'`
-4. Push to the remote branch: `git push origin new-connector`
-5. Create a new Pull Request.
+3. Add the connector solidity file to `contracts/connectors`
+4. Commit changes: `git commit -am 'Added a connector'`
+5. Push to the remote branch: `git push origin new-connector`
+6. Create a new Pull Request.
 
 ## Requirements
 
