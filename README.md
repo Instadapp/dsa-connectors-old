@@ -8,7 +8,7 @@ Connectors are standardized modules that let Smart Account interact with various
 2. Create a feature branch: `git checkout -b new-connector`
 3. Commit changes: `git commit -am 'Added a connector'`
 4. Push to the remote branch: `git push origin new-connector`
-5. Create a new Pull Request
+5. Create a new Pull Request.
 
 ## Requirements
 
@@ -16,8 +16,9 @@ Connectors are standardized modules that let Smart Account interact with various
 - The contracts should not have `delegatecall()`.
 - Use `uint(-1)` for maximum amount everywhere.
 - Import files from common directory.
-- If needed, add `getId` & `setId`, two additional parameter for external public facing functions to fetch or store values.
 - Use `getEthAddr()` to get an address to denote Ethereum (non-ERC20) related operations.
+- Use `address(this)` instead of `msg.sender` for fetching balance on-chain, etc.
+- If needed, add `getId` & `setId`, two additional parameter for external public facing functions to fetch or store values.
 - Use `getUint()` or `setUint()` functions to fetch or store values.
 - Call `emitEvent()` after every external public facing functions to follow a common event standard for better analytics.
 
