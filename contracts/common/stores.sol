@@ -47,18 +47,18 @@ contract Stores {
     }
 
     /**
-     * @dev Connector Details
-     */
-    function connectorID() public pure returns(uint model, uint id) {
-        (model, id) = (0, 0);
-    }
-
-    /**
      * @dev emit event on event contract
      */
     function emitEvent(bytes32 eventCode, bytes memory eventData) internal {
         (uint model, uint id) = connectorID();
         EventInterface(getEventAddr()).emitEvent(model, id, eventCode, eventData);
+    }
+
+    /**
+     * @dev Connector Details - needs to be changed before deployment
+     */
+    function connectorID() public pure returns(uint model, uint id) {
+        (model, id) = (0, 0);
     }
 
 }
