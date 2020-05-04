@@ -21,7 +21,7 @@ Be sure to comply with the requirements while building connectors for better com
 - Use `uint(-1)` for maximum amount everywhere.
 - Use `getEthAddr()` to denote Ethereum (non-ERC20).
 - Use `address(this)` instead of `msg.sender` for fetching balance on-chain, etc.
-- Only `approve()` limited amount While giving ERC20 allowance, which strictly needs to be 0 by the end of the spell.
+- Only `approve()` limited amount while giving ERC20 allowance, which strictly needs to be 0 by the end of the spell.
 
 <!-- - If required, Add two additional parameter, `getId` & `setId` in external public functions.
 - Use `getUint()` or `setUint()` functions to fetch or store values.
