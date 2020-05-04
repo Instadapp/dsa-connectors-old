@@ -101,6 +101,6 @@ contract KyberResolver is KyberHelpers {
 }
 
 
-contract InstaKyber is KyberResolver {
+contract ConnectKyber is KyberResolver {
     string public name = "Kyber-v1";
 }
