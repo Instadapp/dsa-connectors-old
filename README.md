@@ -13,16 +13,19 @@ Connectors are standard modules that let DeFi Smart Account interact with variou
 
 ## Requirements
 
+Be sure to comply with the requirements while building connectors for better compatibility.
+
 - Import common files from `contracts/common` directory.
 - The contracts should not have `selfdestruct()`.
 - The contracts should not have `delegatecall()`.
 - Use `uint(-1)` for maximum amount everywhere.
 - Use `getEthAddr()` to denote Ethereum (non-ERC20).
 - Use `address(this)` instead of `msg.sender` for fetching balance on-chain, etc.
-- While giving ERC20 allowance to contracts, only approve() the limited amount, which needs to be 0 by the end of the spells.
-- If required, Add two additional parameter, `getId` & `setId` in external public functions.
+- Only `approve()` limited amount While giving ERC20 allowance, which strictly needs to be 0 by the end of the spell.
+
+<!-- - If required, Add two additional parameter, `getId` & `setId` in external public functions.
 - Use `getUint()` or `setUint()` functions to fetch or store values.
-- Call `emitEvent()` after every external public functions.
+- Call `emitEvent()` after every external public functions. -->
 
 Be sure to check [this mock file](https://github.com/InstaDApp/dsa-connectors/blob/master/contracts/connectors/mock.sol) for reference.
 
