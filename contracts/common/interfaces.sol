@@ -7,6 +7,7 @@ interface TokenInterface {
     function deposit() external payable;
     function withdraw(uint) external;
     function balanceOf(address) external view returns (uint);
+    function decimals() external view returns (uint);
 }
 
 interface MemoryInterface {
