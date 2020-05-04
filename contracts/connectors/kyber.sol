@@ -51,6 +51,15 @@ contract KyberResolver is KyberHelpers {
         uint256 setId
     );
 
+    /**
+     * @dev Sell ETH/ERC20_Token.
+     * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAddr selling token amount.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAmt selling token amount.
+     * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
     function sell(
         address buyAddr,
         address sellAddr,
