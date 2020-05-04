@@ -19,6 +19,7 @@ Connectors are standard modules that let DeFi Smart Account interact with variou
 - Use `uint(-1)` for maximum amount everywhere.
 - Use `getEthAddr()` to denote Ethereum (non-ERC20).
 - Use `address(this)` instead of `msg.sender` for fetching balance on-chain, etc.
+- While giving ERC20 allowance to contracts, only approve() the limited amount, which needs to be 0 by the end of the spells.
 - If required, Add two additional parameter, `getId` & `setId` in external public functions.
 - Use `getUint()` or `setUint()` functions to fetch or store values.
 - Call `emitEvent()` after every external public functions.
