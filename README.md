@@ -27,7 +27,7 @@ Be sure to comply with the requirements while building connectors for better com
 - Use `getUint()` or `setUint()` functions to fetch or store values.
 - Call `emitEvent()` after every external public functions. -->
 
-Be sure to check [this mock file](https://github.com/InstaDApp/dsa-connectors/blob/master/contracts/connectors/mock.sol) for reference.
+<!-- Be sure to check [this mock file](https://github.com/InstaDApp/dsa-connectors/blob/master/contracts/connectors/mock.sol) for reference. -->
 
 ## Support
 
