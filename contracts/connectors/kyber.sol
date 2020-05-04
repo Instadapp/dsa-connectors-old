@@ -26,16 +26,16 @@ interface KyberInterface {
 
 contract KyberHelpers is DSMath, Stores  {
     /**
-     * @dev Get Kyber Proxy Address
+     * @dev Kyber Proxy Address
      */
-    function getAddressKyber() public pure returns (address) {
+    function getKyberAddr() internal pure returns (address) {
         return 0x818E6FECD516Ecc3849DAf6845e3EC868087B755;
     }
 
     /**
-     * @dev Get Admin Address
+     * @dev Referral Address
      */
-    function getAddressAdmin() public pure returns (address) {
+    function getReferralAddr() internal pure returns (address) {
         return 0x7284a8451d9a0e7Dc62B3a71C0593eA2eC5c5638;
     }
 }
@@ -78,17 +78,17 @@ contract KyberResolver is KyberHelpers {
         } else {
             TokenInterface sellContract = TokenInterface(sellAddr);
             _sellAmt = _sellAmt == uint(-1) ? sellContract.balanceOf(address(this)) : _sellAmt;
-            sellContract.approve(getAddressKyber(), _sellAmt);
+            sellContract.approve(getKyberAddr(), _sellAmt);
         }
 
-        uint _buyAmt = KyberInterface(getAddressKyber()).trade.value(ethAmt)(
+        uint _buyAmt = KyberInterface(getKyberAddr()).trade.value(ethAmt)(
             sellAddr,
             _sellAmt,
             buyAddr,
             address(this),
             uint(-1),
             unitAmt,
-            getAddressAdmin()
+            getReferralAddr()
         );
 
         setUint(setId, _buyAmt);
