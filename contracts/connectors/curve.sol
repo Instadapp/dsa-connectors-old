@@ -106,10 +106,6 @@ contract CurveProtocol is CurveHelpers {
     event LogDeposit(address token, uint256 amt, uint256 mintAmt, uint256 getId, uint256 setId);
     event LogWithdraw(address token, uint256 amt, uint256 burnAmt, uint256 getId,  uint256 setId);
 
-    event LogDepositLiquidity(uint256[4] amts, uint256 mintAmt, uint256[4] getId,  uint256 setId);
-    event LogWithdrawLiquidityImbalance(uint256[4] amts, uint256 burnAmt, uint256[4] getId,  uint256 setId);
-    event LogWithdrawLiquidityOneCoin(address receiveCoin, uint256 withdrawnAmt, uint256 curveAmt, uint256 getId,  uint256 setId);
-
     function sell(
         address buyAddr,
         address sellAddr,
@@ -149,11 +145,13 @@ contract CurveProtocol is CurveHelpers {
         uint setId
     ) external {
         uint256 _amt = getUint(getId, amt);
+        TokenInterface tokenContract = TokenInterface(token);
 
+        _amt = _amt == uint(-1) ? tokenContract.balanceOf(address(this)) : _amt;
         uint[4] memory _amts;
         _amts[uint(getTokenI(token))] = _amt;
 
-        uint _amt18 = convertTo18(TokenInterface(token).decimals(), _amt);
+        uint _amt18 = convertTo18(tokenContract.decimals(), _amt);
         uint _slippageAmt = wmul(unitAmt, _amt18);
 
         TokenInterface curveTokenContract = TokenInterface(getCurveTokenAddr());
