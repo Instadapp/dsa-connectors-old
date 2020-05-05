@@ -8,51 +8,32 @@ import { DSMath } from "../common/math.sol";
 interface ICurve {
     function get_virtual_price() external returns (uint256 out);
 
-    function underlying_coins(int128 i) external view returns (address token);
+    function underlying_coins(int128 tokenId) external view returns (address token);
 
     function calc_token_amount(uint256[4] calldata amounts, bool deposit) external returns (uint256 amount);
 
     function add_liquidity(uint256[4] calldata amounts, uint256 min_mint_amount) external;
 
-    function get_dy(int128 i, int128 j, uint256 dx)
-        external
-        returns (uint256 out);
+    function get_dy(int128 sellTokenId, int128 buyTokenId, uint256 sellTokenAmt) external returns (uint256 buyTokenAmt);
 
-    function get_dy_underlying(int128 i, int128 j, uint256 dx)
-        external
-        returns (uint256 out);
+    // Used when there's an underlying token. Example:- cdai, cusdc, etc. If not then
+    function get_dy_underlying(int128 sellTokenId, int128 buyTokenId, uint256 sellTokenAmt) external returns (uint256 buyTokenAmt);
 
-    function exchange(
-        int128 sellTokenId,
-        int128 buyTokenId,
-        uint256 sellTokenAmt,
-        uint256 minBuyToken
-    ) external;
+    function exchange(int128 sellTokenId, int128 buyTokenId, uint256 sellTokenAmt, uint256 minBuyToken) external;
 
-    function exchange_underlying(
-        int128 i,
-        int128 j,
-        uint256 dx,
-        uint256 min_dy
-    ) external;
+    // Used when there's an underlying token. Example:- cdai, cusdc, etc.
+    function exchange_underlying(int128 sellTokenId, int128 buyTokenId, uint256 sellTokenAmt, uint256 minBuyToken) external;
 
-    function remove_liquidity(
-        uint256 _amount,
-        uint256[4] calldata min_amounts
-    ) external;
+    function remove_liquidity(uint256 _amount, uint256[4] calldata min_amounts) external;
 
-    function remove_liquidity_imbalance(uint256[4] calldata amounts, uint256 max_burn_amount)
-        external;
+    function remove_liquidity_imbalance(uint256[4] calldata amounts, uint256 max_burn_amount) external;
 }
 
 interface ICurveZap {
+
     function calc_withdraw_one_coin(uint256 _token_amount, int128 i) external returns (uint256 amount);
 
-    function remove_liquidity_one_coin(
-        uint256 _token_amount,
-        int128 i,
-        uint256 min_uamount
-    ) external;
+    function remove_liquidity_one_coin(uint256 _token_amount, int128 i, uint256 min_uamount) external;
 
 }
 
@@ -122,6 +103,7 @@ contract CurveProtocol is CurveHelpers {
         uint256 getId,
         uint256 setId
     );
+    event LogDeposit(uint256 amts, uint256 mintAmt, uint256 getId, uint256 setId);
     event LogDepositLiquidity(uint256[4] amts, uint256 mintAmt, uint256[4] getId,  uint256 setId);
     event LogWithdrawLiquidityImbalance(uint256[4] amts, uint256 burnAmt, uint256[4] getId,  uint256 setId);
     event LogWithdrawLiquidityOneCoin(address receiveCoin, uint256 withdrawnAmt, uint256 curveAmt, uint256 getId,  uint256 setId);
@@ -144,7 +126,7 @@ contract CurveProtocol is CurveHelpers {
         uint _sellAmt18 = convertTo18(_sellToken.decimals(), _sellAmt);
         uint _slippageAmt = convert18ToDec(_buyToken.decimals(), wmul(unitAmt, _sellAmt18));
 
-        uint _buyAmt = curve.get_dy_underlying(getTokenI(sellAddr), getTokenI(buyAddr), _sellAmt);
+        uint _buyAmt = curve.get_dy(getTokenI(sellAddr), getTokenI(buyAddr), _sellAmt);
 
         curve.exchange(getTokenI(sellAddr), getTokenI(buyAddr), _sellAmt, _slippageAmt);
 
@@ -157,26 +139,27 @@ contract CurveProtocol is CurveHelpers {
 
     }
 
-    function deposit(uint256[4] calldata amounts, uint256 slippage, uint256[4] calldata getId, uint256 setId) external {
-        uint256[4] memory _amts;
-        ICurve curve = ICurve(getCurveSwapAddr());
+    function deposit(address token, uint amt, uint unitAmt, uint getId, uint setId) external {
+        uint256 _amt = getUint(getId, amt);
 
-        for(uint256 i = 0; i < 4; i++) {
-            uint256 _amt = getUint(getId[i], amounts[i]);
-            TokenInterface token = TokenInterface(getTokenAddr(curve, i));
-            _amt = _amt == uint(-1) ? token.balanceOf(address(this)) : _amt;
-            _amts[i] = _amt;
-            if(_amt == 0) continue;
-            token.approve(address(curve), _amt);
-        }
+        uint[4] memory _amts;
+        _amts[uint(getTokenI(token))] = _amt;
 
-        uint256 min_mint_amount = ICurve(address(curve)).calc_token_amount(_amts, true);
-        curve.add_liquidity(_amts, mul(min_mint_amount, sub(100, slippage)) / 100);
+        uint _amt18 = convertTo18(TokenInterface(token).decimals(), amt);
+        uint _slippageAmt = wmul(unitAmt, _amt18);
 
-        uint256 mintAmount = TokenInterface(getCurveTokenAddr()).balanceOf(address(this));
-        emit LogDepositLiquidity(_amts, mintAmount, getId, setId);
-        bytes32 _eventCode = keccak256("LogDepositLiquidity(uint256[],uint256,uint256[],uint256)");
-        bytes memory _eventParam = abi.encode(_amts, mintAmount, getId, setId);
+        TokenInterface curveTokenContract = TokenInterface(getCurveTokenAddr());
+        uint initialCurveBal = curveTokenContract.balanceOf(address(this));
+
+        ICurve(getCurveSwapAddr()).add_liquidity(_amts, _slippageAmt);
+
+        uint finalCurveBal = curveTokenContract.balanceOf(address(this));
+
+        uint mintAmt = sub(finalCurveBal, initialCurveBal);
+
+        emit LogDeposit(_amt, mintAmt, getId, setId);
+        bytes32 _eventCode = keccak256("LogDepositLiquidity(uint256,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(_amt, mintAmt, getId, setId);
         emitEvent(_eventCode, _eventParam);
     }
 
