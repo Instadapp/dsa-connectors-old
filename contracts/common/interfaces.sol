@@ -1,7 +1,7 @@
 pragma solidity ^0.6.0;
 
 interface TokenInterface {
-    function approve(address, uint) external;
+    function approve(address, uint256) external;
     function transfer(address, uint) external;
     function transferFrom(address, address, uint) external;
     function deposit() external payable;
