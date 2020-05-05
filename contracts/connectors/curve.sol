@@ -103,7 +103,9 @@ contract CurveProtocol is CurveHelpers {
         uint256 getId,
         uint256 setId
     );
-    event LogDeposit(uint256 amts, uint256 mintAmt, uint256 getId, uint256 setId);
+    event LogDeposit(address token, uint256 amt, uint256 mintAmt, uint256 getId, uint256 setId);
+    event LogWithdraw(address token, uint256 amt, uint256 burnAmt, uint256 getId,  uint256 setId);
+
     event LogDepositLiquidity(uint256[4] amts, uint256 mintAmt, uint256[4] getId,  uint256 setId);
     event LogWithdrawLiquidityImbalance(uint256[4] amts, uint256 burnAmt, uint256[4] getId,  uint256 setId);
     event LogWithdrawLiquidityOneCoin(address receiveCoin, uint256 withdrawnAmt, uint256 curveAmt, uint256 getId,  uint256 setId);
@@ -139,13 +141,19 @@ contract CurveProtocol is CurveHelpers {
 
     }
 
-    function deposit(address token, uint amt, uint unitAmt, uint getId, uint setId) external {
+    function deposit(
+        address token,
+        uint amt,
+        uint unitAmt,
+        uint getId,
+        uint setId
+    ) external {
         uint256 _amt = getUint(getId, amt);
 
         uint[4] memory _amts;
         _amts[uint(getTokenI(token))] = _amt;
 
-        uint _amt18 = convertTo18(TokenInterface(token).decimals(), amt);
+        uint _amt18 = convertTo18(TokenInterface(token).decimals(), _amt);
         uint _slippageAmt = wmul(unitAmt, _amt18);
 
         TokenInterface curveTokenContract = TokenInterface(getCurveTokenAddr());
@@ -157,58 +165,42 @@ contract CurveProtocol is CurveHelpers {
 
         uint mintAmt = sub(finalCurveBal, initialCurveBal);
 
-        emit LogDeposit(_amt, mintAmt, getId, setId);
-        bytes32 _eventCode = keccak256("LogDepositLiquidity(uint256,uint256,uint256,uint256)");
+        emit LogDeposit(token, _amt, mintAmt, getId, setId);
+        bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(_amt, mintAmt, getId, setId);
         emitEvent(_eventCode, _eventParam);
     }
 
-    function withdraw_imbalance(uint256[4] calldata amounts, uint256[4] calldata getId, uint256 setId) external {
-        uint256[4] memory _amts;
-        ICurve curve = ICurve(getCurveSwapAddr());
-
-        for(uint256 i = 0; i < 4; i++) {
-            uint256 _amt = getUint(getId[i], amounts[i]);
-            _amt = _amt == uint(-1) ? TokenInterface(getTokenAddr(curve, i)).balanceOf(address(this)) : _amt;
-            _amts[i] = _amt;
-        }
-
-        uint256 max_burn_amount = curve.calc_token_amount(_amts, false);
-        uint256 balance = TokenInterface(getCurveTokenAddr()).balanceOf(address(this));
-
-        curve.remove_liquidity_imbalance(_amts, mul(max_burn_amount, 101) / 100);
-
-        uint burnAmount = sub(balance, TokenInterface(getCurveTokenAddr()).balanceOf(address(this)));
-        emit LogWithdrawLiquidityImbalance(_amts, burnAmount, getId, setId);
-        bytes32 _eventCode = keccak256("LogWithdrawLiquidityImbalance(uint256[],uint256,uint256[],uint256)");
-        bytes memory _eventParam = abi.encode(_amts, burnAmount, getId, setId);
-        emitEvent(_eventCode, _eventParam);
-    }
-
-    function withdraw_one_coin(address token, uint256 amt, uint256 slippage, uint getId, uint setId) external {
+    function withdraw(address token, uint256 amt, uint256 unitAmt, uint getId, uint setId) external {
         uint _amt = getUint(getId, amt);
-        int128 i = getTokenI(token);
+        int128 tokenId = getTokenI(token);
+
+        uint[4] memory _amts;
+        _amts[uint(getTokenI(token))] = _amt;
 
         TokenInterface curveTokenContract = TokenInterface(getCurveTokenAddr());
-        TokenInterface tokenContract = TokenInterface(token);
         ICurveZap curveZap = ICurveZap(getCurveZapAddr());
 
-        _amt = _amt == uint(-1) ? curveTokenContract.balanceOf(address(this)) : _amt;
-        curveTokenContract.approve(address(curveZap), _amt);
+        uint _curveAmt = _amt == uint(-1) ?
+            curveTokenContract.balanceOf(address(this)) :
+            ICurve(getCurveSwapAddr()).calc_token_amount(_amts, false);
 
-        uint256 min_uamount = curveZap.calc_withdraw_one_coin(_amt, i);
-        min_uamount = mul(min_uamount, sub(100, slippage) / 100);
+        _amt = _amt == uint(-1) ? curveZap.calc_withdraw_one_coin(_curveAmt, tokenId) : _amt;
 
-        uint256 intialBal = tokenContract.balanceOf(address(this));
+        _amts[uint(tokenId)] = _amt;
 
-        curveZap.remove_liquidity_one_coin(_amt, i, min_uamount);
+        curveTokenContract.approve(getCurveSwapAddr(), _curveAmt);
 
-        uint256 finalBal = tokenContract.balanceOf(address(this));
-        uint256 withdrawnAmt = sub(finalBal, intialBal);
+        uint _amt18 = convertTo18(TokenInterface(token).decimals(), _amt);
+        uint _slippageAmt = wmul(unitAmt, _amt18);
 
-        emit LogWithdrawLiquidityOneCoin(token, withdrawnAmt, _amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogWithdrawLiquidityOneCoin(address,uint256,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(token, withdrawnAmt, _amt, getId, setId);
+        require(_curveAmt < _slippageAmt, "excess-burning");
+
+        curveZap.remove_liquidity_one_coin(_curveAmt, tokenId, _amt);
+
+        emit LogWithdraw(token, _amt, _curveAmt, getId, setId);
+        bytes32 _eventCode = keccak256("LogWithdraw(address,uint256,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(token, _amt, _curveAmt, getId, setId);
         emitEvent(_eventCode, _eventParam);
     }
 
