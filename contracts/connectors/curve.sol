@@ -94,7 +94,6 @@ contract CurveProtocol is Stores, DSMath {
         uint256 dy = get_dy(i, j, dx);
         uint256 min_dy = mul(dy, sub(100, slippage)) / 100;
         ICurve(sCurveSwap).exchange(i, j, dx, min_dy);
-
         uint256 bought = TokenInterface(addresses[j]).balanceOf(address(this));
         emit LogBuy(addresses[i], addresses[j], dx, bought);
 
