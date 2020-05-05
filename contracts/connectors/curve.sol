@@ -23,10 +23,10 @@ interface ICurve {
         returns (uint256 out);
 
     function exchange(
-        int128 i,
-        int128 j,
-        uint256 dx,
-        uint256 min_dy
+        int128 sellTokenId,
+        int128 buyTokenId,
+        uint256 sellTokenAmt,
+        uint256 minBuyToken
     ) external;
 
     function exchange_underlying(
@@ -126,7 +126,14 @@ contract CurveProtocol is CurveHelpers {
     event LogWithdrawLiquidityImbalance(uint256[4] amts, uint256 burnAmt, uint256[4] getId,  uint256 setId);
     event LogWithdrawLiquidityOneCoin(address receiveCoin, uint256 withdrawnAmt, uint256 curveAmt, uint256 getId,  uint256 setId);
 
-    function exchange(address buyAddr, address sellAddr, uint256 sellAmt, uint256 unitAmt, uint getId, uint setId) external {
+    function sell(
+        address buyAddr,
+        address sellAddr,
+        uint sellAmt,
+        uint unitAmt,
+        uint getId,
+        uint setId
+    ) external {
         uint _sellAmt = getUint(getId, sellAmt);
         ICurve curve = ICurve(getCurveSwapAddr());
         TokenInterface _buyToken = TokenInterface(buyAddr);
@@ -134,15 +141,13 @@ contract CurveProtocol is CurveHelpers {
         _sellAmt = _sellAmt == uint(-1) ? _sellToken.balanceOf(address(this)) : _sellAmt;
         _sellToken.approve(address(curve), _sellAmt);
 
-        uint initalBal = _buyToken.balanceOf(address(this));
         uint _sellAmt18 = convertTo18(_sellToken.decimals(), _sellAmt);
         uint _slippageAmt = convert18ToDec(_buyToken.decimals(), wmul(unitAmt, _sellAmt18));
 
+        uint _buyAmt = curve.get_dy_underlying(getTokenI(sellAddr), getTokenI(buyAddr), _sellAmt);
+
         curve.exchange(getTokenI(sellAddr), getTokenI(buyAddr), _sellAmt, _slippageAmt);
 
-        uint finialBal = _buyToken.balanceOf(address(this));
-
-        uint256 _buyAmt = sub(finialBal, initalBal);
         setUint(setId, _buyAmt);
 
         emit LogSell(buyAddr, sellAddr, _buyAmt, _sellAmt, getId, setId);
