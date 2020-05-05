@@ -163,6 +163,8 @@ contract CurveProtocol is CurveHelpers {
 
         uint mintAmt = sub(finalCurveBal, initialCurveBal);
 
+        setUint(setId, mintAmt);
+
         emit LogDeposit(token, _amt, mintAmt, getId, setId);
         bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(_amt, mintAmt, getId, setId);
@@ -195,6 +197,8 @@ contract CurveProtocol is CurveHelpers {
         require(_curveAmt < _slippageAmt, "excess-burning");
 
         curveZap.remove_liquidity_one_coin(_curveAmt, tokenId, _amt);
+
+        setUint(setId, _curveAmt);
 
         emit LogWithdraw(token, _amt, _curveAmt, getId, setId);
         bytes32 _eventCode = keccak256("LogWithdraw(address,uint256,uint256,uint256,uint256)");
