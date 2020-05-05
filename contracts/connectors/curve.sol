@@ -60,7 +60,7 @@ contract CurveProtocol is Stores, DSMath {
     event LogBuy(address sellAddr, address buyAddr, uint256 sellAmount, uint256 buyAmount);
     event LogAddLiquidity(uint256[4] amounts, uint256 mintAmount);
     event LogRemoveLiquidityImbalance(uint256[4] amounts, uint256 burnAmount);
-    event LogRemoveLiquidityOneCoin(address receiveCoin, uint256 amount);
+    event LogRemoveLiquidityOneCoin(address receiveCoin, uint256 withdrawnAmount);
 
     address public constant sCurveSwap = address(0xA5407eAE9Ba41422680e2e00537571bcC53efBfD);
     address public constant sCurveToken = address(0xC25a3A3b969415c80451098fa907EC722572917F);
@@ -74,17 +74,15 @@ contract CurveProtocol is Stores, DSMath {
     mapping (int128 => address) addresses;
 
     constructor() public {
-        addresses[0] = address(0x6B175474E89094C44Da98b954EedeAC495271d0F);
-        addresses[1] = address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-        addresses[2] = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-        addresses[3] = address(0x57Ab1ec28D129707052df4dF418D58a2D46d5f51);
+        addresses[0] = DAI;
+        addresses[1] = USDC;
+        addresses[2] = USDT;
+        addresses[3] = sUSD;
     }
 
-    function get_virtual_price() external returns (uint256) {
-        ICurve curve = ICurve(sCurveSwap);
-        return curve.get_virtual_price();
+    function calc_token_amount(uint256[4] memory amounts, bool deposit) public returns (uint256 amount) {
+        return ICurve(sCurveSwap).calc_token_amount(amounts, deposit);
     }
-
 
     function get_dy(int128 i, int128 j, uint256 dx) public returns(uint256) {
         ICurve curve = ICurve(sCurveSwap);

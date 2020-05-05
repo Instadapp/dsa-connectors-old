@@ -35,6 +35,7 @@
     "truffle-verify": "^1.0.8"
   },
   "devDependencies": {
+    "chai-bn": "^0.2.1",
     "sol-merger": "^2.0.1",
     "solidity-coverage": "0.5.11",
     "solium": "1.2.3"
