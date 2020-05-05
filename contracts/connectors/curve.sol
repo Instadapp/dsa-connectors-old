@@ -100,11 +100,14 @@ contract CurveHelpers is Stores, DSMath {
         } else if (token == address(0x57Ab1ec28D129707052df4dF418D58a2D46d5f51)) {
             // sUSD Token
             i = 3;
+        } else {
+            revert("token-not-found.");
         }
     }
 
     function getTokenAddr(ICurve curve, uint256 i) internal view returns (address token) {
-        return curve.underlying_coins(int128(i));
+        token = curve.underlying_coins(int128(i));
+        require(token != address(0), "token-not-found.");
     }
 }
 
