@@ -151,6 +151,8 @@ contract CurveProtocol is CurveHelpers {
         uint[4] memory _amts;
         _amts[uint(getTokenI(token))] = _amt;
 
+        tokenContract.approve(getCurveSwapAddr(), _amt);
+
         uint _amt18 = convertTo18(tokenContract.decimals(), _amt);
         uint _slippageAmt = wmul(unitAmt, _amt18);
 
@@ -175,21 +177,20 @@ contract CurveProtocol is CurveHelpers {
         uint _amt = getUint(getId, amt);
         int128 tokenId = getTokenI(token);
 
-        uint[4] memory _amts;
-        _amts[uint(getTokenI(token))] = _amt;
-
         TokenInterface curveTokenContract = TokenInterface(getCurveTokenAddr());
         ICurveZap curveZap = ICurveZap(getCurveZapAddr());
 
-        uint _curveAmt = _amt == uint(-1) ?
-            curveTokenContract.balanceOf(address(this)) :
-            ICurve(getCurveSwapAddr()).calc_token_amount(_amts, false);
+        uint _curveAmt;
+        if (_amt == uint(-1)) {
+            _curveAmt = curveTokenContract.balanceOf(address(this));
+            _amt = curveZap.calc_withdraw_one_coin(_curveAmt, tokenId);
+        } else {
+            uint[4] memory _amts;
+            _amts[uint(tokenId)] = _amt;
+            _curveAmt = ICurve(getCurveSwapAddr()).calc_token_amount(_amts, false);
+        }
 
-        _amt = _amt == uint(-1) ? curveZap.calc_withdraw_one_coin(_curveAmt, tokenId) : _amt;
-
-        _amts[uint(tokenId)] = _amt;
-
-        curveTokenContract.approve(getCurveSwapAddr(), _curveAmt);
+        curveTokenContract.approve(address(curveZap), _curveAmt);
 
         uint _amt18 = convertTo18(TokenInterface(token).decimals(), _amt);
         uint _slippageAmt = wmul(unitAmt, _amt18);
