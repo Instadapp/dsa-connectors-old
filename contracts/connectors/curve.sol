@@ -165,7 +165,7 @@ contract CurveProtocol is CurveHelpers {
 
         uint mintAmt = sub(finalCurveBal, initialCurveBal);
 
-        setUint(setId, mintAmt);
+        setUint(setId, _amt);
 
         emit LogDeposit(token, _amt, mintAmt, getId, setId);
         bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256,uint256)");
@@ -201,7 +201,7 @@ contract CurveProtocol is CurveHelpers {
 
         curveSwap.remove_liquidity_imbalance(_amts, _slippageAmt);
 
-        setUint(setId, _curveAmt);
+        setUint(setId, _amt);
 
         emit LogWithdraw(token, _amt, _curveAmt, getId, setId);
         bytes32 _eventCode = keccak256("LogWithdraw(address,uint256,uint256,uint256,uint256)");
