@@ -179,15 +179,17 @@ contract CurveProtocol is CurveHelpers {
 
         TokenInterface curveTokenContract = TokenInterface(getCurveTokenAddr());
         ICurveZap curveZap = ICurveZap(getCurveZapAddr());
+        ICurve curveSwap = ICurve(getCurveSwapAddr());
 
         uint _curveAmt;
+        uint[4] memory _amts;
         if (_amt == uint(-1)) {
             _curveAmt = curveTokenContract.balanceOf(address(this));
             _amt = curveZap.calc_withdraw_one_coin(_curveAmt, tokenId);
-        } else {
-            uint[4] memory _amts;
             _amts[uint(tokenId)] = _amt;
-            _curveAmt = ICurve(getCurveSwapAddr()).calc_token_amount(_amts, false);
+        } else {
+            _amts[uint(tokenId)] = _amt;
+            _curveAmt = curveSwap.calc_token_amount(_amts, false);
         }
 
         curveTokenContract.approve(address(curveZap), _curveAmt);
@@ -197,7 +199,7 @@ contract CurveProtocol is CurveHelpers {
 
         require(_curveAmt < _slippageAmt, "excess-burning");
 
-        curveZap.remove_liquidity_one_coin(_curveAmt, tokenId, _amt);
+        curveSwap.remove_liquidity_imbalance(_amts, _slippageAmt);
 
         setUint(setId, _curveAmt);
 
