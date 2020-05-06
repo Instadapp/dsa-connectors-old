@@ -173,7 +173,13 @@ contract CurveProtocol is CurveHelpers {
         emitEvent(_eventCode, _eventParam);
     }
 
-    function withdraw(address token, uint256 amt, uint256 unitAmt, uint getId, uint setId) external {
+    function withdraw(
+        address token,
+        uint256 amt,
+        uint256 unitAmt,
+        uint getId,
+        uint setId
+    ) external {
         uint _amt = getUint(getId, amt);
         int128 tokenId = getTokenI(token);
 
