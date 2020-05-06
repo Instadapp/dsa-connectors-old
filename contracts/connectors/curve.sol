@@ -192,7 +192,7 @@ contract CurveProtocol is CurveHelpers {
             _curveAmt = curveSwap.calc_token_amount(_amts, false);
         }
 
-        curveTokenContract.approve(address(curveZap), _curveAmt);
+        curveTokenContract.approve(address(curveSwap), _curveAmt);
 
         uint _amt18 = convertTo18(TokenInterface(token).decimals(), _amt);
         uint _slippageAmt = wmul(unitAmt, _amt18);
