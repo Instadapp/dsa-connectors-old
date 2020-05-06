@@ -197,8 +197,6 @@ contract CurveProtocol is CurveHelpers {
         uint _amt18 = convertTo18(TokenInterface(token).decimals(), _amt);
         uint _slippageAmt = wmul(unitAmt, _amt18);
 
-        require(_curveAmt < _slippageAmt, "excess-burning");
-
         curveSwap.remove_liquidity_imbalance(_amts, _slippageAmt);
 
         setUint(setId, _amt);
