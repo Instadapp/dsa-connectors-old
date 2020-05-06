@@ -165,7 +165,7 @@ contract CurveProtocol is CurveHelpers {
 
         uint mintAmt = sub(finalCurveBal, initialCurveBal);
 
-        setUint(setId, _amt);
+        setUint(setId, mintAmt);
 
         emit LogDeposit(token, _amt, mintAmt, getId, setId);
         bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256,uint256)");
