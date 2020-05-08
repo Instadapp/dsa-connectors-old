@@ -192,26 +192,17 @@ contract OneHelpers is Helpers {
 
 contract Resolver is OneHelpers {
     function oneSplitSwap(
+        OneSplitInterface oneSplitContract,
         TokenInterface _sellAddr,
         TokenInterface _buyAddr,
         uint _sellAmt,
-        uint unitAmt
-    ) internal returns (uint buyAmt, uint[] memory distribution){
+        uint unitAmt,
+        uint[] memory distribution,
+        uint disableDexes
+    ) internal returns (uint buyAmt){
         (uint _buyDec, uint _sellDec) = getTokensDec(_buyAddr, _sellAddr);
         uint _sellAmt18 = convertTo18(_sellDec, _sellAmt);
         uint _slippageAmt = convert18ToDec(_buyDec, wmul(unitAmt, _sellAmt18));
-
-        OneSplitInterface oneSplitContract = OneSplitInterface(getOneSplitAddress());
-
-        (buyAmt, distribution) = oneSplitContract.getExpectedReturn(
-                _sellAddr,
-                _buyAddr,
-                _sellAmt,
-                3, // TODO - shall we hardcode?
-                0 // TODO - do we need to disable anything?
-            );
-
-        require(_slippageAmt <= buyAmt, "Too much slippage");
 
         uint ethAmt;
         if (address(_sellAddr) == getAddressETH()) {
@@ -220,27 +211,23 @@ contract Resolver is OneHelpers {
             _sellAddr.approve(address(oneSplitContract), _sellAmt);
         }
 
+        uint initalBal = getTokenBal(_buyAddr);
+
         oneSplitContract.swap.value(ethAmt)(
             _sellAddr,
             _buyAddr,
             _sellAmt,
             _slippageAmt,
             distribution,
-            0
+            disableDexes
         );
+
+        uint finalBal = getTokenBal(_buyAddr);
+        buyAmt = sub(finalBal, initalBal);
+
+        require(_slippageAmt <= buyAmt, "Too much slippage");
     }
 
-    function oneInchSwap(
-        bytes memory _callData,
-        uint ethAmt
-    )
-    internal returns (uint buyAmt) {
-        // solium-disable-next-line security/no-call-value
-        (bool success, bytes memory data) = address(getOneInchAddress()).call.value(ethAmt)(_callData);
-        if (!success) revert("1Inch-swap-failed");
-
-        buyAmt = abi.decode(data, (uint));
-    }
 }
 
 contract BasicResolver is Resolver {
@@ -252,7 +239,7 @@ contract BasicResolver is Resolver {
         uint256 setId
     );
 
-    event LogSellOneSplit(
+    event LogSell(
         address indexed buyToken,
         address indexed sellToken,
         uint256 buyAmt,
@@ -268,34 +255,84 @@ contract BasicResolver is Resolver {
         uint unitAmt,
         uint getId,
         uint setId
-    ) external payable {
-        uint _sellAmt = sellAmt;
+    ) public payable {
+        uint _sellAmt = getUint(getId, sellAmt);
+
         TokenInterface _buyAddr = TokenInterface(buyAddr);
         TokenInterface _sellAddr = TokenInterface(sellAddr);
 
-        uint initalBal = getTokenBal(_buyAddr);
         _sellAmt = _sellAmt == uint(-1) ? getTokenBal(_sellAddr) : _sellAmt;
 
-        oneSplitSwap(
+        OneSplitInterface oneSplitContract = OneSplitInterface(getOneSplitAddress());
+
+        (, uint[] memory distribution) = oneSplitContract.getExpectedReturn(
+                _sellAddr,
+                _buyAddr,
+                _sellAmt,
+                3, // TODO - shall we hardcode?
+                0 // TODO - do we need to disable anything?
+            );
+
+        uint _buyAmt = oneSplitSwap(
+            oneSplitContract,
             _sellAddr,
             _buyAddr,
             _sellAmt,
-            unitAmt
+            unitAmt,
+            distribution,
+            0
         );
 
-        uint finialBal = getTokenBal(_buyAddr);
-        uint _buyAmt = sub(finialBal, initalBal);
-
         setUint(setId, _buyAmt);
-        emit LogSellOneSplit(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
+        emit LogSell(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
 
     }
 
     function sell(
+        address buyAddr,
+        address sellAddr,
+        uint sellAmt,
+        uint unitAmt,
+        uint[] calldata distribution,
+        uint disableDexes,
+        uint getId,
+        uint setId
+    ) external payable {
+        uint _sellAmt = getUint(getId, sellAmt);
+
+        TokenInterface _buyAddr = TokenInterface(buyAddr);
+        TokenInterface _sellAddr = TokenInterface(sellAddr);
+
+        _sellAmt = _sellAmt == uint(-1) ? getTokenBal(_sellAddr) : _sellAmt;
+
+        uint _buyAmt = oneSplitSwap(
+            OneSplitInterface(getOneSplitAddress()),
+            _sellAddr,
+            _buyAddr,
+            _sellAmt,
+            unitAmt,
+            distribution,
+            disableDexes
+        );
+
+        setUint(setId, _buyAmt);
+        emit LogSell(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
+    }
+
+    function sell(
+        address buyAddr,
+        address sellAddr,
+        uint sellAmt,
+        uint unitAmt,
         bytes calldata callData,
         uint setId
     ) external payable {
-        (address _buyAddr, address _sellAddr, uint sellAmt) = decodeData(callData);
+        TokenInterface _buyAddr = TokenInterface(buyAddr);
+        TokenInterface _sellAddr = TokenInterface(sellAddr);
+
+        (uint _buyDec, uint _sellDec) = getTokensDec(_buyAddr, _sellAddr);
+        uint _sellAmt18 = convertTo18(_sellDec, sellAmt);
+        uint _slippageAmt = convert18ToDec(_buyDec, wmul(unitAmt, _sellAmt18));
 
         uint ethAmt;
         if (address(_sellAddr) == getAddressETH()) {
@@ -304,10 +341,17 @@ contract BasicResolver is Resolver {
             TokenInterface(_sellAddr).approve(getOneInchAddress(), sellAmt);
         }
 
-        uint _buyAmt = oneInchSwap(callData, ethAmt);
+        uint initalBal = getTokenBal(_buyAddr);
 
-        setUint(setId, _buyAmt);
-        emit LogSellOneInch(address(_buyAddr), address(_sellAddr), _buyAmt, sellAmt, setId);
+        address(getOneInchAddress()).call.value(ethAmt)(callData);
+
+        uint finalBal = getTokenBal(_buyAddr);
+        uint buyAmt = sub(finalBal, initalBal);
+
+        require(_slippageAmt <= buyAmt, "Too much slippage");
+
+        setUint(setId, buyAmt);
+        emit LogSell(address(_buyAddr), address(_sellAddr), buyAmt, sellAmt, 0, setId);
     }
 }
 
