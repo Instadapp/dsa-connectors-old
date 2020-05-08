@@ -232,7 +232,9 @@ contract BasicResolver is Resolver {
 
         uint initalBal = getTokenBal(_buyAddr);
 
-        address(getOneInchAddress()).call.value(ethAmt)(callData);
+        // solium-disable-next-line security/no-call-value
+        (bool success, ) = address(getOneInchAddress()).call.value(ethAmt)(callData);
+        if (!success) revert("1Inch-swap-failed");
 
         uint finalBal = getTokenBal(_buyAddr);
         uint buyAmt = sub(finalBal, initalBal);
