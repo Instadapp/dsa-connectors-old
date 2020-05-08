@@ -106,6 +106,15 @@ contract CurveProtocol is CurveHelpers {
     event LogDeposit(address token, uint256 amt, uint256 mintAmt, uint256 getId, uint256 setId);
     event LogWithdraw(address token, uint256 amt, uint256 burnAmt, uint256 getId,  uint256 setId);
 
+    /**
+     * @dev Sell Stable ERC20_Token.
+     * @param buyAddr buying token address.
+     * @param sellAddr selling token amount.
+     * @param sellAmt selling token amount.
+     * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
     function sell(
         address buyAddr,
         address sellAddr,
@@ -137,6 +146,14 @@ contract CurveProtocol is CurveHelpers {
 
     }
 
+    /**
+     * @dev Deposit Token.
+     * @param token token address.
+     * @param amt token amount.
+     * @param unitAmt unit amount of curve_amt/token_amt with slippage.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
     function deposit(
         address token,
         uint amt,
@@ -173,6 +190,14 @@ contract CurveProtocol is CurveHelpers {
         emitEvent(_eventCode, _eventParam);
     }
 
+    /**
+     * @dev Withdraw Token.
+     * @param token token address.
+     * @param amt token amount.
+     * @param unitAmt unit amount of curve_amt/token_amt with slippage.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
     function withdraw(
         address token,
         uint256 amt,
