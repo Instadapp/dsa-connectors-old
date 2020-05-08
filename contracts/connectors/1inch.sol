@@ -1,5 +1,10 @@
 pragma solidity ^0.6.0;
 
+// import files from common directory
+import { TokenInterface , MemoryInterface, EventInterface} from "../common/interfaces.sol";
+import { Stores } from "../common/stores.sol";
+import { DSMath } from "../common/math.sol";
+
 interface OneInchInterace {
     function swap(
         TokenInterface fromToken,
@@ -44,106 +49,16 @@ interface OneSplitInterface {
 }
 
 
-interface TokenInterface {
-    function allowance(address, address) external view returns (uint);
-    function balanceOf(address) external view returns (uint);
-    function approve(address, uint) external;
-    function transfer(address, uint) external returns (bool);
-    function transferFrom(address, address, uint) external returns (bool);
-    function decimals() external view returns (uint);
-}
-
-interface MemoryInterface {
-    function getUint(uint _id) external returns (uint _num);
-    function setUint(uint _id, uint _val) external;
-}
-
-interface EventInterface {
-    function emitEvent(uint _connectorType, uint _connectorID, bytes32 _eventCode, bytes calldata _eventData) external;
-}
-
-contract DSMath {
-
-    function add(uint x, uint y) internal pure returns (uint z) {
-        require((z = x + y) >= x, "math-not-safe");
-    }
-
-    function mul(uint x, uint y) internal pure returns (uint z) {
-        require(y == 0 || (z = x * y) / y == x, "math-not-safe");
-    }
-
-    function sub(uint x, uint y) internal pure returns (uint z) {
-        require((z = x - y) <= x, "sub-overflow");
-    }
-
-    uint constant WAD = 10 ** 18;
-
-    function wmul(uint x, uint y) internal pure returns (uint z) {
-        z = add(mul(x, y), WAD / 2) / WAD;
-    }
-
-    function wdiv(uint x, uint y) internal pure returns (uint z) {
-        z = add(mul(x, WAD), y / 2) / y;
-    }
-
-}
-
-
-contract Helpers is DSMath {
+contract OneHelpers is Stores, DSMath {
     /**
-     * @dev Return ethereum address
-     */
-    function getAddressETH() internal pure returns (address) {
-        return 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE; // ETH Address
-    }
-
-    /**
-     * @dev Return Memory Variable Address
-     */
-    function getMemoryAddr() internal pure returns (address) {
-        return 0x8a5419CfC711B2343c17a6ABf4B2bAFaBb06957F; // InstaMemory Address
-    }
-
-    /**
-     * @dev Return InstaEvent Address.
-     */
-    function getEventAddr() internal pure returns (address) {
-        return 0x2af7ea6Cb911035f3eb1ED895Cb6692C39ecbA97; // InstaEvent Address
-    }
-
-    /**
-     * @dev Get Uint value from InstaMemory Contract.
-    */
-    function getUint(uint getId, uint val) internal returns (uint returnVal) {
-        returnVal = getId == 0 ? val : MemoryInterface(getMemoryAddr()).getUint(getId);
-    }
-
-    /**
-     * @dev Set Uint value in InstaMemory Contract.
-    */
-    function setUint(uint setId, uint val) internal {
-        if (setId != 0) MemoryInterface(getMemoryAddr()).setUint(setId, val);
-    }
-
-    /**
-     * @dev Connector Details
-    */
-    function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 0);
-    }
-}
-
-
-contract OneHelpers is Helpers {
-    /**
-     * @dev Return 1 Inch Address
+     * @dev Return  1Inch Address
      */
     function getOneInchAddress() internal pure returns (address) {
         return 0x11111254369792b2Ca5d084aB5eEA397cA8fa48B;
     }
 
     /**
-     * @dev Return 1 Split Address
+     * @dev Return 1Split Address
      */
     function getOneSplitAddress() internal pure returns (address) {
         return 0xC586BeF4a0992C495Cf22e1aeEE4E446CECDee0E;
@@ -158,34 +73,12 @@ contract OneHelpers is Helpers {
     }
 
     function getTokenBal(TokenInterface token) internal view returns(uint _amt) {
-        _amt = address(token) == getAddressETH() ? address(this).balance : token.balanceOf(address(this));
-    }
-
-    function convertDiv(uint xDec, uint yDec, uint x, uint y) internal pure returns(uint z) {
-        z = wdiv(convertTo18(xDec, x), convertTo18(yDec, y));
+        _amt = address(token) == getEthAddr() ? address(this).balance : token.balanceOf(address(this));
     }
 
     function getTokensDec(TokenInterface buyAddr, TokenInterface sellAddr) internal view returns(uint buyDec, uint sellDec) {
-        buyDec = address(buyAddr) == getAddressETH() ?  18 : buyAddr.decimals();
-        sellDec = address(sellAddr) == getAddressETH() ?  18 : sellAddr.decimals();
-    }
-
-    function decodeData(
-        bytes memory data
-    )
-    internal pure returns (
-        address buyAddr,
-        address sellAddr,
-        uint256 fromTokenAmount
-    )
-    {
-        bytes memory _data = data;
-        // solium-disable-next-line security/no-inline-assembly
-        assembly {
-            sellAddr := mload(add(_data, 36))
-            buyAddr := mload(add(_data, 68))
-            fromTokenAmount := mload(add(_data, 100))
-        }
+        buyDec = address(buyAddr) == getEthAddr() ?  18 : buyAddr.decimals();
+        sellDec = address(sellAddr) == getEthAddr() ?  18 : sellAddr.decimals();
     }
 }
 
@@ -205,7 +98,7 @@ contract Resolver is OneHelpers {
         uint _slippageAmt = convert18ToDec(_buyDec, wmul(unitAmt, _sellAmt18));
 
         uint ethAmt;
-        if (address(_sellAddr) == getAddressETH()) {
+        if (address(_sellAddr) == getEthAddr()) {
             ethAmt = _sellAmt;
         } else {
             _sellAddr.approve(address(oneSplitContract), _sellAmt);
@@ -227,18 +120,9 @@ contract Resolver is OneHelpers {
 
         require(_slippageAmt <= buyAmt, "Too much slippage");
     }
-
 }
 
 contract BasicResolver is Resolver {
-    event LogSellOneInch(
-        address indexed buyToken,
-        address indexed sellToken,
-        uint256 buyAmt,
-        uint256 sellAmt,
-        uint256 setId
-    );
-
     event LogSell(
         address indexed buyToken,
         address indexed sellToken,
@@ -335,7 +219,7 @@ contract BasicResolver is Resolver {
         uint _slippageAmt = convert18ToDec(_buyDec, wmul(unitAmt, _sellAmt18));
 
         uint ethAmt;
-        if (address(_sellAddr) == getAddressETH()) {
+        if (address(_sellAddr) == getEthAddr()) {
             ethAmt = sellAmt;
         } else {
             TokenInterface(_sellAddr).approve(getOneInchAddress(), sellAmt);
