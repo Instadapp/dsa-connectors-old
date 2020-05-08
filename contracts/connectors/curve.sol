@@ -103,7 +103,7 @@ contract CurveProtocol is CurveHelpers {
         uint unitAmt,
         uint getId,
         uint setId
-    ) external {
+    ) external payable {
         uint _sellAmt = getUint(getId, sellAmt);
         ICurve curve = ICurve(getCurveSwapAddr());
         TokenInterface _buyToken = TokenInterface(buyAddr);
@@ -140,7 +140,7 @@ contract CurveProtocol is CurveHelpers {
         uint unitAmt,
         uint getId,
         uint setId
-    ) external {
+    ) external payable {
         uint256 _amt = getUint(getId, amt);
         TokenInterface tokenContract = TokenInterface(token);
 
@@ -184,7 +184,7 @@ contract CurveProtocol is CurveHelpers {
         uint256 unitAmt,
         uint getId,
         uint setId
-    ) external {
+    ) external payable {
         uint _amt = getUint(getId, amt);
         int128 tokenId = getTokenI(token);
 
