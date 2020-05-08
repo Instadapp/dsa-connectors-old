@@ -110,8 +110,7 @@ contract CurveProtocol is CurveHelpers {
         _sellAmt = _sellAmt == uint(-1) ? _sellToken.balanceOf(address(this)) : _sellAmt;
         _sellToken.approve(address(curve), _sellAmt);
 
-        uint _sellAmt18 = convertTo18(_sellToken.decimals(), _sellAmt);
-        uint _slippageAmt = convert18ToDec(_buyToken.decimals(), wmul(unitAmt, _sellAmt18));
+        uint _slippageAmt = convert18ToDec(_buyToken.decimals(), wmul(unitAmt, convertTo18(_sellToken.decimals(), _sellAmt)));
 
         uint _buyAmt = curve.get_dy(getTokenI(sellAddr), getTokenI(buyAddr), _sellAmt);
 
