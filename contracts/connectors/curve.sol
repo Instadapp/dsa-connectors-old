@@ -1,5 +1,10 @@
 pragma solidity ^0.6.0;
 
+// import files from common directory
+import { TokenInterface , MemoryInterface, EventInterface} from "../common/interfaces.sol";
+import { Stores } from "../common/stores.sol";
+import { DSMath } from "../common/math.sol";
+
 interface ICurve {
     function underlying_coins(int128 tokenId) external view returns (address token);
     function calc_token_amount(uint256[4] calldata amounts, bool deposit) external returns (uint256 amount);
@@ -13,10 +18,6 @@ interface ICurveZap {
     function calc_withdraw_one_coin(uint256 _token_amount, int128 i) external returns (uint256 amount);
 }
 
-// import files from common directory
-import { TokenInterface , MemoryInterface, EventInterface} from "../common/interfaces.sol";
-import { Stores } from "../common/stores.sol";
-import { DSMath } from "../common/math.sol";
 
 contract CurveHelpers is Stores, DSMath {
     /**
