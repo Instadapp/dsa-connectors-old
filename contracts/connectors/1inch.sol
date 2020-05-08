@@ -169,7 +169,9 @@ contract BasicResolver is Resolver {
 
         setUint(setId, _buyAmt);
         emit LogSell(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
-
+        bytes32 _eventCode = keccak256("LogSell(address,address,uint256,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
+        emitEvent(_eventCode, _eventParam);
     }
 
     function sell(
@@ -201,6 +203,9 @@ contract BasicResolver is Resolver {
 
         setUint(setId, _buyAmt);
         emit LogSell(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
+        bytes32 _eventCode = keccak256("LogSell(address,address,uint256,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
+        emitEvent(_eventCode, _eventParam);
     }
 
     function sell(
@@ -236,6 +241,9 @@ contract BasicResolver is Resolver {
 
         setUint(setId, buyAmt);
         emit LogSell(address(_buyAddr), address(_sellAddr), buyAmt, sellAmt, 0, setId);
+        bytes32 _eventCode = keccak256("LogSell(address,address,uint256,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(address(_buyAddr), address(_sellAddr), buyAmt, sellAmt, 0, setId);
+        emitEvent(_eventCode, _eventParam);
     }
 }
 
