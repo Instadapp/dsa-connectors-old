@@ -1,42 +1,22 @@
 pragma solidity ^0.6.0;
 
-// import files from common directory
-import { TokenInterface , MemoryInterface, EventInterface} from "../common/interfaces.sol";
-import { Stores } from "../common/stores.sol";
-import { DSMath } from "../common/math.sol";
-
 interface ICurve {
-    function get_virtual_price() external returns (uint256 out);
-
     function underlying_coins(int128 tokenId) external view returns (address token);
-
     function calc_token_amount(uint256[4] calldata amounts, bool deposit) external returns (uint256 amount);
-
     function add_liquidity(uint256[4] calldata amounts, uint256 min_mint_amount) external;
-
     function get_dy(int128 sellTokenId, int128 buyTokenId, uint256 sellTokenAmt) external returns (uint256 buyTokenAmt);
-
-    // Used when there's an underlying token. Example:- cdai, cusdc, etc. If not then
-    function get_dy_underlying(int128 sellTokenId, int128 buyTokenId, uint256 sellTokenAmt) external returns (uint256 buyTokenAmt);
-
     function exchange(int128 sellTokenId, int128 buyTokenId, uint256 sellTokenAmt, uint256 minBuyToken) external;
-
-    // Used when there's an underlying token. Example:- cdai, cusdc, etc.
-    function exchange_underlying(int128 sellTokenId, int128 buyTokenId, uint256 sellTokenAmt, uint256 minBuyToken) external;
-
-    function remove_liquidity(uint256 _amount, uint256[4] calldata min_amounts) external;
-
     function remove_liquidity_imbalance(uint256[4] calldata amounts, uint256 max_burn_amount) external;
 }
 
 interface ICurveZap {
-
     function calc_withdraw_one_coin(uint256 _token_amount, int128 i) external returns (uint256 amount);
-
-    function remove_liquidity_one_coin(uint256 _token_amount, int128 i, uint256 min_uamount) external;
-
 }
 
+// import files from common directory
+import { TokenInterface , MemoryInterface, EventInterface} from "../common/interfaces.sol";
+import { Stores } from "../common/stores.sol";
+import { DSMath } from "../common/math.sol";
 
 contract CurveHelpers is Stores, DSMath {
     /**
