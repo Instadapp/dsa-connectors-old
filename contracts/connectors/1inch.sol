@@ -64,6 +64,13 @@ contract OneHelpers is Stores, DSMath {
         return 0xC586BeF4a0992C495Cf22e1aeEE4E446CECDee0E;
     }
 
+    /**
+     * @dev Return 1Split swap function sig
+     */
+    function getOneSplitSig() internal pure returns (bytes4) {
+        return 0xf88309d7;
+    }
+
     function convert18ToDec(uint _dec, uint256 _amt) internal pure returns (uint256 amt) {
         amt = (_amt / 10 ** (18 - _dec));
     }
@@ -84,6 +91,16 @@ contract OneHelpers is Stores, DSMath {
 
 
 contract Resolver is OneHelpers {
+    function checkOneInchSig(bytes memory callData) internal pure returns(bool isOk) {
+        bytes memory _data = callData;
+        bytes4 sig;
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+            sig := mload(add(_data, 32))
+        }
+        isOk = sig == getOneSplitSig();
+    }
+
     function oneSplitSwap(
         OneSplitInterface oneSplitContract,
         TokenInterface _sellAddr,
@@ -180,7 +197,7 @@ contract BasicResolver is Resolver {
         uint unitAmt,
         uint getId,
         uint setId
-    ) public payable {
+    ) external payable {
         uint _sellAmt = getUint(getId, sellAmt);
 
         TokenInterface _buyAddr = TokenInterface(buyAddr);
@@ -195,7 +212,7 @@ contract BasicResolver is Resolver {
                 _buyAddr,
                 _sellAmt,
                 3, // TODO - shall we hardcode?
-                0 // TODO - do we need to disable anything?
+                0
             );
 
         uint _buyAmt = oneSplitSwap(
@@ -209,6 +226,7 @@ contract BasicResolver is Resolver {
         );
 
         setUint(setId, _buyAmt);
+
         emit LogSell(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
         bytes32 _eventCode = keccak256("LogSell(address,address,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
@@ -243,6 +261,7 @@ contract BasicResolver is Resolver {
         );
 
         setUint(setId, _buyAmt);
+
         emit LogSellTwo(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
         bytes32 _eventCode = keccak256("LogSellTwo(address,address,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
@@ -267,9 +286,12 @@ contract BasicResolver is Resolver {
             TokenInterface(_sellAddr).approve(getOneInchAddress(), sellAmt);
         }
 
+        require(checkOneInchSig(callData), "Not-swap-function");
+
         uint buyAmt = oneInchSwap(_buyAddr, _sellAddr, callData, sellAmt, unitAmt, sellAmt);
 
         setUint(setId, buyAmt);
+
         emit LogSellThree(address(_buyAddr), address(_sellAddr), buyAmt, sellAmt, 0, setId);
         bytes32 _eventCode = keccak256("LogSellThree(address,address,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(address(_buyAddr), address(_sellAddr), buyAmt, sellAmt, 0, setId);
