@@ -223,5 +223,5 @@ contract CurveProtocol is CurveHelpers {
 }
 
 contract ConnectCurve is CurveProtocol {
-    string public name = "Curve-susd-v1";
+    string public name = "Curve-susd-v1.1";
 }
