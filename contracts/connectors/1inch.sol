@@ -120,6 +120,29 @@ contract Resolver is OneHelpers {
 
         require(_slippageAmt <= buyAmt, "Too much slippage");
     }
+
+    function oneInchSwap(
+        TokenInterface _buyAddr,
+        TokenInterface _sellAddr,
+        bytes memory callData,
+        uint sellAmt,
+        uint unitAmt,
+        uint ethAmt
+    ) internal returns (uint buyAmt) {
+        (uint _buyDec, uint _sellDec) = getTokensDec(_buyAddr, _sellAddr);
+        uint _sellAmt18 = convertTo18(_sellDec, sellAmt);
+        uint _slippageAmt = convert18ToDec(_buyDec, wmul(unitAmt, _sellAmt18));
+        uint initalBal = getTokenBal(_buyAddr);
+
+        // solium-disable-next-line security/no-call-value
+        (bool success, ) = address(getOneInchAddress()).call.value(ethAmt)(callData);
+        if (!success) revert("1Inch-swap-failed");
+
+        uint finalBal = getTokenBal(_buyAddr);
+        buyAmt = sub(finalBal, initalBal);
+
+        require(_slippageAmt <= buyAmt, "Too much slippage");
+    }
 }
 
 contract BasicResolver is Resolver {
@@ -219,10 +242,6 @@ contract BasicResolver is Resolver {
         TokenInterface _buyAddr = TokenInterface(buyAddr);
         TokenInterface _sellAddr = TokenInterface(sellAddr);
 
-        (uint _buyDec, uint _sellDec) = getTokensDec(_buyAddr, _sellAddr);
-        uint _sellAmt18 = convertTo18(_sellDec, sellAmt);
-        uint _slippageAmt = convert18ToDec(_buyDec, wmul(unitAmt, _sellAmt18));
-
         uint ethAmt;
         if (address(_sellAddr) == getEthAddr()) {
             ethAmt = sellAmt;
@@ -230,17 +249,8 @@ contract BasicResolver is Resolver {
             TokenInterface(_sellAddr).approve(getOneInchAddress(), sellAmt);
         }
 
-        uint initalBal = getTokenBal(_buyAddr);
-
-        // solium-disable-next-line security/no-call-value
-        (bool success, ) = address(getOneInchAddress()).call.value(ethAmt)(callData);
-        if (!success) revert("1Inch-swap-failed");
-
-        uint finalBal = getTokenBal(_buyAddr);
-        uint buyAmt = sub(finalBal, initalBal);
-
-        require(_slippageAmt <= buyAmt, "Too much slippage");
-
+        uint buyAmt = oneInchSwap(_buyAddr, _sellAddr, callData, sellAmt, unitAmt, sellAmt);
+        
         setUint(setId, buyAmt);
         emit LogSell(address(_buyAddr), address(_sellAddr), buyAmt, sellAmt, 0, setId);
         bytes32 _eventCode = keccak256("LogSell(address,address,uint256,uint256,uint256,uint256)");
