@@ -203,11 +203,11 @@ contract CurveProtocol is CurveHelpers {
             _curveAmt = curveSwap.calc_token_amount(_amts, false);
         }
 
-        curveTokenContract.approve(address(curveSwap), _curveAmt);
 
         uint _amt18 = convertTo18(TokenInterface(token).decimals(), _amt);
         uint _slippageAmt = wmul(unitAmt, _amt18);
 
+        curveTokenContract.approve(address(curveSwap), _slippageAmt);
         curveSwap.remove_liquidity_imbalance(_amts, _slippageAmt);
 
         setUint(setId, _amt);
