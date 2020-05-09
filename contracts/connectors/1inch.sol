@@ -155,6 +155,24 @@ contract BasicResolver is Resolver {
         uint256 setId
     );
 
+    event LogSellTwo(
+        address indexed buyToken,
+        address indexed sellToken,
+        uint256 buyAmt,
+        uint256 sellAmt,
+        uint256 getId,
+        uint256 setId
+    );
+
+    event LogSellThree(
+        address indexed buyToken,
+        address indexed sellToken,
+        uint256 buyAmt,
+        uint256 sellAmt,
+        uint256 getId,
+        uint256 setId
+    );
+
     function sell(
         address buyAddr,
         address sellAddr,
@@ -197,7 +215,7 @@ contract BasicResolver is Resolver {
         emitEvent(_eventCode, _eventParam);
     }
 
-    function sell(
+    function sellTwo(
         address buyAddr,
         address sellAddr,
         uint sellAmt,
@@ -225,13 +243,13 @@ contract BasicResolver is Resolver {
         );
 
         setUint(setId, _buyAmt);
-        emit LogSell(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
-        bytes32 _eventCode = keccak256("LogSell(address,address,uint256,uint256,uint256,uint256)");
+        emit LogSellTwo(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
+        bytes32 _eventCode = keccak256("LogSellTwo(address,address,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
         emitEvent(_eventCode, _eventParam);
     }
 
-    function sell(
+    function sellThree(
         address buyAddr,
         address sellAddr,
         uint sellAmt,
@@ -250,10 +268,10 @@ contract BasicResolver is Resolver {
         }
 
         uint buyAmt = oneInchSwap(_buyAddr, _sellAddr, callData, sellAmt, unitAmt, sellAmt);
-        
+
         setUint(setId, buyAmt);
-        emit LogSell(address(_buyAddr), address(_sellAddr), buyAmt, sellAmt, 0, setId);
-        bytes32 _eventCode = keccak256("LogSell(address,address,uint256,uint256,uint256,uint256)");
+        emit LogSellThree(address(_buyAddr), address(_sellAddr), buyAmt, sellAmt, 0, setId);
+        bytes32 _eventCode = keccak256("LogSellThree(address,address,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(address(_buyAddr), address(_sellAddr), buyAmt, sellAmt, 0, setId);
         emitEvent(_eventCode, _eventParam);
     }
