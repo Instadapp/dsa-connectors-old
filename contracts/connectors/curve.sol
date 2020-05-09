@@ -166,7 +166,7 @@ contract CurveProtocol is CurveHelpers {
 
         emit LogDeposit(token, _amt, mintAmt, getId, setId);
         bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(_amt, mintAmt, getId, setId);
+        bytes memory _eventParam = abi.encode(token, _amt, mintAmt, getId, setId);
         emitEvent(_eventCode, _eventParam);
     }
 
@@ -207,7 +207,9 @@ contract CurveProtocol is CurveHelpers {
         uint _amt18 = convertTo18(TokenInterface(token).decimals(), _amt);
         uint _slippageAmt = wmul(unitAmt, _amt18);
 
+        curveTokenContract.approve(address(curveSwap), 0);
         curveTokenContract.approve(address(curveSwap), _slippageAmt);
+
         curveSwap.remove_liquidity_imbalance(_amts, _slippageAmt);
 
         setUint(setId, _amt);
