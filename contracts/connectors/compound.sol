@@ -113,7 +113,7 @@ contract Helpers is DSMath {
      * @dev Connector Details
     */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 3);
+        (_type, _id) = (1, 16);
     }
 }
 
@@ -272,7 +272,6 @@ contract BasicResolver is CompoundHelpers {
 }
 
 contract ExtraResolver is BasicResolver {
-    event LogPaybackBehalf(address indexed borrower, address indexed token, address cToken, uint256 tokenAmt, uint256 getId, uint256 setId);
     event LogDepositCToken(address indexed token, address cToken, uint256 tokenAmt, uint256 cTokenAmt,uint256 getId, uint256 setId);
     event LogWithdrawCToken(address indexed token, address cToken, uint256 cTokenAmt, uint256 getId, uint256 setId);
     event LogLiquidate(
@@ -344,45 +343,6 @@ contract ExtraResolver is BasicResolver {
     }
 
     /**
-     * @dev Payback on Behalf of user's borrowed ETH/ERC20_Token.
-     * @param borrower Borrower's Address.
-     * @param token token address to payback.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
-     * @param amt token amount to payback.
-     * @param getId Get token amount at this ID from `InstaMemory` Contract.
-     * @param setId Set token amount at this ID in `InstaMemory` Contract.
-    */
-    function paybackBehalf(
-        address borrower,
-        address token,
-        uint amt,
-        uint getId,
-        uint setId
-    ) external payable
-    {
-        uint _amt = getUint(getId, amt);
-        address cToken = InstaMapping(getMappingAddr()).cTokenMapping(token);
-        CTokenInterface cTokenContract = CTokenInterface(cToken);
-        uint borrows = cTokenContract.borrowBalanceCurrent(borrower);
-        _amt = _amt == uint(-1) ? borrows : _amt;
-        if (token == getAddressETH()) {
-            require(address(this).balance >= _amt, "not-enough-eth");
-            CETHInterface(cToken).repayBorrowBehalf.value(_amt)(borrower);
-        } else {
-            TokenInterface tokenContract = TokenInterface(token);
-            require(tokenContract.balanceOf(address(this)) >= _amt, "Not-enough-token");
-            tokenContract.approve(cToken, _amt);
-            require(cTokenContract.repayBorrowBehalf(borrower, _amt) == 0, "repay-failed");
-        }
-        setUint(setId, _amt);
-
-        emit LogPaybackBehalf(address(this), token, cToken, _amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogPaybackBehalf(address,address,address,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(address(this), token, cToken, _amt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
-    }
-
-    /**
      * @dev Liquidate a position.
      * @param borrower Borrower's Address.
      * @param tokenToPay token address to pay for liquidation.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
@@ -445,5 +405,5 @@ contract ExtraResolver is BasicResolver {
 
 
 contract ConnectCompound is ExtraResolver {
-    string public name = "Compound-v1";
+    string public name = "Compound-v1.1";
 }
