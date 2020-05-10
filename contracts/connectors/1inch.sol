@@ -65,6 +65,13 @@ contract OneHelpers is Stores, DSMath {
     }
 
     /**
+     * @dev Return 1Split Token Taker Address
+     */
+    function getOneSplitTokenTaker() internal pure returns (address payable) {
+        return 0xE4C9194962532fEB467DCe8b3d42419641c6eD2E;
+    }
+
+    /**
      * @dev Return 1Split swap function sig
      */
     function getOneSplitSig() internal pure returns (bytes4) {
@@ -283,7 +290,7 @@ contract BasicResolver is Resolver {
         if (address(_sellAddr) == getEthAddr()) {
             ethAmt = sellAmt;
         } else {
-            TokenInterface(_sellAddr).approve(getOneInchAddress(), sellAmt);
+            TokenInterface(_sellAddr).approve(getOneSplitTokenTaker(), sellAmt);
         }
 
         require(checkOneInchSig(callData), "Not-swap-function");
