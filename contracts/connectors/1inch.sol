@@ -60,7 +60,7 @@ contract OneHelpers is Stores, DSMath {
     /**
      * @dev Return 1Split Address
      */
-    function getOneSplitAddress() internal pure returns (address) {
+    function getOneSplitAddress() internal pure returns (address payable) {
         return 0xC586BeF4a0992C495Cf22e1aeEE4E446CECDee0E;
     }
 
@@ -288,7 +288,7 @@ contract BasicResolver is Resolver {
 
         require(checkOneInchSig(callData), "Not-swap-function");
 
-        uint buyAmt = oneInchSwap(_buyAddr, _sellAddr, callData, sellAmt, unitAmt, sellAmt);
+        uint buyAmt = oneInchSwap(_buyAddr, _sellAddr, callData, sellAmt, unitAmt, ethAmt);
 
         setUint(setId, buyAmt);
 
