@@ -29,8 +29,8 @@ interface OneSplitInterface {
         TokenInterface toToken,
         uint256 amount,
         uint256 minReturn,
-        uint256[] calldata distribution, // [Uniswap, Kyber, Bancor, Oasis]
-        uint256 disableFlags // 16 - Compound, 32 - Fulcrum, 64 - Chai, 128 - Aave, 256 - SmartToken, 1024 - bDAI
+        uint256[] calldata distribution,
+        uint256 disableFlags
     ) external payable;
 
     function getExpectedReturn(
@@ -197,6 +197,15 @@ contract BasicResolver is Resolver {
         uint256 setId
     );
 
+    /**
+     * @dev Sell ETH/ERC20_Token using 1split.
+     * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAddr selling token amount.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAmt selling token amount.
+     * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
     function sell(
         address buyAddr,
         address sellAddr,
@@ -218,7 +227,7 @@ contract BasicResolver is Resolver {
                 _sellAddr,
                 _buyAddr,
                 _sellAmt,
-                3, // TODO - shall we hardcode?
+                5,
                 0
             );
 
@@ -240,6 +249,17 @@ contract BasicResolver is Resolver {
         emitEvent(_eventCode, _eventParam);
     }
 
+    /**
+     * @dev Sell ETH/ERC20_Token using 1split.
+     * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAddr selling token amount.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAmt selling token amount.
+     * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
+     * @param distribution distribution of swap across different dex.
+     * @param disableDexes disable a dex. (To disable none: 0)
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
     function sellTwo(
         address buyAddr,
         address sellAddr,
@@ -275,6 +295,15 @@ contract BasicResolver is Resolver {
         emitEvent(_eventCode, _eventParam);
     }
 
+    /**
+     * @dev Sell ETH/ERC20_Token using 1split.
+     * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAddr selling token amount.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAmt selling token amount.
+     * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
+     * @param callData Data from 1inch API.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
     function sellThree(
         address buyAddr,
         address sellAddr,
