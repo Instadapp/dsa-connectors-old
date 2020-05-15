@@ -125,7 +125,6 @@ contract DydxHelpers is DSMath, Stores {
         tokenSign = tokenWeiBal.sign;
     }
 
-
     /**
      * @dev Get Dydx Market ID from token Address
     */
@@ -159,7 +158,7 @@ contract BasicResolver is DydxHelpers {
         uint _marketId = getMarketId(dydxContract, token);
 
         (uint depositedAmt, bool sign) = getDydxPosition(dydxContract, _marketId);
-        require(depositedAmt == 0 || sign, "token-borrowed"); //TODO - check.
+        require(depositedAmt == 0 || sign, "token-borrowed");
 
         if (token == getEthAddr()) {
             TokenInterface tokenContract = TokenInterface(getWETHAddr());
@@ -190,7 +189,7 @@ contract BasicResolver is DydxHelpers {
         uint _marketId = getMarketId(dydxContract, token);
 
         (uint depositedAmt, bool sign) = getDydxPosition(dydxContract, _marketId);
-        require(sign, "try-payback"); //TODO - check.
+        require(sign, "try-payback");
 
         _amt = _amt == uint(-1) ? depositedAmt : _amt;
         require(_amt <= depositedAmt, "withdraw-exceeds");
@@ -223,7 +222,7 @@ contract BasicResolver is DydxHelpers {
         uint _marketId = getMarketId(dydxContract, token);
 
         (uint borrowedAmt, bool sign) = getDydxPosition(dydxContract, _marketId);
-        require(borrowedAmt == 0 || !sign, "token-deposited"); //TODO - check.
+        require(borrowedAmt == 0 || !sign, "token-deposited");
 
         dydxContract.operate(getAccountArgs(), getActionsArgs(_marketId, _amt, false));
 
@@ -252,7 +251,7 @@ contract BasicResolver is DydxHelpers {
         uint _marketId = getMarketId(dydxContract, token);
 
         (uint borrowedAmt, bool sign) = getDydxPosition(dydxContract, _marketId);
-        require(!sign, "try-withdraw"); //TODO - check.
+        require(!sign, "try-withdraw");
 
         _amt = _amt == uint(-1) ? borrowedAmt : _amt;
         require(_amt <= borrowedAmt, "payback-exceeds");
