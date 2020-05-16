@@ -181,8 +181,7 @@ contract BasicResolver is DydxHelpers {
         emit LogDeposit(token, _marketId, _amt, getId, setId);
         bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(token, _marketId, _amt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+        emitEvent(_eventCode, _eventParam);
     }
 
     /**
@@ -217,9 +216,7 @@ contract BasicResolver is DydxHelpers {
         emit LogWithdraw(token, _marketId, _amt, getId, setId);
         bytes32 _eventCode = keccak256("LogWithdraw(address,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(token, _marketId, _amt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
-
+        emitEvent(_eventCode, _eventParam);
     }
 
     /**
@@ -251,8 +248,7 @@ contract BasicResolver is DydxHelpers {
         emit LogBorrow(token, _marketId, _amt, getId, setId);
         bytes32 _eventCode = keccak256("LogBorrow(address,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(token, _marketId, _amt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+        emitEvent(_eventCode, _eventParam);
     }
 
     /**
@@ -291,8 +287,7 @@ contract BasicResolver is DydxHelpers {
         emit LogPayback(token, _marketId, _amt, getId, setId);
         bytes32 _eventCode = keccak256("LogPayback(address,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(token, _marketId, _amt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+        emitEvent(_eventCode, _eventParam);
     }
 }
 
