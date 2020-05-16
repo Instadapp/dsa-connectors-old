@@ -9,34 +9,34 @@ import { DSMath } from "../common/math.sol";
 interface SoloMarginContract {
 
     struct Info {
-        address owner;  // The address that owns the account
-        uint256 number; // A nonce that allows a single address to control many accounts
+        address owner;
+        uint256 number;
     }
 
     enum ActionType {
-        Deposit,   // supply tokens
-        Withdraw,  // borrow tokens
-        Transfer,  // transfer balance between accounts
-        Buy,       // buy an amount of some token (externally)
-        Sell,      // sell an amount of some token (externally)
-        Trade,     // trade tokens against another account
-        Liquidate, // liquidate an undercollateralized or expiring account
-        Vaporize,  // use excess tokens to zero-out a completely negative account
-        Call       // send arbitrary data to an address
+        Deposit,
+        Withdraw,
+        Transfer,
+        Buy,
+        Sell,
+        Trade,
+        Liquidate,
+        Vaporize,
+        Call
     }
 
     enum AssetDenomination {
-        Wei, // the amount is denominated in wei
-        Par  // the amount is denominated in par
+        Wei,
+        Par
     }
 
     enum AssetReference {
-        Delta, // the amount is given as a delta from the current value
-        Target // the amount is given as an exact number to end up at
+        Delta,
+        Target
     }
 
     struct AssetAmount {
-        bool sign; // true if positive
+        bool sign;
         AssetDenomination denomination;
         AssetReference ref;
         uint256 value;
@@ -54,7 +54,7 @@ interface SoloMarginContract {
     }
 
     struct Wei {
-        bool sign; // true if positive
+        bool sign;
         uint256 value;
     }
 
@@ -149,8 +149,12 @@ contract BasicResolver is DydxHelpers {
     event LogPayback(address indexed token, uint marketId, uint256 tokenAmt, uint256 getId, uint256 setId);
 
     /**
-     * @dev Deposit ETH/ERC20
-     */
+     * @dev Deposit ETH/ERC20_Token.
+     * @param token token address to deposit.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param amt token amount to deposit.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
     function deposit(address token, uint amt, uint getId, uint setId) external payable{
         SoloMarginContract dydxContract = SoloMarginContract(getDydxAddress());
 
@@ -181,7 +185,13 @@ contract BasicResolver is DydxHelpers {
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
-
+    /**
+     * @dev Withdraw ETH/ERC20_Token.
+     * @param token token address to withdraw.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param amt token amount to withdraw.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
     function withdraw(address token, uint amt, uint getId, uint setId) external payable{
         SoloMarginContract dydxContract = SoloMarginContract(getDydxAddress());
 
@@ -213,7 +223,11 @@ contract BasicResolver is DydxHelpers {
     }
 
     /**
-    * @dev Borrow ETH/ERC20
+     * @dev Borrow ETH/ERC20_Token.
+     * @param token token address to borrow.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param amt token amount to borrow.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
     */
     function borrow(address token, uint amt, uint getId, uint setId) external payable {
         SoloMarginContract dydxContract = SoloMarginContract(getDydxAddress());
@@ -242,8 +256,12 @@ contract BasicResolver is DydxHelpers {
     }
 
     /**
-     * @dev Payback ETH/ERC20
-     */
+     * @dev Payback borrowed ETH/ERC20_Token.
+     * @param token token address to payback.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param amt token amount to payback.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
     function payback(address token, uint amt, uint getId, uint setId) external payable {
         SoloMarginContract dydxContract = SoloMarginContract(getDydxAddress());
 
