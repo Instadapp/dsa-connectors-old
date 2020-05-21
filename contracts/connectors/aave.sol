@@ -131,8 +131,6 @@ contract BasicResolver is AaveHelpers {
         AaveCoreInterface aaveCore = AaveCoreInterface(getAaveCoreAddress());
         ATokenInterface atoken = ATokenInterface(aaveCore.getReserveATokenAddress(token));
 
-        _amt = _amt == uint(-1) ? atoken.balanceOf(address(this)) : _amt;
-
         uint initialBal = token == getEthAddr() ? address(this).balance : TokenInterface(token).balanceOf(address(this));
         atoken.redeem(_amt);
         uint finialBal = token == getEthAddr() ? address(this).balance : TokenInterface(token).balanceOf(address(this));
@@ -178,19 +176,34 @@ contract BasicResolver is AaveHelpers {
         uint _amt = getUint(getId, amt);
         AaveInterface aave = AaveInterface(getAaveAddress());
 
-        _amt = _amt == uint(-1) ? getPaybackBalance(aave, token) : _amt;
-
-        uint ethAmt;
-        if (token == getEthAddr()) {
-            require(address(this).balance >= _amt, "not-enough-eth");
-            ethAmt = _amt;
+        if (_amt == uint(-1)) {
+            if (token == getEthAddr()) {
+                uint ethAmt = getPaybackBalance(aave, token) + 100000000;
+                require(address(this).balance >= ethAmt, "not-enough-eth");
+                aave.repay.value(ethAmt)(token, ethAmt, payable(address(this)));
+            } else {
+                TokenInterface tokenContract = TokenInterface(token);
+                require(tokenContract.balanceOf(address(this)) >= _amt, "not-enough-token");
+                tokenContract.approve(getAaveCoreAddress(), uint(-1));
+                uint initalBal = tokenContract.balanceOf(address(this));
+                aave.repay(token, uint(-1), payable(address(this)));
+                uint finalBal = tokenContract.balanceOf(address(this));
+                tokenContract.approve(getAaveCoreAddress(), 0);
+                _amt = sub(initalBal, finalBal);
+            }
         } else {
-            TokenInterface tokenContract = TokenInterface(token);
-            require(tokenContract.balanceOf(address(this)) >= _amt, "not-enough-token");
-            tokenContract.approve(getAaveCoreAddress(), _amt);
+            uint ethAmt;
+            if (token == getEthAddr()) {
+                require(address(this).balance >= _amt, "not-enough-eth");
+                ethAmt = _amt;
+            } else {
+                TokenInterface tokenContract = TokenInterface(token);
+                require(tokenContract.balanceOf(address(this)) >= _amt, "not-enough-token");
+                tokenContract.approve(getAaveCoreAddress(), _amt);
+            }
+            aave.repay.value(ethAmt)(token, _amt, payable(address(this)));
         }
-
-        aave.repay.value(ethAmt)(token, _amt, payable(address(this)));
+       
 
         setUint(setId, _amt);
 
