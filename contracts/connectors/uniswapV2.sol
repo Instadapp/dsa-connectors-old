@@ -230,7 +230,6 @@ contract UniswapResolver is UniswapHelpers {
         uint getId,
         uint setId
     ) external payable {
-        // swapTokensForExactTokens
         uint _buyAmt = getUint(getId, buyAmt);
         (TokenInterface _buyAddr, TokenInterface _sellAddr) = changeEthAddress(buyAddr, sellAddr);
         address[] memory paths = getPaths(address(_buyAddr), address(_sellAddr));
@@ -246,8 +245,6 @@ contract UniswapResolver is UniswapHelpers {
 
         convertEthToWeth(_sellAddr, _expectedAmt);
         _sellAddr.approve(address(router), _expectedAmt);
-
-        
 
         uint[] memory _amts = router.swapTokensForExactTokens(
             _buyAmt,
@@ -287,7 +284,6 @@ contract UniswapResolver is UniswapHelpers {
         uint getId,
         uint setId
     ) external payable {
-        // /swapExactTokensForTokens/
         uint _sellAmt = getUint(getId, sellAmt);
         (TokenInterface _buyAddr, TokenInterface _sellAddr) = changeEthAddress(buyAddr, sellAddr);
         address[] memory paths = getPaths(address(_buyAddr), address(_sellAddr));
