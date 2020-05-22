@@ -71,8 +71,8 @@ contract AaveHelpers is DSMath, Stores {
         (bal, , , , , , , , , ) = aave.getUserReserveData(token, address(this));
     }
 
-    function getPaybackBalance(AaveInterface aave, address token) internal view returns (uint bal) {
-        (, bal, , , , , , , , ) = aave.getUserReserveData(token, address(this));
+    function getPaybackBalance(AaveInterface aave, address token) internal view returns (uint bal, uint fee) {
+        (, bal, , , , , fee, , , ) = aave.getUserReserveData(token, address(this));
     }
 }
 
@@ -177,10 +177,44 @@ contract BasicResolver is AaveHelpers {
         AaveInterface aave = AaveInterface(getAaveAddress());
 
         if (_amt == uint(-1)) {
+            uint fee;
+            (_amt, fee) = getPaybackBalance(aave, token);
+            _amt = add(_amt, fee);
+        }
+        uint ethAmt;
+        if (token == getEthAddr()) {
+            ethAmt = _amt;
+            require(address(this).balance >= _amt, "not-enough-eth");
+        } else {
+            TokenInterface tokenContract = TokenInterface(token);
+            require(tokenContract.balanceOf(address(this)) >= _amt, "not-enough-token");
+            tokenContract.approve(getAaveCoreAddress(), _amt);
+        }
+       
+        aave.repay.value(ethAmt)(token, _amt, payable(address(this)));
+
+        setUint(setId, _amt);
+
+        emit LogPayback(token, _amt, getId, setId);
+        bytes32 _eventCode = keccak256("LogPayback(address,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
+        (uint _type, uint _id) = connectorID();
+        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+    }
+
+    function payback2(address token, uint amt, uint getId, uint setId) external payable {
+        uint _amt = getUint(getId, amt);
+        AaveInterface aave = AaveInterface(getAaveAddress());
+
+        if (_amt == uint(-1)) {
             if (token == getEthAddr()) {
-                uint ethAmt = getPaybackBalance(aave, token) + 100000000;
+                (uint ethAmt, uint fee) = getPaybackBalance(aave, token);
+                ethAmt += fee;
+                uint initalBal = address(this).balance;
                 require(address(this).balance >= ethAmt, "not-enough-eth");
                 aave.repay.value(ethAmt)(token, ethAmt, payable(address(this)));
+                uint finalBal = address(this).balance;
+                _amt = sub(initalBal, finalBal);
             } else {
                 TokenInterface tokenContract = TokenInterface(token);
                 require(tokenContract.balanceOf(address(this)) >= _amt, "not-enough-token");
