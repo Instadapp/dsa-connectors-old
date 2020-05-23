@@ -131,9 +131,9 @@ contract BasicResolver is AaveHelpers {
 
         uint initialBal = token == getEthAddr() ? address(this).balance : TokenInterface(token).balanceOf(address(this));
         atoken.redeem(_amt);
-        uint finialBal = token == getEthAddr() ? address(this).balance : TokenInterface(token).balanceOf(address(this));
+        uint finalBal = token == getEthAddr() ? address(this).balance : TokenInterface(token).balanceOf(address(this));
 
-        _amt = sub(finialBal, initialBal);
+        _amt = sub(finalBal, initialBal);
         setUint(setId, _amt);
 
         emit LogWithdraw(token, _amt, getId, setId);
