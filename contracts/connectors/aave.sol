@@ -101,7 +101,6 @@ contract BasicResolver is AaveHelpers {
         } else {
             TokenInterface tokenContract = TokenInterface(token);
             _amt = _amt == uint(-1) ? tokenContract.balanceOf(address(this)) : _amt;
-            require(tokenContract.balanceOf(address(this)) >= _amt, "not-enough-token");
             tokenContract.approve(getAaveCoreAddress(), _amt);
         }
 
