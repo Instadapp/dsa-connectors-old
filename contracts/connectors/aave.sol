@@ -15,16 +15,16 @@ interface AaveInterface {
     ) external;
     function setUserUseReserveAsCollateral(address _reserve, bool _useAsCollateral) external;
     function getUserReserveData(address _reserve, address _user) external view returns (
-            uint256 currentATokenBalance,
-            uint256 currentBorrowBalance,
-            uint256 principalBorrowBalance,
-            uint256 borrowRateMode,
-            uint256 borrowRate,
-            uint256 liquidityRate,
-            uint256 originationFee,
-            uint256 variableBorrowIndex,
-            uint256 lastUpdateTimestamp,
-            bool usageAsCollateralEnabled
+        uint256 currentATokenBalance,
+        uint256 currentBorrowBalance,
+        uint256 principalBorrowBalance,
+        uint256 borrowRateMode,
+        uint256 borrowRate,
+        uint256 liquidityRate,
+        uint256 originationFee,
+        uint256 variableBorrowIndex,
+        uint256 lastUpdateTimestamp,
+        bool usageAsCollateralEnabled
     );
     function borrow(address _reserve, uint256 _amount, uint256 _interestRateMode, uint16 _referralCode) external;
     function repay(address _reserve, uint256 _amount, address payable _onBehalfOf) external payable;
@@ -90,7 +90,7 @@ contract BasicResolver is AaveHelpers {
      * @param getId Get token amount at this ID from `InstaMemory` Contract.
      * @param setId Set token amount at this ID in `InstaMemory` Contract.
     */
-    function deposit(address token, uint amt, uint getId, uint setId) external payable{
+    function deposit(address token, uint amt, uint getId, uint setId) external payable {
         uint _amt = getUint(getId, amt);
         AaveInterface aave = AaveInterface(getAaveAddress());
 
@@ -124,7 +124,7 @@ contract BasicResolver is AaveHelpers {
      * @param getId Get token amount at this ID from `InstaMemory` Contract.
      * @param setId Set token amount at this ID in `InstaMemory` Contract.
     */
-    function withdraw(address token, uint amt, uint getId, uint setId) external payable{
+    function withdraw(address token, uint amt, uint getId, uint setId) external payable {
         uint _amt = getUint(getId, amt);
         AaveCoreInterface aaveCore = AaveCoreInterface(getAaveCoreAddress());
         ATokenInterface atoken = ATokenInterface(aaveCore.getReserveATokenAddress(token));
@@ -188,7 +188,7 @@ contract BasicResolver is AaveHelpers {
             require(tokenContract.balanceOf(address(this)) >= _amt, "not-enough-token");
             tokenContract.approve(getAaveCoreAddress(), _amt);
         }
-       
+
         aave.repay.value(ethAmt)(token, _amt, payable(address(this)));
 
         setUint(setId, _amt);
@@ -235,7 +235,6 @@ contract BasicResolver is AaveHelpers {
             }
             aave.repay.value(ethAmt)(token, _amt, payable(address(this)));
         }
-       
 
         setUint(setId, _amt);
 
