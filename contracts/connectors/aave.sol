@@ -96,7 +96,6 @@ contract BasicResolver is AaveHelpers {
 
         uint ethAmt;
         if (token == getEthAddr()) {
-            require(_amt == msg.value, "not-enought-eth");
             _amt = _amt == uint(-1) ? address(this).balance : _amt;
             ethAmt = _amt;
         } else {
@@ -107,9 +106,9 @@ contract BasicResolver is AaveHelpers {
         }
 
         aave.deposit.value(ethAmt)(token, _amt, 0); // TODO - need to set referralCode;
-        
+
         if (!getIsColl(aave, token)) aave.setUserUseReserveAsCollateral(token, true);
-        
+
         setUint(setId, _amt);
 
         emit LogDeposit(token, _amt, getId, setId);
