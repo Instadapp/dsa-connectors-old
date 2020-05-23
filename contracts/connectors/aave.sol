@@ -182,11 +182,8 @@ contract BasicResolver is AaveHelpers {
         uint ethAmt;
         if (token == getEthAddr()) {
             ethAmt = _amt;
-            require(address(this).balance >= _amt, "not-enough-eth");
         } else {
-            TokenInterface tokenContract = TokenInterface(token);
-            require(tokenContract.balanceOf(address(this)) >= _amt, "not-enough-token");
-            tokenContract.approve(getAaveCoreAddress(), _amt);
+            TokenInterface(token).approve(getAaveCoreAddress(), _amt);
         }
 
         aave.repay.value(ethAmt)(token, _amt, payable(address(this)));
