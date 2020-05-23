@@ -128,10 +128,11 @@ contract BasicResolver is AaveHelpers {
         uint _amt = getUint(getId, amt);
         AaveCoreInterface aaveCore = AaveCoreInterface(getAaveCoreAddress());
         ATokenInterface atoken = ATokenInterface(aaveCore.getReserveATokenAddress(token));
+        TokenInterface tokenContract = TokenInterface(token);
 
-        uint initialBal = token == getEthAddr() ? address(this).balance : TokenInterface(token).balanceOf(address(this));
+        uint initialBal = token == getEthAddr() ? address(this).balance : tokenContract.balanceOf(address(this));
         atoken.redeem(_amt);
-        uint finalBal = token == getEthAddr() ? address(this).balance : TokenInterface(token).balanceOf(address(this));
+        uint finalBal = token == getEthAddr() ? address(this).balance : tokenContract.balanceOf(address(this));
 
         _amt = sub(finalBal, initialBal);
         setUint(setId, _amt);
