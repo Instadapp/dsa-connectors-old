@@ -62,6 +62,13 @@ contract AaveHelpers is DSMath, Stores {
         return 0x95D1189Ed88B380E319dF73fF00E479fcc4CFa45; //kovan
     }
 
+    /**
+     * @dev get Referral Code
+    */
+    function getReferralCode() internal pure returns (uint16) {
+        return 3228;
+    }
+
     function getIsColl(AaveInterface aave, address token) internal view returns (bool isCol) {
         (, , , , , , , , , isCol) = aave.getUserReserveData(token, address(this));
     }
@@ -104,7 +111,7 @@ contract BasicResolver is AaveHelpers {
             tokenContract.approve(getAaveCoreAddress(), _amt);
         }
 
-        aave.deposit.value(ethAmt)(token, _amt, 0); // TODO - need to set referralCode;
+        aave.deposit.value(ethAmt)(token, _amt, getReferralCode()); // TODO - need to set referralCode;
 
         if (!getIsColl(aave, token)) aave.setUserUseReserveAsCollateral(token, true);
 
@@ -154,7 +161,7 @@ contract BasicResolver is AaveHelpers {
     function borrow(address token, uint amt, uint getId, uint setId) external payable {
         uint _amt = getUint(getId, amt);
         AaveInterface aave = AaveInterface(getAaveAddress());
-        aave.borrow(token, _amt, 2, 0); // TODO - need to set referralCode;
+        aave.borrow(token, _amt, 2, getReferralCode());
         setUint(setId, _amt);
 
         emit LogBorrow(token, _amt, getId, setId);
@@ -188,51 +195,6 @@ contract BasicResolver is AaveHelpers {
         }
 
         aave.repay.value(ethAmt)(token, _amt, payable(address(this)));
-
-        setUint(setId, _amt);
-
-        emit LogPayback(token, _amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogPayback(address,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
-    }
-
-    function payback2(address token, uint amt, uint getId, uint setId) external payable {
-        uint _amt = getUint(getId, amt);
-        AaveInterface aave = AaveInterface(getAaveAddress());
-
-        if (_amt == uint(-1)) {
-            if (token == getEthAddr()) {
-                (uint ethAmt, uint fee) = getPaybackBalance(aave, token);
-                ethAmt += fee;
-                uint initalBal = address(this).balance;
-                require(address(this).balance >= ethAmt, "not-enough-eth");
-                aave.repay.value(ethAmt)(token, ethAmt, payable(address(this)));
-                uint finalBal = address(this).balance;
-                _amt = sub(initalBal, finalBal);
-            } else {
-                TokenInterface tokenContract = TokenInterface(token);
-                require(tokenContract.balanceOf(address(this)) >= _amt, "not-enough-token");
-                tokenContract.approve(getAaveCoreAddress(), uint(-1));
-                uint initalBal = tokenContract.balanceOf(address(this));
-                aave.repay(token, uint(-1), payable(address(this)));
-                uint finalBal = tokenContract.balanceOf(address(this));
-                tokenContract.approve(getAaveCoreAddress(), 0);
-                _amt = sub(initalBal, finalBal);
-            }
-        } else {
-            uint ethAmt;
-            if (token == getEthAddr()) {
-                require(address(this).balance >= _amt, "not-enough-eth");
-                ethAmt = _amt;
-            } else {
-                TokenInterface tokenContract = TokenInterface(token);
-                require(tokenContract.balanceOf(address(this)) >= _amt, "not-enough-token");
-                tokenContract.approve(getAaveCoreAddress(), _amt);
-            }
-            aave.repay.value(ethAmt)(token, _amt, payable(address(this)));
-        }
 
         setUint(setId, _amt);
 
