@@ -235,12 +235,15 @@ contract LiquidityHelpers is UniswapHelpers {
         uint _amt,
         uint[] memory slippages,
         uint deadline
-    ) internal returns (uint _amtA, uint _amtB) {
+    ) internal returns (uint _amtA, uint _amtB, uint _uniAmt) {
         IUniswapV2Router01 router = IUniswapV2Router01(getUniswapAddr());
         TokenInterface[] memory _tokens = changeEthToWeth(tokens);
         address exchangeAddr = IUniswapV2Factory(router.factory()).getPair(address(_tokens[0]), address(_tokens[1]));
         require(exchangeAddr != address(0), "pair-not-found.");
-        TokenInterface(exchangeAddr).approve(address(router), _amt);
+
+        TokenInterface uniToken = TokenInterface(exchangeAddr);
+        _uniAmt = _amt == uint(-1) ? uniToken.balanceOf(address(this)) : _amt;
+        uniToken.approve(address(router), _uniAmt);
 
        (_amtA, _amtB) = router.removeLiquidity(
             address(_tokens[0]),
@@ -372,9 +375,9 @@ contract UniswapLiquidity is LiquidityHelpers {
         uint[] calldata setIds
     ) external payable {
         require(tokens.length == 2, "length-is-not-two");
-        uint _uniAmt = getUint(getId, amt);
-
-        (uint _amtA, uint _amtB) = _removeLiquidity(tokens, _uniAmt, slippages, deadline);
+        uint _amt = getUint(getId, amt);
+        
+        (uint _amtA, uint _amtB, uint _uniAmt) = _removeLiquidity(tokens, _amt, slippages, deadline);
 
         setUint(setIds[0], _amtA);
         setUint(setIds[1], _amtB);
