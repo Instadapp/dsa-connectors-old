@@ -184,17 +184,205 @@ contract UniswapHelpers is Stores, DSMath {
     function getPaths(
         address sellAddr,
         address buyAddr
-    ) internal view returns(address[] memory paths) {
+    ) internal pure returns(address[] memory paths) {
         paths = new address[](2);
         paths[0] = address(sellAddr);
         paths[1] = address(buyAddr);
     }
-
-    
 }
 
+contract LiquidityHelpers is UniswapHelpers {
 
-contract UniswapResolver is UniswapHelpers {
+    function changeEthToWeth(
+        address[] memory tokens
+    ) internal pure returns(TokenInterface[] memory _tokens) {
+        _tokens = new TokenInterface[](2);
+        _tokens[0] = tokens[0] == getEthAddr() ? TokenInterface(getAddressWETH()) : TokenInterface(tokens[0]);
+        _tokens[1] = tokens[1] == getEthAddr() ? TokenInterface(getAddressWETH()) : TokenInterface(tokens[1]);
+       
+    }
+
+    function _addLiquidity(
+        address[] memory tokens,
+        uint[] memory _amts,
+        uint[] memory slippages,
+        uint deadline
+    ) internal returns (uint _amtA, uint _amtB, uint _liquidity) {
+        IUniswapV2Router01 router = IUniswapV2Router01(getUniswapAddr());
+        TokenInterface[] memory _tokens = changeEthToWeth(tokens);
+        _amts[0] = _amts[0] == uint(-1) ? _tokens[0].balanceOf(address(this)) : _amts[0];
+        _amts[1] = _amts[1] == uint(-1) ? _tokens[1].balanceOf(address(this)) : _amts[1];
+
+        convertEthToWeth(_tokens[0], _amts[0]);
+        convertEthToWeth(_tokens[1], _amts[1]);
+        _tokens[0].approve(address(router), _amts[0]);
+        _tokens[0].approve(address(router), _amts[1]);
+    
+       (_amtA, _amtB, _liquidity) = router.addLiquidity(
+            address(_tokens[0]),
+            address(_tokens[1]),
+            _amts[0],
+            _amts[1],
+            slippages[0],
+            slippages[1],
+            address(this),
+            now + deadline // TODO - deadline?
+        );
+    }
+
+    function _removeLiquidity(
+        address[] memory tokens,
+        uint _amt,
+        uint[] memory slippages,
+        uint deadline
+    ) internal returns (uint _amtA, uint _amtB) {
+        IUniswapV2Router01 router = IUniswapV2Router01(getUniswapAddr());
+        TokenInterface[] memory _tokens = changeEthToWeth(tokens);
+        address exchangeAddr = IUniswapV2Factory(router.factory()).getPair(address(_tokens[0]), address(_tokens[1]));
+        require(exchangeAddr != address(0), "pair-not-found.");
+        TokenInterface(exchangeAddr).approve(address(router), _amt);
+
+       (_amtA, _amtB) = router.removeLiquidity(
+            address(_tokens[0]),
+            address(_tokens[1]),
+            _amt,
+            slippages[0],
+            slippages[1],
+            address(this),
+            now + deadline // TODO - deadline?
+        );
+
+        convertWethToEth(_tokens[0], _amtA);
+        convertWethToEth(_tokens[1], _amtB);
+    }
+}
+
+contract UniswapLiquidity is LiquidityHelpers {
+    event LogDepositLiquidity(
+        address indexed tokenA,
+        address indexed tokenB,
+        uint amtA,
+        uint amtB,
+        uint uniAmount,
+        uint[] getId,
+        uint setId
+    );
+
+    event LogWithdrawLiquidity(
+        address indexed tokenA,
+        address indexed tokenB,
+        uint amountA,
+        uint amountB,
+        uint uniAmount,
+        uint getId,
+        uint[] setId
+    );
+
+    function emitDeposit(
+        address[] memory tokens,
+        uint _amtA,
+        uint _amtB,
+        uint _uniAmt,
+        uint[] memory getIds,
+        uint setId
+    ) internal {
+         emit LogDepositLiquidity(
+            tokens[0],
+            tokens[1],
+            _amtA,
+            _amtB,
+            _uniAmt,
+            getIds,
+            setId
+        );
+
+        bytes32 _eventCode = keccak256("LogDepositLiquidity(address,address,uint256,uint256,uint256,uint256[],uint256)");
+        bytes memory _eventParam = abi.encode(
+            tokens[0],
+            tokens[1],
+            _amtA,
+            _amtB,
+            _uniAmt,
+            getIds,
+            setId
+        );
+        emitEvent(_eventCode, _eventParam);
+    }
+
+    function emitWithdraw(
+        address[] memory tokens,
+        uint _amtA,
+        uint _amtB,
+        uint _uniAmt,
+        uint getId,
+        uint[] memory setIds
+    ) internal {
+            emit LogWithdrawLiquidity(
+            tokens[0],
+            tokens[1],
+            _amtA,
+            _amtB,
+            _uniAmt,
+            getId,
+            setIds
+        );
+        bytes32 _eventCode = keccak256("LogWithdrawLiquidity(address,address,uint256,uint256,uint256,uint256[],uint256)");
+        bytes memory _eventParam = abi.encode(
+            tokens[0],
+            tokens[1],
+            _amtA,
+            _amtB,
+            _uniAmt,
+            getId,
+            setIds
+        );
+        emitEvent(_eventCode, _eventParam);
+    }
+
+    function deposit(
+        address[]  calldata tokens,
+        uint[] calldata amts,
+        uint[] calldata slippages,
+        uint deadline,
+        uint[] calldata getIds,
+        uint setId
+    ) external payable {
+        require(tokens.length == 2 && amts.length == 2, "length-is-not-two");
+        uint[] memory _amts = new uint[](2);
+        for (uint i = 0; i < getIds.length; i++) {
+            _amts[i] = getUint(getIds[i], amts[i]);
+        }
+
+        (uint _amtA, uint _amtB, uint _uniAmt) = _addLiquidity(
+                                            tokens,
+                                            _amts,
+                                            slippages,
+                                            deadline
+                                            );
+        setUint(setId, _uniAmt);
+        emitDeposit(tokens, _amtA, _amtB, _uniAmt, getIds, setId);
+    }
+
+    function withdraw(
+        address[]  calldata tokens,
+        uint amt,
+        uint[] calldata slippages,
+        uint deadline,
+        uint getId,
+        uint[] calldata setIds
+    ) external payable {
+        require(tokens.length == 2, "length-is-not-two");
+        uint _uniAmt = getUint(getId, amt);
+
+        (uint _amtA, uint _amtB) = _removeLiquidity(tokens, _uniAmt, slippages, deadline);
+
+        setUint(setIds[0], _amtA);
+        setUint(setIds[1], _amtB);
+        emitWithdraw(tokens, _amtA, _amtB, _uniAmt, getId, setIds);
+    }
+}
+
+contract UniswapResolver is UniswapLiquidity {
     event LogBuy(
         address indexed buyToken,
         address indexed sellToken,
