@@ -133,6 +133,10 @@ contract UniswapHelpers is Stores, DSMath {
         amt = mul(_amt, 10 ** (18 - _dec));
     }
 
+    function getTokenBalace(address token) internal view returns (uint256 amt) {
+        amt = token == getEthAddr() ? address(this).balance : TokenInterface(token).balanceOf(address(this));
+    }
+
     function changeEthAddress(address buy, address sell) internal pure returns(TokenInterface _buy, TokenInterface _sell){
         _buy = buy == getEthAddr() ? TokenInterface(getAddressWETH()) : TokenInterface(buy);
         _sell = sell == getEthAddr() ? TokenInterface(getAddressWETH()) : TokenInterface(sell);
@@ -193,6 +197,16 @@ contract UniswapHelpers is Stores, DSMath {
 
 contract LiquidityHelpers is UniswapHelpers {
 
+    function getMinAmount(
+        TokenInterface token,
+        uint amt,
+        uint slippage
+    ) internal view returns(uint minAmt) {
+        uint _amt18 = convertTo18(token.decimals(), amt);
+        minAmt = wmul(_amt18, sub(WAD, slippage));
+        minAmt = convert18ToDec(token.decimals(), minAmt);
+    }
+
     function changeEthToWeth(
         address[] memory tokens
     ) internal pure returns(TokenInterface[] memory _tokens) {
@@ -210,8 +224,8 @@ contract LiquidityHelpers is UniswapHelpers {
     ) internal returns (uint _amtA, uint _amtB, uint _liquidity) {
         IUniswapV2Router01 router = IUniswapV2Router01(getUniswapAddr());
         TokenInterface[] memory _tokens = changeEthToWeth(tokens);
-        _amts[0] = _amts[0] == uint(-1) ? _tokens[0].balanceOf(address(this)) : _amts[0];
-        _amts[1] = _amts[1] == uint(-1) ? _tokens[1].balanceOf(address(this)) : _amts[1];
+        _amts[0] = _amts[0] == uint(-1) ? getTokenBalace(tokens[0]) : _amts[0];
+        _amts[1] = _amts[1] == uint(-1) ? getTokenBalace(tokens[0]) : _amts[1];
 
         convertEthToWeth(_tokens[0], _amts[0]);
         convertEthToWeth(_tokens[1], _amts[1]);
@@ -223,8 +237,8 @@ contract LiquidityHelpers is UniswapHelpers {
             address(_tokens[1]),
             _amts[0],
             _amts[1],
-            slippages[0],
-            slippages[1],
+            getMinAmount(_tokens[0], _amts[0], slippages[0]),
+            getMinAmount(_tokens[1], _amts[1], slippages[1]),
             address(this),
             now + deadline // TODO - deadline?
         );
@@ -480,7 +494,7 @@ contract UniswapResolver is UniswapLiquidity {
         address[] memory paths = getPaths(address(_buyAddr), address(_sellAddr));
 
         if (_sellAmt == uint(-1)) {
-            _sellAmt = sellAddr == getEthAddr() ? address(this).balance : _buyAddr.balanceOf(address(this));
+            _sellAmt = sellAddr == getEthAddr() ? address(this).balance : _sellAddr.balanceOf(address(this));
         }
 
         uint _sellAmt18 = convertTo18(_sellAddr.decimals(), _sellAmt);
