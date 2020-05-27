@@ -200,32 +200,37 @@ contract LiquidityHelpers is UniswapHelpers {
     }
 
     function _removeLiquidity(
-        address[] memory tokens,
+        address tokenA,
+        address tokenB,
         uint _amt,
-        uint[] memory slippages,
+        uint unitAmtA,
+        uint unitAmtB,
         uint deadline
     ) internal returns (uint _amtA, uint _amtB, uint _uniAmt) {
         IUniswapV2Router01 router = IUniswapV2Router01(getUniswapAddr());
-        TokenInterface[] memory _tokens = changeEthToWeth(tokens);
-        address exchangeAddr = IUniswapV2Factory(router.factory()).getPair(address(_tokens[0]), address(_tokens[1]));
+        (TokenInterface _tokenA, TokenInterface _tokenB) = changeEthAddress(tokenA, tokenB);
+        address exchangeAddr = IUniswapV2Factory(router.factory()).getPair(address(_tokenA), address(_tokenB));
         require(exchangeAddr != address(0), "pair-not-found.");
 
         TokenInterface uniToken = TokenInterface(exchangeAddr);
         _uniAmt = _amt == uint(-1) ? uniToken.balanceOf(address(this)) : _amt;
         uniToken.approve(address(router), _uniAmt);
 
+        uint minAmtA = convert18ToDec(_tokenA.decimals(), wmul(unitAmtA, _amt));
+        uint minAmtB = convert18ToDec(_tokenB.decimals(), wmul(unitAmtB, _amt));
+
        (_amtA, _amtB) = router.removeLiquidity(
-            address(_tokens[0]),
-            address(_tokens[1]),
+            address(_tokenA),
+            address(_tokenB),
             _amt,
-            slippages[0],
-            slippages[1],
+            minAmtA,
+            minAmtB,
             address(this),
             now + deadline // TODO - deadline?
         );
 
-        convertWethToEth(_tokens[0], _amtA);
-        convertWethToEth(_tokens[1], _amtB);
+        convertWethToEth(_tokenA, _amtA);
+        convertWethToEth(_tokenB, _amtB);
     }
 }
 
@@ -269,7 +274,7 @@ contract UniswapLiquidity is LiquidityHelpers {
             setId
         );
 
-        bytes32 _eventCode = keccak256("LogDepositLiquidity(address,address,uint256,uint256,uint256,uint256[],uint256)");
+        bytes32 _eventCode = keccak256("LogDepositLiquidity(address,address,uint256,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(
             tokenA,
             tokenB,
@@ -283,7 +288,8 @@ contract UniswapLiquidity is LiquidityHelpers {
     }
 
     function emitWithdraw(
-        address[] memory tokens,
+        address tokenA,
+        address tokenB,
         uint _amtA,
         uint _amtB,
         uint _uniAmt,
@@ -291,18 +297,18 @@ contract UniswapLiquidity is LiquidityHelpers {
         uint[] memory setIds
     ) internal {
             emit LogWithdrawLiquidity(
-            tokens[0],
-            tokens[1],
+            tokenA,
+            tokenB,
             _amtA,
             _amtB,
             _uniAmt,
             getId,
             setIds
         );
-        bytes32 _eventCode = keccak256("LogWithdrawLiquidity(address,address,uint256,uint256,uint256,uint256[],uint256)");
+        bytes32 _eventCode = keccak256("LogWithdrawLiquidity(address,address,uint256,uint256,uint256,uint256,uint256[])");
         bytes memory _eventParam = abi.encode(
-            tokens[0],
-            tokens[1],
+            tokenA,
+            tokenB,
             _amtA,
             _amtB,
             _uniAmt,
@@ -337,21 +343,29 @@ contract UniswapLiquidity is LiquidityHelpers {
     }
 
     function withdraw(
-        address[]  calldata tokens,
-        uint amt,
-        uint[] calldata slippages,
+        address tokenA,
+        address tokenB,
+        uint uinAmt,
+        uint unitAmtA,
+        uint unitAmtB,
         uint deadline,
         uint getId,
         uint[] calldata setIds
     ) external payable {
-        require(tokens.length == 2, "length-is-not-two");
-        uint _amt = getUint(getId, amt);
+        uint _amt = getUint(getId, uinAmt);
         
-        (uint _amtA, uint _amtB, uint _uniAmt) = _removeLiquidity(tokens, _amt, slippages, deadline);
+        (uint _amtA, uint _amtB, uint _uniAmt) = _removeLiquidity(
+            tokenA,
+            tokenB,
+            _amt,
+            unitAmtA,
+            unitAmtB,
+            deadline
+        );
 
         setUint(setIds[0], _amtA);
         setUint(setIds[1], _amtB);
-        emitWithdraw(tokens, _amtA, _amtB, _uniAmt, getId, setIds);
+        emitWithdraw(tokenA, tokenB, _amtA, _amtB, _uniAmt, getId, setIds);
     }
 }
 
