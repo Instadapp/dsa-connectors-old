@@ -19,14 +19,6 @@ interface IUniswapV2Router01 {
         address to,
         uint deadline
     ) external returns (uint amountA, uint amountB, uint liquidity);
-    function addLiquidityETH(
-        address token,
-        uint amountTokenDesired,
-        uint amountTokenMin,
-        uint amountETHMin,
-        address to,
-        uint deadline
-    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
     function removeLiquidity(
         address tokenA,
         address tokenB,
@@ -36,33 +28,6 @@ interface IUniswapV2Router01 {
         address to,
         uint deadline
     ) external returns (uint amountA, uint amountB);
-    function removeLiquidityETH(
-        address token,
-        uint liquidity,
-        uint amountTokenMin,
-        uint amountETHMin,
-        address to,
-        uint deadline
-    ) external returns (uint amountToken, uint amountETH);
-    function removeLiquidityWithPermit(
-        address tokenA,
-        address tokenB,
-        uint liquidity,
-        uint amountAMin,
-        uint amountBMin,
-        address to,
-        uint deadline,
-        bool approveMax, uint8 v, bytes32 r, bytes32 s
-    ) external returns (uint amountA, uint amountB);
-    function removeLiquidityETHWithPermit(
-        address token,
-        uint liquidity,
-        uint amountTokenMin,
-        uint amountETHMin,
-        address to,
-        uint deadline,
-        bool approveMax, uint8 v, bytes32 r, bytes32 s
-    ) external returns (uint amountToken, uint amountETH);
     function swapExactTokensForTokens(
         uint amountIn,
         uint amountOutMin,
@@ -77,20 +42,6 @@ interface IUniswapV2Router01 {
         address to,
         uint deadline
     ) external returns (uint[] memory amounts);
-    function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline)
-        external
-        payable
-        returns (uint[] memory amounts);
-    function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline)
-        external
-        returns (uint[] memory amounts);
-    function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline)
-        external
-        returns (uint[] memory amounts);
-    function swapETHForExactTokens(uint amountOut, address[] calldata path, address to, uint deadline)
-        external
-        payable
-        returns (uint[] memory amounts);
 
     function quote(uint amountA, uint reserveA, uint reserveB) external pure returns (uint amountB);
     function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut);
@@ -217,28 +168,32 @@ contract LiquidityHelpers is UniswapHelpers {
     }
 
     function _addLiquidity(
-        address[] memory tokens,
-        uint[] memory _amts,
-        uint[] memory slippages,
+        address tokenA,
+        address tokenB,
+        uint _amt,
+        uint unitAmt,
+        uint slippage,
         uint deadline
     ) internal returns (uint _amtA, uint _amtB, uint _liquidity) {
         IUniswapV2Router01 router = IUniswapV2Router01(getUniswapAddr());
-        TokenInterface[] memory _tokens = changeEthToWeth(tokens);
-        _amts[0] = _amts[0] == uint(-1) ? getTokenBalace(tokens[0]) : _amts[0];
-        _amts[1] = _amts[1] == uint(-1) ? getTokenBalace(tokens[0]) : _amts[1];
+        (TokenInterface _tokenA, TokenInterface _tokenB) = changeEthAddress(tokenA, tokenB);
 
-        convertEthToWeth(_tokens[0], _amts[0]);
-        convertEthToWeth(_tokens[1], _amts[1]);
-        _tokens[0].approve(address(router), _amts[0]);
-        _tokens[0].approve(address(router), _amts[1]);
-    
+        _amtA = _amt == uint(-1) ? getTokenBalace(tokenA) : _amt;
+        uint _amtA18 = convertTo18(_tokenA.decimals(), _amtA);
+        _amtB = convert18ToDec(_tokenB.decimals(), wmul(unitAmt, _amtA18));
+
+        convertEthToWeth(_tokenA, _amtA);
+        convertEthToWeth(_tokenB, _amtB);
+        _tokenA.approve(address(router), _amtA);
+        _tokenB.approve(address(router), _amtB);
+
        (_amtA, _amtB, _liquidity) = router.addLiquidity(
-            address(_tokens[0]),
-            address(_tokens[1]),
-            _amts[0],
-            _amts[1],
-            getMinAmount(_tokens[0], _amts[0], slippages[0]),
-            getMinAmount(_tokens[1], _amts[1], slippages[1]),
+            address(_tokenA),
+            address(_tokenB),
+            _amtA,
+            _amtB,
+            getMinAmount(_tokenA, _amtB, slippage),
+            getMinAmount(_tokenB, _amtB, slippage),
             address(this),
             now + deadline // TODO - deadline?
         );
@@ -281,7 +236,7 @@ contract UniswapLiquidity is LiquidityHelpers {
         uint amtA,
         uint amtB,
         uint uniAmount,
-        uint[] getId,
+        uint getId,
         uint setId
     );
 
@@ -296,31 +251,32 @@ contract UniswapLiquidity is LiquidityHelpers {
     );
 
     function emitDeposit(
-        address[] memory tokens,
+        address tokenA,
+        address tokenB,
         uint _amtA,
         uint _amtB,
         uint _uniAmt,
-        uint[] memory getIds,
+        uint getId,
         uint setId
     ) internal {
          emit LogDepositLiquidity(
-            tokens[0],
-            tokens[1],
+            tokenA,
+            tokenB,
             _amtA,
             _amtB,
             _uniAmt,
-            getIds,
+            getId,
             setId
         );
 
         bytes32 _eventCode = keccak256("LogDepositLiquidity(address,address,uint256,uint256,uint256,uint256[],uint256)");
         bytes memory _eventParam = abi.encode(
-            tokens[0],
-            tokens[1],
+            tokenA,
+            tokenB,
             _amtA,
             _amtB,
             _uniAmt,
-            getIds,
+            getId,
             setId
         );
         emitEvent(_eventCode, _eventParam);
@@ -357,27 +313,27 @@ contract UniswapLiquidity is LiquidityHelpers {
     }
 
     function deposit(
-        address[]  calldata tokens,
-        uint[] calldata amts,
-        uint[] calldata slippages,
+        address tokenA,
+        address tokenB,
+        uint amtA,
+        uint unitAmt,
+        uint slippage,
         uint deadline,
-        uint[] calldata getIds,
+        uint getId,
         uint setId
     ) external payable {
-        require(tokens.length == 2 && amts.length == 2, "length-is-not-two");
-        uint[] memory _amts = new uint[](2);
-        for (uint i = 0; i < getIds.length; i++) {
-            _amts[i] = getUint(getIds[i], amts[i]);
-        }
+        uint _amt = getUint(getId, amtA);
 
         (uint _amtA, uint _amtB, uint _uniAmt) = _addLiquidity(
-                                            tokens,
-                                            _amts,
-                                            slippages,
+                                            tokenA,
+                                            tokenB,
+                                            _amt,
+                                            unitAmt,
+                                            slippage,
                                             deadline
                                             );
         setUint(setId, _uniAmt);
-        emitDeposit(tokens, _amtA, _amtB, _uniAmt, getIds, setId);
+        emitDeposit(tokenA, tokenB, _amtA, _amtB, _uniAmt, getId, setId);
     }
 
     function withdraw(
