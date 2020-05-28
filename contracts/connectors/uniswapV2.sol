@@ -192,7 +192,7 @@ contract LiquidityHelpers is UniswapHelpers {
             address(_tokenB),
             _amtA,
             _amtB,
-            getMinAmount(_tokenA, _amtB, slippage),
+            getMinAmount(_tokenA, _amtA, slippage),
             getMinAmount(_tokenB, _amtB, slippage),
             address(this),
             now + deadline // TODO - deadline?
@@ -216,8 +216,8 @@ contract LiquidityHelpers is UniswapHelpers {
         _uniAmt = _amt == uint(-1) ? uniToken.balanceOf(address(this)) : _amt;
         uniToken.approve(address(router), _uniAmt);
 
-        uint minAmtA = convert18ToDec(_tokenA.decimals(), wmul(unitAmtA, _amt));
-        uint minAmtB = convert18ToDec(_tokenB.decimals(), wmul(unitAmtB, _amt));
+        uint minAmtA = convert18ToDec(_tokenA.decimals(), wmul(unitAmtA, _uniAmt));
+        uint minAmtB = convert18ToDec(_tokenB.decimals(), wmul(unitAmtB, _uniAmt));
 
        (_amtA, _amtB) = router.removeLiquidity(
             address(_tokenA),
