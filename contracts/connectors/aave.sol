@@ -50,16 +50,16 @@ contract AaveHelpers is DSMath, Stores {
      * @dev get Aave Address
     */
     function getAaveAddress() internal pure returns (address) {
-        // return 0x24a42fD28C976A61Df5D00D0599C34c4f90748c8; //mainnet
-        return 0x580D4Fdc4BF8f9b5ae2fb9225D584fED4AD5375c; //kovan
+        return 0x398eC7346DcD622eDc5ae82352F02bE94C62d119; //mainnet
+        // return 0x580D4Fdc4BF8f9b5ae2fb9225D584fED4AD5375c; //kovan
     }
 
     /**
      * @dev get Aave Core Address
     */
     function getAaveCoreAddress() internal pure returns (address) {
-        // return 0x24a42fD28C976A61Df5D00D0599C34c4f90748c8; //mainnet
-        return 0x95D1189Ed88B380E319dF73fF00E479fcc4CFa45; //kovan
+        return 0x3dfd23A6c5E8BbcFc9581d2E864a68feb6a076d3; //mainnet
+        // return 0x95D1189Ed88B380E319dF73fF00E479fcc4CFa45; //kovan
     }
 
     /**
@@ -120,8 +120,7 @@ contract BasicResolver is AaveHelpers {
         emit LogDeposit(token, _amt, getId, setId);
         bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+        emitEvent(_eventCode, _eventParam);
     }
 
     /**
@@ -147,8 +146,7 @@ contract BasicResolver is AaveHelpers {
         emit LogWithdraw(token, _amt, getId, setId);
         bytes32 _eventCode = keccak256("LogWithdraw(address,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+        emitEvent(_eventCode, _eventParam);
     }
 
     /**
@@ -167,8 +165,7 @@ contract BasicResolver is AaveHelpers {
         emit LogBorrow(token, _amt, getId, setId);
         bytes32 _eventCode = keccak256("LogBorrow(address,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+        emitEvent(_eventCode, _eventParam);
     }
 
     /**
@@ -201,8 +198,7 @@ contract BasicResolver is AaveHelpers {
         emit LogPayback(token, _amt, getId, setId);
         bytes32 _eventCode = keccak256("LogPayback(address,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+        emitEvent(_eventCode, _eventParam);
     }
 }
 
