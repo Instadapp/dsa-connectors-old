@@ -111,7 +111,7 @@ contract BasicResolver is AaveHelpers {
             tokenContract.approve(getAaveCoreAddress(), _amt);
         }
 
-        aave.deposit.value(ethAmt)(token, _amt, getReferralCode()); // TODO - need to set referralCode;
+        aave.deposit.value(ethAmt)(token, _amt, getReferralCode());
 
         if (!getIsColl(aave, token)) aave.setUserUseReserveAsCollateral(token, true);
 
