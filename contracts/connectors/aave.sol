@@ -46,20 +46,13 @@ interface ATokenInterface {
 }
 
 contract AaveHelpers is DSMath, Stores {
-    /**
-     * @dev get Aave Address
-    */
-    function getAaveAddress() internal pure returns (address) {
-        return 0x398eC7346DcD622eDc5ae82352F02bE94C62d119; //mainnet
-        // return 0x580D4Fdc4BF8f9b5ae2fb9225D584fED4AD5375c; //kovan
-    }
 
     /**
-     * @dev get Aave Core Address
+     * @dev get Aave Provider
     */
-    function getAaveCoreAddress() internal pure returns (address) {
-        return 0x3dfd23A6c5E8BbcFc9581d2E864a68feb6a076d3; //mainnet
-        // return 0x95D1189Ed88B380E319dF73fF00E479fcc4CFa45; //kovan
+    function getAaveProvider() internal pure returns (AaveProviderInterface) {
+        return AaveProviderInterface(0x24a42fD28C976A61Df5D00D0599C34c4f90748c8); //mainnet
+        // return AaveProviderInterface(0x506B0B2CF20FAA8f38a4E2B524EE43e1f4458Cc5); //kovan
     }
 
     /**
@@ -74,7 +67,7 @@ contract AaveHelpers is DSMath, Stores {
     }
 
     function getWithdrawBalance(address token) internal view returns (uint bal) {
-        AaveInterface aave = AaveInterface(getAaveAddress());
+        AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
         (bal, , , , , , , , , ) = aave.getUserReserveData(token, address(this));
     }
 
@@ -99,7 +92,7 @@ contract BasicResolver is AaveHelpers {
     */
     function deposit(address token, uint amt, uint getId, uint setId) external payable {
         uint _amt = getUint(getId, amt);
-        AaveInterface aave = AaveInterface(getAaveAddress());
+        AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
 
         uint ethAmt;
         if (token == getEthAddr()) {
@@ -108,7 +101,7 @@ contract BasicResolver is AaveHelpers {
         } else {
             TokenInterface tokenContract = TokenInterface(token);
             _amt = _amt == uint(-1) ? tokenContract.balanceOf(address(this)) : _amt;
-            tokenContract.approve(getAaveCoreAddress(), _amt);
+            tokenContract.approve(getAaveProvider().getLendingPoolCore(), _amt);
         }
 
         aave.deposit.value(ethAmt)(token, _amt, getReferralCode());
@@ -132,7 +125,7 @@ contract BasicResolver is AaveHelpers {
     */
     function withdraw(address token, uint amt, uint getId, uint setId) external payable {
         uint _amt = getUint(getId, amt);
-        AaveCoreInterface aaveCore = AaveCoreInterface(getAaveCoreAddress());
+        AaveCoreInterface aaveCore = AaveCoreInterface(getAaveProvider().getLendingPoolCore());
         ATokenInterface atoken = ATokenInterface(aaveCore.getReserveATokenAddress(token));
         TokenInterface tokenContract = TokenInterface(token);
 
@@ -158,7 +151,7 @@ contract BasicResolver is AaveHelpers {
     */
     function borrow(address token, uint amt, uint getId, uint setId) external payable {
         uint _amt = getUint(getId, amt);
-        AaveInterface aave = AaveInterface(getAaveAddress());
+        AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
         aave.borrow(token, _amt, 2, getReferralCode());
         setUint(setId, _amt);
 
@@ -177,7 +170,7 @@ contract BasicResolver is AaveHelpers {
     */
     function payback(address token, uint amt, uint getId, uint setId) external payable {
         uint _amt = getUint(getId, amt);
-        AaveInterface aave = AaveInterface(getAaveAddress());
+        AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
 
         if (_amt == uint(-1)) {
             uint fee;
@@ -188,7 +181,7 @@ contract BasicResolver is AaveHelpers {
         if (token == getEthAddr()) {
             ethAmt = _amt;
         } else {
-            TokenInterface(token).approve(getAaveCoreAddress(), _amt);
+            TokenInterface(token).approve(getAaveProvider().getLendingPoolCore(), _amt);
         }
 
         aave.repay.value(ethAmt)(token, _amt, payable(address(this)));
