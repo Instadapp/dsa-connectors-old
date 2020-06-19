@@ -35,6 +35,7 @@ interface ComptrollerInterface {
     function exitMarket(address cTokenAddress) external returns (uint);
     function getAssetsIn(address account) external view returns (address[] memory);
     function getAccountLiquidity(address account) external view returns (uint, uint, uint);
+    function claimComp(address) external;
 }
 
 interface InstaMapping {
@@ -68,6 +69,10 @@ contract DSMath {
 
     function wdiv(uint x, uint y) internal pure returns (uint z) {
         z = add(mul(x, WAD), y / 2) / y;
+    }
+
+    function sub(uint x, uint y) internal pure returns (uint z) {
+        require((z = x - y) <= x, "ds-math-sub-underflow");
     }
 
 }
@@ -124,6 +129,13 @@ contract CompoundHelpers is Helpers {
      */
     function getComptrollerAddress() internal pure returns (address) {
         return 0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B;
+    }
+
+    /**
+     * @dev Return COMP Token.
+     */
+    function getCompToken() internal pure returns (TokenInterface) {
+        return TokenInterface(0xc00e94Cb662C3520282E6f5717214004A7f26888);
     }
 
     /**
@@ -272,6 +284,7 @@ contract BasicResolver is CompoundHelpers {
 }
 
 contract ExtraResolver is BasicResolver {
+    event LogClaimedComp(uint256 CompAmt, uint256 setId);
     event LogDepositCToken(address indexed token, address cToken, uint256 tokenAmt, uint256 cTokenAmt,uint256 getId, uint256 setId);
     event LogWithdrawCToken(address indexed token, address cToken, uint256 cTokenAmt, uint256 getId, uint256 setId);
     event LogLiquidate(
@@ -282,6 +295,25 @@ contract ExtraResolver is BasicResolver {
         uint256 getId,
         uint256 setId
     );
+
+    /**
+     * @dev Claim Accrued COMP Token.
+     * @param setId Set ctoken amount at this ID in `InstaMemory` Contract.
+    */
+    function ClaimComp(uint setId) external payable {
+        uint intialBal = getCompToken().balanceOf(address(this));
+        ComptrollerInterface(getComptrollerAddress()).claimComp(address(this));
+        uint finalBal = getCompToken().balanceOf(address(this));
+        uint amt = sub(finalBal, intialBal);
+
+        setUint(setId, amt);
+
+        emit LogClaimedComp(amt, setId);
+        bytes32 _eventCode = keccak256("LogClaimedComp(uint256,uint256)");
+        bytes memory _eventParam = abi.encode(amt, setId);
+        (uint _type, uint _id) = connectorID();
+        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+    }
 
     /**
      * @dev Deposit ETH/ERC20_Token.
