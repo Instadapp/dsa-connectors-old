@@ -284,7 +284,7 @@ contract BasicResolver is CompoundHelpers {
 }
 
 contract ExtraResolver is BasicResolver {
-    event LogClaimedComp(uint256 CompAmt, uint256 setId);
+    event LogClaimedComp(uint256 compAmt, uint256 setId);
     event LogDepositCToken(address indexed token, address cToken, uint256 tokenAmt, uint256 cTokenAmt,uint256 getId, uint256 setId);
     event LogWithdrawCToken(address indexed token, address cToken, uint256 cTokenAmt, uint256 getId, uint256 setId);
     event LogLiquidate(
