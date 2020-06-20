@@ -118,7 +118,7 @@ contract Helpers is DSMath {
      * @dev Connector Details
     */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 16);
+        (_type, _id) = (1, 24);
     }
 }
 
@@ -437,5 +437,5 @@ contract ExtraResolver is BasicResolver {
 
 
 contract ConnectCompound is ExtraResolver {
-    string public name = "Compound-v1.1";
+    string public name = "Compound-v1.2";
 }
