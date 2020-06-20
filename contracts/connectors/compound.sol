@@ -132,10 +132,10 @@ contract CompoundHelpers is Helpers {
     }
 
     /**
-     * @dev Return COMP Token.
+     * @dev Return COMP Token Address.
      */
-    function getCompToken() internal pure returns (TokenInterface) {
-        return TokenInterface(0xc00e94Cb662C3520282E6f5717214004A7f26888);
+    function getCompTokenAddress() internal pure returns (address) {
+        return 0xc00e94Cb662C3520282E6f5717214004A7f26888;
     }
 
     /**
@@ -301,9 +301,10 @@ contract ExtraResolver is BasicResolver {
      * @param setId Set ctoken amount at this ID in `InstaMemory` Contract.
     */
     function ClaimComp(uint setId) external payable {
-        uint intialBal = getCompToken().balanceOf(address(this));
+        TokenInterface compToken = TokenInterface(getCompTokenAddress());
+        uint intialBal = compToken.balanceOf(address(this));
         ComptrollerInterface(getComptrollerAddress()).claimComp(address(this));
-        uint finalBal = getCompToken().balanceOf(address(this));
+        uint finalBal = compToken.balanceOf(address(this));
         uint amt = sub(finalBal, intialBal);
 
         setUint(setId, amt);
