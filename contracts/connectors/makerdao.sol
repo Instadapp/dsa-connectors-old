@@ -81,6 +81,10 @@ interface EventInterface {
     function emitEvent(uint _connectorType, uint _connectorID, bytes32 _eventCode, bytes calldata _eventData) external;
 }
 
+interface AccountInterface {
+    function isAuth(address _user) external view returns (bool);
+}
+
 contract DSMath {
 
     uint256 constant RAY = 10 ** 27;
@@ -333,6 +337,7 @@ contract MakerHelpers is MakerMCDAddresses {
 contract BasicResolver is MakerHelpers {
     event LogOpen(uint256 indexed vault, bytes32 indexed ilk);
     event LogClose(uint256 indexed vault, bytes32 indexed ilk);
+    event LogTransfer(uint256 indexed vault, bytes32 indexed ilk, address newOwner);
     event LogDeposit(uint256 indexed vault, bytes32 indexed ilk, uint256 tokenAmt, uint256 getId, uint256 setId);
     event LogWithdraw(uint256 indexed vault, bytes32 indexed ilk, uint256 tokenAmt, uint256 getId, uint256 setId);
     event LogBorrow(uint256 indexed vault, bytes32 indexed ilk, uint256 tokenAmt, uint256 getId, uint256 setId);
@@ -373,6 +378,29 @@ contract BasicResolver is MakerHelpers {
         emit LogClose(_vault, ilk);
         bytes32 _eventCode = keccak256("LogClose(uint256,bytes32)");
         bytes memory _eventParam = abi.encode(_vault, ilk);
+        (uint _type, uint _id) = connectorID();
+        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+    }
+
+    /**
+     * @dev Transfer Vault
+     * @param vault Vault ID to transfer.
+    */
+    function transfer(uint vault, address nextOwner) external payable {
+        require(AccountInterface(address(this)).isAuth(nextOwner), "nextOwner-is-not-auth");
+
+        ManagerLike managerContract = ManagerLike(getMcdManager());
+
+        uint _vault = getVault(managerContract, vault);
+        (bytes32 ilk,) = getVaultData(managerContract, _vault);
+
+        require(managerContract.owns(_vault) == address(this), "not-owner");
+
+        managerContract.give(_vault, nextOwner);
+
+        emit LogTransfer(_vault, ilk, nextOwner);
+        bytes32 _eventCode = keccak256("LogTransfer(uint256,bytes32,address)");
+        bytes memory _eventParam = abi.encode(_vault, ilk, nextOwner);
         (uint _type, uint _id) = connectorID();
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
