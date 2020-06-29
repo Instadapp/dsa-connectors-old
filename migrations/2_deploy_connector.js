@@ -1,5 +1,7 @@
-const Connector = artifacts.require("CurveProtocol"); // Change the Connector name while deploying.
+const CurveProtocol = artifacts.require("CurveProtocol");
+const CurveSBTCProtocol = artifacts.require("CurveSBTCProtocol");
 
 module.exports = function(deployer) {
-  deployer.deploy(Connector);
+  deployer.deploy(CurveProtocol);
+  deployer.deploy(CurveSBTCProtocol);
 };
