@@ -25,10 +25,14 @@ const swapToken = '0xC25a3A3b969415c80451098fa907EC722572917F'
 const tokenContract = new web3.eth.Contract(erc20, swapToken)
 
 contract('Curve Protocol', async accounts => {
+  let account, contract;
+
+  beforeEach(async function() {
+    account = accounts[0]
+    contract = await CurveProtocol.deployed()
+  });
 
   it('should send ether to the user address', async () => {
-    let account = accounts[0]
-    let contract = await CurveProtocol.deployed()
     const ethBalanceBefore = await balance.current(userAddress);
     // Send 0.1 eth to userAddress to have gas to send an ERC20 tx.
     await web3.eth.sendTransaction({
@@ -41,8 +45,6 @@ contract('Curve Protocol', async accounts => {
   });
 
   it('should transfer DAI to CurveProtocol', async () => {
-    let account = accounts[0]
-    let contract = await CurveProtocol.deployed()
     // Get 100 DAI for first 5 accounts
     // daiAddress is passed to ganache-cli with flag `--unlock`
     // so we can use the `transfer` method
@@ -58,14 +60,11 @@ contract('Curve Protocol', async accounts => {
   });
 
   it('should approve DAI to CurveProtocol', async() => {
-    let account = accounts[0]
-    let contract = await CurveProtocol.deployed()
-
     await daiContract.methods
-          .approve(contract.address, ether('100').toString())
-          .send({ from: account, gasLimit: 800000 });
-      const daiAllowance = await daiContract.methods.allowance(account, contract.address).call()
-      expect(+daiAllowance).to.be.at.least(+ether('100'))
+      .approve(contract.address, ether('100').toString())
+      .send({ from: account, gasLimit: 800000 });
+    const daiAllowance = await daiContract.methods.allowance(account, contract.address).call()
+    expect(+daiAllowance).to.be.at.least(+ether('100'))
   });
 
   /* Deprecated as CurveProtocol is not ICurve and exchange has been implemented into sell method
@@ -84,7 +83,7 @@ contract('Curve Protocol', async accounts => {
   });
   */
 
-  /* Deprecated as CurveProtocol is not ICurve and calc_token_amount has been implemented into withdraw method
+    /* Deprecated as CurveProtocol is not ICurve and calc_token_amount has been implemented into withdraw method
   it('should add liquidity', async () => {
     let account = accounts[0]
     let contract = await CurveProtocol.deployed()
@@ -106,9 +105,9 @@ contract('Curve Protocol', async accounts => {
     let burnAmount = receipt.logs[0].args.burnAmount.toString()
     let tokenBalanceAfter = await tokenContract.methods.balanceOf(contract.address).call()
 
-    //weird Ganache errors sometimes "cannot decode event"
+//weird Ganache errors sometimes "cannot decode event"
     console.log(+tokenBalance, +tokenBalanceAfter, +burnAmount)
-    //expect(BN(tokenBalance)).to.be.a.bignumber.equal(BN(tokenBalanceAfter).add(burnAmount))
+//expect(BN(tokenBalance)).to.be.a.bignumber.equal(BN(tokenBalanceAfter).add(burnAmount))
 
   })
 
@@ -121,9 +120,9 @@ contract('Curve Protocol', async accounts => {
     let withdrawnAmount = receipt.logs[0].args.withdrawnAmount.toString()
     let daiBalanceAfter = await daiContract.methods.balanceOf(contract.address).call()
 
-    //weird Ganache errors sometimes "cannot decode event"
+//weird Ganache errors sometimes "cannot decode event"
     console.log(+daiBalance, +daiBalanceAfter, +withdrawnAmount)
-    //expect(BN(daiBalance)).to.be.a.bignumber.equal(BN(daiBalanceAfter).sub(withdrawnAmount));
+//expect(BN(daiBalance)).to.be.a.bignumber.equal(BN(daiBalanceAfter).sub(withdrawnAmount));
   })
   */
 });
