@@ -156,4 +156,52 @@ contract CurveSBTCProtocol is CurveSBTCHelpers {
     emitEvent(_eventCode, _eventParam);
   }
 
+  /**
+  * @dev Withdraw Token.
+  * @param token token address.
+  * @param amt token amount.
+  * @param unitAmt unit amount of curve_amt/token_amt with slippage.
+  * @param getId Get token amount at this ID from `InstaMemory` Contract.
+  * @param setId Set token amount at this ID in `InstaMemory` Contract.
+  */
+  function withdraw(
+    address token,
+    uint256 amt,
+    uint256 unitAmt,
+    uint getId,
+    uint setId
+  ) external payable {
+    uint _amt = getUint(getId, amt);
+    int128 tokenId = getTokenI(token);
+
+    ERC20 curveTokenContract = ERC20(getCurveTokenAddr());
+    ICurve curveSwap = ICurve(getCurveSwapAddr());
+
+    uint _curveAmt;
+    uint[3] memory _amts;
+    if (_amt == uint(-1)) {
+      _curveAmt = curveTokenContract.balanceOf(address(this));
+      _amt = curveSwap.calc_withdraw_one_coin(_curveAmt, tokenId);
+      _amts[uint(tokenId)] = _amt;
+    } else {
+      _amts[uint(tokenId)] = _amt;
+      _curveAmt = curveSwap.calc_token_amount(_amts, false);
+    }
+
+    uint _amt18 = convertTo18(ERC20(token).decimals(), _amt);
+    uint _slippageAmt = wmul(unitAmt, _amt18);
+
+    curveTokenContract.approve(address(curveSwap), 0);
+    curveTokenContract.approve(address(curveSwap), _slippageAmt);
+
+    curveSwap.remove_liquidity_imbalance(_amts, _slippageAmt);
+
+    setUint(setId, _amt);
+
+    emit LogWithdraw(token, _amt, _curveAmt, getId, setId);
+    bytes32 _eventCode = keccak256("LogWithdraw(address,uint256,uint256,uint256,uint256)");
+    bytes memory _eventParam = abi.encode(token, _amt, _curveAmt, getId, setId);
+    emitEvent(_eventCode, _eventParam);
+  }
+
 }

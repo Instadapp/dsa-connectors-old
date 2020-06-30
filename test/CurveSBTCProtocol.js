@@ -82,7 +82,7 @@ contract('CurveSBTCProtocol', async accounts => {
       "0x075b1bb99792c9e1041ba13afef80c91a1e70fb3"
     )
 
-    const tx = await contract.deposit(
+    const txDeposit = await contract.deposit(
       erc20.wbtc.address,
       10000000,
       ( 0.09 / 0.1 * 1e18 ).toString(),
@@ -93,11 +93,28 @@ contract('CurveSBTCProtocol', async accounts => {
         from: sender
       }
     );
-    console.log(tx);
+    console.log(txDeposit);
 
-    const balance = await curveTokenContract.methods.balanceOf(sender);
+    const balanceDeposit = await curveTokenContract.methods.balanceOf(sender);
 
-    expect(balance).to.be.at.least(ether("0.09"));
+    expect(balanceDeposit).to.be.at.least(ether("0.09"));
 
+    const txWithdraw = await contract.withdraw(
+      erc20.wbtc.address,
+      10000000,
+      ( 0.09 / 0.1 * 1e18 ).toString(),
+      0,
+      0,
+      {
+        gas: 4000000,
+        from: sender
+      }
+    );
+    console.log(txWithdraw);
+
+    const balanceWithdraw = await curveTokenContract.methods.balanceOf(sender);
+
+    expect(balanceWithdraw).to.equal(0);
   });
+
 });
