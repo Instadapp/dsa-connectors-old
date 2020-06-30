@@ -112,4 +112,48 @@ contract CurveSBTCProtocol is CurveSBTCHelpers {
     emitEvent(_eventCode, _eventParam);
   }
 
+  /**
+  * @dev Deposit Token.
+  * @param token token address.
+  * @param amt token amount.
+  * @param unitAmt unit amount of curve_amt/token_amt with slippage.
+  * @param getId Get token amount at this ID from `InstaMemory` Contract.
+  * @param setId Set token amount at this ID in `InstaMemory` Contract.
+  */
+  function deposit(
+    address token,
+    uint amt,
+    uint unitAmt,
+    uint getId,
+    uint setId
+  ) external payable {
+    uint256 _amt = getUint(getId, amt);
+    ERC20 tokenContract = ERC20(token);
+
+    _amt = _amt == uint(-1) ? tokenContract.balanceOf(address(this)) : _amt;
+    uint[3] memory _amts;
+    _amts[uint(getTokenI(token))] = _amt;
+
+    tokenContract.approve(getCurveSwapAddr(), _amt);
+
+    uint _amt18 = convertTo18(tokenContract.decimals(), _amt);
+    uint _slippageAmt = wmul(unitAmt, _amt18);
+
+    ERC20 curveTokenContract = ERC20(getCurveTokenAddr());
+    uint initialCurveBal = curveTokenContract.balanceOf(address(this));
+
+    ICurve(getCurveSwapAddr()).add_liquidity(_amts, _slippageAmt);
+
+    uint finalCurveBal = curveTokenContract.balanceOf(address(this));
+
+    uint mintAmt = sub(finalCurveBal, initialCurveBal);
+
+    setUint(setId, mintAmt);
+
+    emit LogDeposit(token, _amt, mintAmt, getId, setId);
+    bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256,uint256)");
+    bytes memory _eventParam = abi.encode(token, _amt, mintAmt, getId, setId);
+    emitEvent(_eventCode, _eventParam);
+  }
+
 }

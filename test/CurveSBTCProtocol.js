@@ -10,6 +10,7 @@ const CurveSBTCProtocol = artifacts.require('CurveSBTCProtocol');
 const erc20 = require("@studydefi/money-legos/erc20");
 const uniswap = require("@studydefi/money-legos/uniswap");
 const sbtcABI = require("./abi/sbtc.json");
+const erc20ABI = require("./abi/erc20.js");
 
 contract('CurveSBTCProtocol', async accounts => {
   const [sender, receiver] =  accounts;
@@ -73,5 +74,30 @@ contract('CurveSBTCProtocol', async accounts => {
 
     const sbtcAfter = await sbtcContract.methods.balanceOf(sender).call();
     expect(sbtcAfter - sbtcBefore).to.be.at.least(ether("0.09"));
+  });
+
+  it('can add liquidity for wbtc', async function() {
+    const curveTokenContract = new web3.eth.Contract(
+      erc20ABI,
+      "0x075b1bb99792c9e1041ba13afef80c91a1e70fb3"
+    )
+
+    const tx = await contract.deposit(
+      erc20.wbtc.address,
+      10000000,
+      ( 0.09 / 0.1 * 1e18 ).toString(),
+      0,
+      0,
+      {
+        gas: 4000000,
+        from: sender
+      }
+    );
+    console.log(tx);
+
+    const balance = await curveTokenContract.methods.balanceOf(sender);
+
+    expect(balance).to.be.at.least(ether("0.09"));
+
   });
 });
