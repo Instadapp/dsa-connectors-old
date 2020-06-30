@@ -76,7 +76,7 @@ contract('CurveSBTCProtocol', async accounts => {
     expect(sbtcAfter - sbtcBefore).to.be.at.least(ether("0.09"));
   });
 
-  it('can add liquidity for wbtc', async function() {
+  it('can add and remove liquidity for wbtc', async function() {
     const curveTokenContract = new web3.eth.Contract(
       erc20ABI,
       "0x075b1bb99792c9e1041ba13afef80c91a1e70fb3"
