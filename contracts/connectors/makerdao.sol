@@ -184,7 +184,7 @@ contract Helpers is DSMath {
      * @dev Connector Details
     */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 9);
+        (_type, _id) = (1, 26);
     }
 }
 
@@ -592,7 +592,11 @@ contract BasicResolver is MakerHelpers {
 
         address vat = managerContract.vat();
 
-        _amt = _amt == uint(-1) ? _getVaultDebt(vat, ilk, urn) : _amt;
+        uint _maxDebt = _getVaultDebt(vat, ilk, urn);
+
+        _amt = _amt == uint(-1) ? _maxDebt : _amt;
+
+        require(_maxDebt >= _amt, "paying-excess-debt");
 
         DaiJoinInterface daiJoinContract = DaiJoinInterface(getMcdDaiJoin());
         daiJoinContract.dai().approve(getMcdDaiJoin(), _amt);
@@ -622,6 +626,7 @@ contract BasicResolver is MakerHelpers {
 
 contract BasicExtraResolver is BasicResolver {
     event LogWithdrawLiquidated(uint256 indexed vault, bytes32 indexed ilk, uint256 tokenAmt, uint256 getId, uint256 setId);
+    event LogExitDai(uint256 indexed vault, bytes32 indexed ilk, uint256 tokenAmt, uint256 getId, uint256 setId);
 
     /**
      * @dev Withdraw leftover ETH/ERC20_Token after Liquidation.
@@ -674,6 +679,53 @@ contract BasicExtraResolver is BasicResolver {
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
+    /**
+     * @dev Exit DAI from urn.
+     * @param vault Vault ID.
+     * @param amt token amount to exit.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
+    function exitDai(
+        uint vault,
+        uint amt,
+        uint getId,
+        uint setId
+    ) external payable {
+        ManagerLike managerContract = ManagerLike(getMcdManager());
+
+        uint _amt = getUint(getId, amt);
+        uint _vault = getVault(managerContract, vault);
+        (bytes32 ilk, address urn) = getVaultData(managerContract, _vault);
+
+        address daiJoin = getMcdDaiJoin();
+
+        VatLike vatContract = VatLike(managerContract.vat());
+        if(_amt == uint(-1)) {
+            _amt = vatContract.dai(urn);
+            _amt = _amt / 10 ** 27;
+        }
+
+        managerContract.move(
+            _vault,
+            address(this),
+            toRad(_amt)
+        );
+
+        if (vatContract.can(address(this), address(daiJoin)) == 0) {
+            vatContract.hope(daiJoin);
+        }
+
+        DaiJoinInterface(daiJoin).exit(address(this), _amt);
+
+        setUint(setId, _amt);
+
+        emit LogExitDai(_vault, ilk, _amt, getId, setId);
+        bytes32 _eventCode = keccak256("LogExitDai(uint256,bytes32,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(_vault, ilk, _amt, getId, setId);
+        (uint _type, uint _id) = connectorID();
+        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+    }
 }
 
 contract DsrResolver is BasicExtraResolver {
@@ -771,5 +823,5 @@ contract DsrResolver is BasicExtraResolver {
 }
 
 contract ConnectMaker is DsrResolver {
-    string public constant name = "MakerDao-v1.1";
+    string public constant name = "MakerDao-v1.2";
 }

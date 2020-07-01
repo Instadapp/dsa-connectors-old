@@ -1,6 +1,8 @@
 pragma solidity ^0.6.0;
 pragma experimental ABIEncoderV2;
 
+import "../../node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+
 interface LiqudityInterface {
     function deposit(address, uint) external payable;
     function withdraw(address, uint) external;
@@ -11,6 +13,8 @@ interface LiqudityInterface {
     function isTknAllowed(address) external view returns(bool);
     function tknToCTkn(address) external view returns(address);
     function liquidityBalance(address, address) external view returns(uint);
+
+    function borrowedToken(address) external view returns(uint);
 }
 
 interface CTokenInterface {
@@ -66,6 +70,9 @@ contract DSMath {
 
 
 contract Helpers is DSMath {
+
+    using SafeERC20 for IERC20;
+
     /**
      * @dev Return ethereum address
      */
@@ -106,6 +113,12 @@ contract Helpers is DSMath {
     */
     function connectorID() public pure returns(uint _type, uint _id) {
         (_type, _id) = (1, 8);
+    }
+
+    function _transfer(address payable to,address token, uint _amt) internal {
+        token == getAddressETH() ?
+            to.transfer(_amt) :
+            IERC20(token).safeTransfer(to, _amt);
     }
 }
 
@@ -214,18 +227,13 @@ contract LiquidityAccess is LiquidityManage {
     */
     function flashPayback(address token, uint getId, uint setId) external payable {
         LiqudityInterface liquidityContract = LiqudityInterface(getLiquidityAddress());
-        uint _amt;
+        uint _amt = liquidityContract.borrowedToken(token);
 
-        if (token == getAddressETH()) {
-            CETHInterface cethContract = CETHInterface(liquidityContract.tknToCTkn(token));
-            _amt = cethContract.borrowBalanceCurrent(address(liquidityContract));
-            cethContract.repayBorrowBehalf.value(_amt)(address(liquidityContract));
-        } else {
-            CTokenInterface ctokenContract = CTokenInterface(liquidityContract.tknToCTkn(token));
-            _amt = ctokenContract.borrowBalanceCurrent(address(liquidityContract));
-            TokenInterface(token).approve(address(ctokenContract), _amt);
-            require(ctokenContract.repayBorrowBehalf(address(liquidityContract), _amt) == 0, "repay-failed");
-        }
+        address[] memory _tknAddrs = new address[](1);
+        _tknAddrs[0] = token;
+
+        _transfer(payable(address(liquidityContract)), token, _amt);
+        liquidityContract.returnLiquidity(_tknAddrs);
 
         setUint(setId, _amt);
 
@@ -280,23 +288,9 @@ contract LiquidityAccess is LiquidityManage {
         uint _length = tokens.length;
 
         for (uint i = 0; i < _length; i++) {
+            uint _amt = liquidityContract.borrowedToken(tokens[i]);
 
-            for (uint j = 0; j < _length; j++) {
-                if (tokens[i] == tokens[j] && i != j) require(false, "tkn-repeated");
-            }
-
-            uint _amt;
-
-            if (tokens[i] == getAddressETH()) {
-                CETHInterface cethContract = CETHInterface(liquidityContract.tknToCTkn(tokens[i]));
-                _amt = cethContract.borrowBalanceCurrent(address(liquidityContract));
-                cethContract.repayBorrowBehalf.value(_amt)(address(liquidityContract));
-            } else {
-                CTokenInterface ctokenContract = CTokenInterface(liquidityContract.tknToCTkn(tokens[i]));
-                _amt = ctokenContract.borrowBalanceCurrent(address(liquidityContract));
-                TokenInterface(tokens[i]).approve(address(ctokenContract), _amt);
-                require(ctokenContract.repayBorrowBehalf(address(liquidityContract), _amt) == 0, "repay-failed");
-            }
+            _transfer(payable(address(liquidityContract)), tokens[i], _amt);
 
             setUint(setId[i], _amt);
 
@@ -306,10 +300,12 @@ contract LiquidityAccess is LiquidityManage {
             (uint _type, uint _id) = connectorID();
             EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
         }
+
+        liquidityContract.returnLiquidity(tokens);
     }
 }
 
 
 contract ConnectInstaPool is LiquidityAccess {
-    string public name = "InstaPool-v1.1";
+    string public name = "InstaPool-v2.1";
 }
