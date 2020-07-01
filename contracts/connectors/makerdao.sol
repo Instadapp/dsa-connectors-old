@@ -592,7 +592,11 @@ contract BasicResolver is MakerHelpers {
 
         address vat = managerContract.vat();
 
-        _amt = _amt == uint(-1) ? _getVaultDebt(vat, ilk, urn) : _amt;
+        uint _maxDebt = _getVaultDebt(vat, ilk, urn);
+
+        _amt = _amt == uint(-1) ? _maxDebt : _amt;
+
+        require(_maxDebt >= _amt, "paying-excess-debt");
 
         DaiJoinInterface daiJoinContract = DaiJoinInterface(getMcdDaiJoin());
         daiJoinContract.dai().approve(getMcdDaiJoin(), _amt);
@@ -819,5 +823,5 @@ contract DsrResolver is BasicExtraResolver {
 }
 
 contract ConnectMaker is DsrResolver {
-    string public constant name = "MakerDao-v1.1";
+    string public constant name = "MakerDao-v1.2";
 }
