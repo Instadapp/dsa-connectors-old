@@ -7,19 +7,19 @@ contract DSMath {
   uint constant RAY = 10 ** 27;
 
   function add(uint x, uint y) internal pure returns (uint z) {
-    SafeMath.add(x, y);
+    z = SafeMath.add(x, y);
   }
 
   function sub(uint x, uint y) internal pure returns (uint z) {
-    SafeMath.sub(x, y);
+    z = SafeMath.sub(x, y);
   }
 
   function mul(uint x, uint y) internal pure returns (uint z) {
-    SafeMath.mul(x, y);
+    z = SafeMath.mul(x, y);
   }
 
   function div(uint x, uint y) internal pure returns (uint z) {
-    SafeMath.div(x, y);
+    z = SafeMath.div(x, y);
   }
 
   function wmul(uint x, uint y) internal pure returns (uint z) {
