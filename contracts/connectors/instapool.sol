@@ -307,5 +307,5 @@ contract LiquidityAccess is LiquidityManage {
 
 
 contract ConnectInstaPool is LiquidityAccess {
-    string public name = "InstaPool-v2.1";
+    string public name = "InstaPool-v2";
 }
