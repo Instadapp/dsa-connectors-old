@@ -7,7 +7,6 @@ import { DSMath } from "../common/math.sol";
 
 // import files from OZ
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {SafeCast} from "@openzeppelin/contracts/utils/SafeCast.sol";
 
 interface ICurve {
   function coins(int128 tokenId) external view returns (address token);
@@ -73,7 +72,7 @@ contract CurveSBTCProtocol is CurveSBTCHelpers {
   event LogWithdraw(address token, uint256 amt, uint256 burnAmt, uint256 getId,  uint256 setId);
 
   /**
-  * @dev Sell Stable ERC20_Token.
+  * @dev Sell ERC20_Token.
   * @param buyAddr buying token address.
   * @param sellAddr selling token amount.
   * @param sellAmt selling token amount.
@@ -203,5 +202,9 @@ contract CurveSBTCProtocol is CurveSBTCHelpers {
     bytes memory _eventParam = abi.encode(token, _amt, _curveAmt, getId, setId);
     emitEvent(_eventCode, _eventParam);
   }
-
 }
+
+contract ConnectSBTCCurve is CurveSBTCProtocol {
+  string public name = "Curve-sbtc-v1";
+}
+
