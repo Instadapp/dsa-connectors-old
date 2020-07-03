@@ -409,8 +409,8 @@ contract UniswapResolver is UniswapLiquidity {
         (TokenInterface _buyAddr, TokenInterface _sellAddr) = changeEthAddress(buyAddr, sellAddr);
         address[] memory paths = getPaths(address(_buyAddr), address(_sellAddr));
 
-        uint __buyAmt18 = convertTo18(_buyAddr.decimals(), _buyAmt);
-        uint _slippageAmt = convert18ToDec(_sellAddr.decimals(), wmul(unitAmt, __buyAmt18));
+        uint _buyAmt18 = convertTo18(_buyAddr.decimals(), _buyAmt);
+        uint _slippageAmt = convert18ToDec(_sellAddr.decimals(), wmul(unitAmt, _buyAmt18));
 
         IUniswapV2Router01 router = IUniswapV2Router01(getUniswapAddr());
 
