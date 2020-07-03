@@ -164,7 +164,6 @@ contract LiquidityHelpers is UniswapHelpers {
         _tokens = new TokenInterface[](2);
         _tokens[0] = tokens[0] == getEthAddr() ? TokenInterface(getAddressWETH()) : TokenInterface(tokens[0]);
         _tokens[1] = tokens[1] == getEthAddr() ? TokenInterface(getAddressWETH()) : TokenInterface(tokens[1]);
-       
     }
 
     function _addLiquidity(
@@ -264,7 +263,7 @@ contract UniswapLiquidity is LiquidityHelpers {
         uint getId,
         uint setId
     ) internal {
-         emit LogDepositLiquidity(
+        emit LogDepositLiquidity(
             tokenA,
             tokenB,
             _amtA,
@@ -296,7 +295,7 @@ contract UniswapLiquidity is LiquidityHelpers {
         uint getId,
         uint[] memory setIds
     ) internal {
-            emit LogWithdrawLiquidity(
+        emit LogWithdrawLiquidity(
             tokenA,
             tokenB,
             _amtA,
@@ -353,7 +352,7 @@ contract UniswapLiquidity is LiquidityHelpers {
         uint[] calldata setIds
     ) external payable {
         uint _amt = getUint(getId, uinAmt);
-        
+
         (uint _amtA, uint _amtB, uint _uniAmt) = _removeLiquidity(
             tokenA,
             tokenB,
@@ -474,7 +473,7 @@ contract UniswapResolver is UniswapLiquidity {
 
         checkPair(router, paths);
         uint _expectedAmt = getExpectedBuyAmt(router, paths, _sellAmt);
-        require(_slippageAmt >= _expectedAmt, "Too much slippage");
+        require(_slippageAmt <= _expectedAmt, "Too much slippage");
 
         convertEthToWeth(_sellAddr, _sellAmt);
         _sellAddr.approve(address(router), _sellAmt);
