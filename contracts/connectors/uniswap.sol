@@ -503,5 +503,5 @@ contract UniswapResolver is UniswapLiquidity {
 
 
 contract ConnectUniswapV2 is UniswapResolver {
-    string public name = "UniswapV2-v1";
+    string public name = "Uniswap-v1";
 }
