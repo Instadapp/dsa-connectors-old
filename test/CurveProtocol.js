@@ -3,6 +3,7 @@ const daiABI = require('./abi/dai');
 const erc20 = require('./abi/erc20')
 const swap_abi = require('./abi/swap')
 const { ether, balance } = require('@openzeppelin/test-helpers');
+const uniswap = require("@studydefi/money-legos/uniswap");
 
 const BN = require('bn.js')
 
@@ -11,7 +12,7 @@ const expect = chai.expect
 chai.use(require('chai-bn')(BN));
 
 // userAddress must be unlocked using --unlock ADDRESS
-const userAddress = '0x9eb7f2591ed42dee9315b6e2aaf21ba85ea69f8c';
+const userAddress = '0xfcd22438ad6ed564a1c26151df73f6b33b817b56';
 const daiAddress = '0x6b175474e89094c44da98b954eedeac495271d0f';
 const daiContract = new web3.eth.Contract(daiABI, daiAddress);
 
@@ -30,6 +31,37 @@ contract('Curve Protocol', async accounts => {
   beforeEach(async function() {
     account = accounts[0]
     contract = await CurveProtocol.deployed()
+
+    let uniswapFactory = new web3.eth.Contract(
+      uniswap.factory.abi,
+      uniswap.factory.address
+    );
+
+    const daiExchangeAddress = await uniswapFactory.methods.getExchange(
+      daiAddress,
+    ).call();
+
+    const daiExchange = new web3.eth.Contract(
+      uniswap.exchange.abi,
+      daiExchangeAddress
+    );
+
+    const daiBefore = await daiContract.methods.balanceOf(userAddress).call();
+
+    await daiExchange.methods.ethToTokenSwapInput(
+      1, // min amount of token retrieved
+      2525644800, // random timestamp in the future (year 2050)
+    ).send(
+      {
+        gas: 4000000,
+        value: ether("5"),
+        from: userAddress
+      }
+    );
+
+    let daiAfter = await daiContract.methods.balanceOf(userAddress).call();
+
+    expect(daiAfter - daiBefore).to.be.at.least(+ether("1000"));
   });
 
   it('should send ether to the user address', async () => {

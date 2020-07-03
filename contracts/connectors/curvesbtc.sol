@@ -206,5 +206,16 @@ contract CurveSBTCProtocol is CurveSBTCHelpers {
 
 contract ConnectSBTCCurve is CurveSBTCProtocol {
   string public name = "Curve-sbtc-v1";
+  uint public _model;
+  uint public _id;
+
+  constructor (uint model, uint id) public {
+    _model = model;
+    _id = id;
+  }
+
+  function connectorID() public override view returns(uint model, uint id) {
+    (model, id) = (_model, _id);
+  }
 }
 
