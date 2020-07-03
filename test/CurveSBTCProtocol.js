@@ -26,11 +26,10 @@ contract('ConnectSBTCCurve', async accounts => {
   // let accountAddr = "0x939Daad09fC4A9B8f8A9352A485DAb2df4F4B3F8";
   let accountInstance = new web3.eth.Contract(accountABI, dsrAddr);
   let connectSBTCCurve;
+  let wbtcContract = new web3.eth.Contract(erc20.wbtc.abi, erc20.wbtc.address);
 
-  beforeEach(async function () {
+  before(async function () {
     connectSBTCCurve = await ConnectSBTCCurve.deployed();
-
-    let wbtcContract = new web3.eth.Contract(erc20.wbtc.abi, erc20.wbtc.address);
 
     let uniswapFactory = new web3.eth.Contract(
       uniswap.factory.abi,
@@ -47,10 +46,10 @@ contract('ConnectSBTCCurve', async accounts => {
     );
 
     const wbtcBefore = await wbtcContract.methods.balanceOf(sender).call();
-    console.log("WBTC Before: ", wbtcBefore.toString());
+    console.log("Sender WBTC Before: ", wbtcBefore.toString());
 
     const balanceBefore = await web3.eth.getBalance(sender);
-    console.log("Balance Before: ", balanceBefore.toString());
+    console.log("Sender Balance Before: ", balanceBefore.toString());
 
     await wbtcExchange.methods.ethToTokenSwapInput(
       1, // min amount of token retrieved
@@ -58,15 +57,15 @@ contract('ConnectSBTCCurve', async accounts => {
     ).send(
       {
         gas: 4000000,
-        value: ether("5"),
+        value: ether("10"),
         from: sender
       }
     );
 
     let wbtcAfter = await wbtcContract.methods.balanceOf(sender).call();
-    console.log("WBTC After: ", wbtcAfter.toString());
+    console.log("Sender WBTC After: ", wbtcAfter.toString());
     const balanceAfter = await web3.eth.getBalance(sender);
-    console.log("Balance After: ", balanceAfter.toString());
+    console.log("Sender Balance After: ", balanceAfter.toString());
 
     expect(wbtcAfter - wbtcBefore).to.be.at.least(10000000);
 
@@ -74,7 +73,7 @@ contract('ConnectSBTCCurve', async accounts => {
     await wbtcContract.methods.transfer(dsrAddr, 10000000).send({from: sender});
 
     // Send ETH to master
-    await web3.eth.sendTransaction({from: sender, to: masterAddress, value: ether("50")});
+    await web3.eth.sendTransaction({from: sender, to: masterAddress, value: ether("5")});
 
     let connectorID  = await connectSBTCCurve.connectorID();
 
@@ -89,6 +88,9 @@ contract('ConnectSBTCCurve', async accounts => {
     const sbtcContract = new web3.eth.Contract(sbtcABI, "0xfe18be6b3bd88a2d2a7f928d00292e7a9963cfc6");
 
     const sbtcBefore = await sbtcContract.methods.balanceOf(dsrAddr).call();
+    console.log("Master SBTC Before: ", sbtcBefore.toString());
+    let wbtcBefore = await wbtcContract.methods.balanceOf(dsrAddr).call();
+    console.log("Master WBTC Before: ", wbtcBefore.toString());
 
     const encoded = await connectSBTCCurve.contract.methods.sell(
       "0xfe18be6b3bd88a2d2a7f928d00292e7a9963cfc6",
@@ -105,57 +107,72 @@ contract('ConnectSBTCCurve', async accounts => {
       [encoded],
       masterAddress
     ]
-    console.log("Cast Inputs: ", castInputs);
 
     // Execute `cast()` function
     const tx = await accountInstance.methods.cast(...castInputs).send({from: masterAddress});
     console.log(tx);
 
-    const sbtcAfter = await sbtcContract.methods.balanceOf(sender).call();
+    let wbtcAfter = await wbtcContract.methods.balanceOf(dsrAddr).call();
+    console.log("Master WBTC After: ", wbtcAfter.toString());
+    const sbtcAfter = await sbtcContract.methods.balanceOf(dsrAddr).call();
+    console.log("Master SBTC After: ", sbtcAfter.toString());
     expect(sbtcAfter - sbtcBefore).to.be.at.least(ether("0.09"));
   });
 
-  /*
   it('can add and remove liquidity for wbtc', async function() {
     const curveTokenContract = new web3.eth.Contract(
     erc20ABI,
       "0x075b1bb99792c9e1041ba13afef80c91a1e70fb3"
   )
 
-    const txDeposit = await contract.deposit(
+    let wbtcBefore = await wbtcContract.methods.balanceOf(dsrAddr).call();
+    console.log("Master WBTC Before: ", wbtcBefore.toString());
+
+    const encodedDeposit = await connectSBTCCurve.contract.methods.deposit(
       erc20.wbtc.address,
       10000000,
       ( 0.09 / 0.1 * 1e18 ).toString(),
       0,
-      0,
-      {
-        gas: 4000000,
-        from: sender
-      }
-    );
+      0
+    ).encodeABI();
+
+    //Inputs for `cast()` function of DSA Account.
+    const castInputsDeposit = [
+      [connectSBTCCurve.address],
+      [encodedDeposit],
+      masterAddress
+    ]
+
+    // Execute `cast()` function
+    const txDeposit = await accountInstance.methods.cast(...castInputsDeposit).send({from: masterAddress});
     console.log(txDeposit);
 
-    const balanceDeposit = await curveTokenContract.methods.balanceOf(sender);
+    const balanceDeposit = await curveTokenContract.methods.balanceOf(dsrAddr);
 
     expect(balanceDeposit).to.be.at.least(ether("0.09"));
 
-    const txWithdraw = await contract.withdraw(
+    const encodedWithdraw = await connectSBTCCurve.contract.methods.withdraw(
       erc20.wbtc.address,
       10000000,
       ( 0.09 / 0.1 * 1e18 ).toString(),
       0,
-      0,
-      {
-        gas: 4000000,
-        from: sender
-      }
-    );
+      0
+    ).encodeABI();
+
+    //Inputs for `cast()` function of DSA Account.
+    const castInputsWithdraw = [
+      [connectSBTCCurve.address],
+      [encodedWithdraw],
+      masterAddress
+    ]
+
+    // Execute `cast()` function
+    const txWithdraw = await accountInstance.methods.cast(...castInputsWithdraw).send({from: masterAddress});
     console.log(txWithdraw);
 
-    const balanceWithdraw = await curveTokenContract.methods.balanceOf(sender);
+    const balanceWithdraw = await curveTokenContract.methods.balanceOf(dsrAddr);
 
     expect(balanceWithdraw).to.equal(0);
   });
-  */
 
 });
