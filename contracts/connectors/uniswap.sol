@@ -73,7 +73,7 @@ contract UniswapHelpers is Stores, DSMath {
      * @dev Return uniswap v2 router Address
      */
     function getUniswapAddr() internal pure returns (address) {
-        return 0x794e6e91555438aFc3ccF1c5076A74F42133d08D;
+        return 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     }
 
     function convert18ToDec(uint _dec, uint256 _amt) internal pure returns (uint256 amt) {
