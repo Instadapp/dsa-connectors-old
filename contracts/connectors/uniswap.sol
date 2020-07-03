@@ -425,7 +425,7 @@ contract UniswapResolver is UniswapLiquidity {
             _expectedAmt,
             paths,
             address(this),
-            now + 6 hours // TODO - deadline?
+            now + 1
         );
 
         uint _sellAmt = _amts[0];
@@ -483,7 +483,7 @@ contract UniswapResolver is UniswapLiquidity {
             _expectedAmt,
             paths,
             address(this),
-            now + 6 hours // TODO - deadline?
+            now + 1
         );
 
         uint _buyAmt = _amts[1];
