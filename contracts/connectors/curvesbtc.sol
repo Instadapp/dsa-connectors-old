@@ -4,9 +4,7 @@ pragma solidity ^0.6.0;
 import { MemoryInterface, EventInterface} from "../common/interfaces.sol";
 import { Stores } from "../common/stores.sol";
 import { DSMath } from "../common/math.sol";
-
-// import files from OZ
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { TokenInterface } from "../common/interfaces.sol";
 
 interface ICurve {
   function coins(int128 tokenId) external view returns (address token);
@@ -90,8 +88,8 @@ contract CurveSBTCProtocol is CurveSBTCHelpers {
   ) external payable {
     uint _sellAmt = getUint(getId, sellAmt);
     ICurve curve = ICurve(getCurveSwapAddr());
-    ERC20 _buyToken = ERC20(buyAddr);
-    ERC20 _sellToken = ERC20(sellAddr);
+    TokenInterface _buyToken = TokenInterface(buyAddr);
+    TokenInterface _sellToken = TokenInterface(sellAddr);
     _sellAmt = _sellAmt == uint(-1) ? _sellToken.balanceOf(address(this)) : _sellAmt;
     _sellToken.approve(address(curve), _sellAmt);
 
@@ -127,7 +125,7 @@ contract CurveSBTCProtocol is CurveSBTCHelpers {
     uint setId
   ) external payable {
     uint256 _amt = getUint(getId, amt);
-    ERC20 tokenContract = ERC20(token);
+    TokenInterface tokenContract = TokenInterface(token);
 
     _amt = _amt == uint(-1) ? tokenContract.balanceOf(address(this)) : _amt;
     uint[3] memory _amts;
@@ -138,7 +136,7 @@ contract CurveSBTCProtocol is CurveSBTCHelpers {
     uint _amt18 = convertTo18(tokenContract.decimals(), _amt);
     uint _slippageAmt = wmul(unitAmt, _amt18);
 
-    ERC20 curveTokenContract = ERC20(getCurveTokenAddr());
+    TokenInterface curveTokenContract = TokenInterface(getCurveTokenAddr());
     uint initialCurveBal = curveTokenContract.balanceOf(address(this));
 
     ICurve(getCurveSwapAddr()).add_liquidity(_amts, _slippageAmt);
@@ -173,7 +171,7 @@ contract CurveSBTCProtocol is CurveSBTCHelpers {
     uint _amt = getUint(getId, amt);
     int128 tokenId = getTokenI(token);
 
-    ERC20 curveTokenContract = ERC20(getCurveTokenAddr());
+    TokenInterface curveTokenContract = TokenInterface(getCurveTokenAddr());
     ICurve curveSwap = ICurve(getCurveSwapAddr());
 
     uint _curveAmt;
@@ -187,7 +185,7 @@ contract CurveSBTCProtocol is CurveSBTCHelpers {
       _curveAmt = curveSwap.calc_token_amount(_amts, false);
     }
 
-    uint _amt18 = convertTo18(ERC20(token).decimals(), _amt);
+    uint _amt18 = convertTo18(TokenInterface(token).decimals(), _amt);
     uint _slippageAmt = wmul(unitAmt, _amt18);
 
     curveTokenContract.approve(address(curveSwap), 0);
