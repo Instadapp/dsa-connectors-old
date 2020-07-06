@@ -184,13 +184,15 @@ contract LiquidityHelpers is UniswapHelpers {
         _tokenA.approve(address(router), _amtA);
         _tokenB.approve(address(router), _amtB);
 
+       uint minAmtA = getMinAmount(_tokenA, _amtA, slippage);
+        uint minAmtB = getMinAmount(_tokenB, _amtB, slippage);
        (_amtA, _amtB, _liquidity) = router.addLiquidity(
             address(_tokenA),
             address(_tokenB),
             _amtA,
             _amtB,
-            getMinAmount(_tokenA, _amtA, slippage),
-            getMinAmount(_tokenB, _amtB, slippage),
+            minAmtA,
+            minAmtB,
             address(this),
             now + 1
         );
