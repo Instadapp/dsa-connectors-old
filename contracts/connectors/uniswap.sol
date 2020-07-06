@@ -171,15 +171,13 @@ contract LiquidityHelpers is UniswapHelpers {
         address tokenB,
         uint _amt,
         uint unitAmt,
-        uint slippage,
-        uint deadline
+        uint slippage
     ) internal returns (uint _amtA, uint _amtB, uint _liquidity) {
         IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
         (TokenInterface _tokenA, TokenInterface _tokenB) = changeEthAddress(tokenA, tokenB);
 
         _amtA = _amt == uint(-1) ? getTokenBalace(tokenA) : _amt;
-        uint _amtA18 = convertTo18(_tokenA.decimals(), _amtA);
-        _amtB = convert18ToDec(_tokenB.decimals(), wmul(unitAmt, _amtA18));
+        _amtB = convert18ToDec(_tokenB.decimals(), wmul(unitAmt, convertTo18(_tokenA.decimals(), _amtA)));
 
         convertEthToWeth(_tokenA, _amtA);
         convertEthToWeth(_tokenB, _amtB);
@@ -194,7 +192,7 @@ contract LiquidityHelpers is UniswapHelpers {
             getMinAmount(_tokenA, _amtA, slippage),
             getMinAmount(_tokenB, _amtB, slippage),
             address(this),
-            now + deadline // TODO - deadline?
+            now + 1
         );
     }
 
@@ -203,33 +201,46 @@ contract LiquidityHelpers is UniswapHelpers {
         address tokenB,
         uint _amt,
         uint unitAmtA,
-        uint unitAmtB,
-        uint deadline
+        uint unitAmtB
     ) internal returns (uint _amtA, uint _amtB, uint _uniAmt) {
-        IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
-        (TokenInterface _tokenA, TokenInterface _tokenB) = changeEthAddress(tokenA, tokenB);
-        address exchangeAddr = IUniswapV2Factory(router.factory()).getPair(address(_tokenA), address(_tokenB));
-        require(exchangeAddr != address(0), "pair-not-found.");
-
-        TokenInterface uniToken = TokenInterface(exchangeAddr);
-        _uniAmt = _amt == uint(-1) ? uniToken.balanceOf(address(this)) : _amt;
-        uniToken.approve(address(router), _uniAmt);
-
+        IUniswapV2Router02 router;
+        TokenInterface _tokenA;
+        TokenInterface _tokenB;
+        (router, _tokenA, _tokenB, _uniAmt) = _getRemoveLiquidityData(
+            tokenA,
+            tokenB,
+            _amt
+        );
+        {
         uint minAmtA = convert18ToDec(_tokenA.decimals(), wmul(unitAmtA, _uniAmt));
         uint minAmtB = convert18ToDec(_tokenB.decimals(), wmul(unitAmtB, _uniAmt));
-
-       (_amtA, _amtB) = router.removeLiquidity(
+        (_amtA, _amtB) = router.removeLiquidity(
             address(_tokenA),
             address(_tokenB),
             _amt,
             minAmtA,
             minAmtB,
             address(this),
-            now + deadline // TODO - deadline?
+            now + 1
         );
-
+        }
         convertWethToEth(_tokenA, _amtA);
         convertWethToEth(_tokenB, _amtB);
+    }
+
+    function _getRemoveLiquidityData(
+        address tokenA,
+        address tokenB,
+        uint _amt
+    ) internal returns (IUniswapV2Router02 router, TokenInterface _tokenA, TokenInterface _tokenB, uint _uniAmt) {
+        router = IUniswapV2Router02(getUniswapAddr());
+        (_tokenA, _tokenB) = changeEthAddress(tokenA, tokenB);
+        address exchangeAddr = IUniswapV2Factory(router.factory()).getPair(address(_tokenA), address(_tokenB));
+        require(exchangeAddr != address(0), "pair-not-found.");
+
+        TokenInterface uniToken = TokenInterface(exchangeAddr);
+        _uniAmt = _amt == uint(-1) ? uniToken.balanceOf(address(this)) : _amt;
+        uniToken.approve(address(router), _uniAmt);
     }
 }
 
@@ -323,7 +334,6 @@ contract UniswapLiquidity is LiquidityHelpers {
         uint amtA,
         uint unitAmt,
         uint slippage,
-        uint deadline,
         uint getId,
         uint setId
     ) external payable {
@@ -334,8 +344,7 @@ contract UniswapLiquidity is LiquidityHelpers {
                                             tokenB,
                                             _amt,
                                             unitAmt,
-                                            slippage,
-                                            deadline
+                                            slippage
                                             );
         setUint(setId, _uniAmt);
         emitDeposit(tokenA, tokenB, _amtA, _amtB, _uniAmt, getId, setId);
@@ -347,7 +356,6 @@ contract UniswapLiquidity is LiquidityHelpers {
         uint uinAmt,
         uint unitAmtA,
         uint unitAmtB,
-        uint deadline,
         uint getId,
         uint[] calldata setIds
     ) external payable {
@@ -358,8 +366,7 @@ contract UniswapLiquidity is LiquidityHelpers {
             tokenB,
             _amt,
             unitAmtA,
-            unitAmtB,
-            deadline
+            unitAmtB
         );
 
         setUint(setIds[0], _amtA);
