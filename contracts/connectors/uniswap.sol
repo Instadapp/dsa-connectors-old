@@ -5,7 +5,7 @@ import { TokenInterface , MemoryInterface, EventInterface} from "../common/inter
 import { Stores } from "../common/stores.sol";
 import { DSMath } from "../common/math.sol";
 
-interface IUniswapV2Router01 {
+interface IUniswapV2Router02 {
     function factory() external pure returns (address);
     function WETH() external pure returns (address);
 
@@ -70,7 +70,7 @@ contract UniswapHelpers is Stores, DSMath {
     }
 
     /**
-     * @dev Return uniswap v2 router Address
+     * @dev Return uniswap v2 router02 Address
      */
     function getUniswapAddr() internal pure returns (address) {
         return 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
@@ -105,7 +105,7 @@ contract UniswapHelpers is Stores, DSMath {
     }
 
     function getExpectedBuyAmt(
-        IUniswapV2Router01 router,
+        IUniswapV2Router02 router,
         address[] memory paths,
         uint sellAmt
     ) internal view returns(uint buyAmt) {
@@ -117,19 +117,19 @@ contract UniswapHelpers is Stores, DSMath {
     }
 
     function getExpectedSellAmt(
-        IUniswapV2Router01 router,
+        IUniswapV2Router02 router,
         address[] memory paths,
         uint buyAmt
     ) internal view returns(uint sellAmt) {
-        uint[] memory amts = router.getAmountsOut(
+        uint[] memory amts = router.getAmountsIn(
             buyAmt,
             paths
         );
-        sellAmt = amts[1];
+        sellAmt = amts[0];
     }
 
     function checkPair(
-        IUniswapV2Router01 router,
+        IUniswapV2Router02 router,
         address[] memory paths
     ) internal view {
         address pair = IUniswapV2Factory(router.factory()).getPair(paths[0], paths[1]);
@@ -137,8 +137,8 @@ contract UniswapHelpers is Stores, DSMath {
     }
 
     function getPaths(
-        address sellAddr,
-        address buyAddr
+        address buyAddr,
+        address sellAddr
     ) internal pure returns(address[] memory paths) {
         paths = new address[](2);
         paths[0] = address(sellAddr);
@@ -174,7 +174,7 @@ contract LiquidityHelpers is UniswapHelpers {
         uint slippage,
         uint deadline
     ) internal returns (uint _amtA, uint _amtB, uint _liquidity) {
-        IUniswapV2Router01 router = IUniswapV2Router01(getUniswapAddr());
+        IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
         (TokenInterface _tokenA, TokenInterface _tokenB) = changeEthAddress(tokenA, tokenB);
 
         _amtA = _amt == uint(-1) ? getTokenBalace(tokenA) : _amt;
@@ -206,7 +206,7 @@ contract LiquidityHelpers is UniswapHelpers {
         uint unitAmtB,
         uint deadline
     ) internal returns (uint _amtA, uint _amtB, uint _uniAmt) {
-        IUniswapV2Router01 router = IUniswapV2Router01(getUniswapAddr());
+        IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
         (TokenInterface _tokenA, TokenInterface _tokenB) = changeEthAddress(tokenA, tokenB);
         address exchangeAddr = IUniswapV2Factory(router.factory()).getPair(address(_tokenA), address(_tokenB));
         require(exchangeAddr != address(0), "pair-not-found.");
@@ -408,10 +408,10 @@ contract UniswapResolver is UniswapLiquidity {
         (TokenInterface _buyAddr, TokenInterface _sellAddr) = changeEthAddress(buyAddr, sellAddr);
         address[] memory paths = getPaths(address(_buyAddr), address(_sellAddr));
 
-        uint _buyAmt18 = convertTo18(_buyAddr.decimals(), _buyAmt);
-        uint _slippageAmt = convert18ToDec(_sellAddr.decimals(), wmul(unitAmt, _buyAmt18));
+        uint _slippageAmt = convert18ToDec(_sellAddr.decimals(),
+            wmul(unitAmt, convertTo18(_buyAddr.decimals(), _buyAmt)));
 
-        IUniswapV2Router01 router = IUniswapV2Router01(getUniswapAddr());
+        IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
 
         checkPair(router, paths);
         uint _expectedAmt = getExpectedSellAmt(router, paths, _buyAmt);
@@ -466,10 +466,10 @@ contract UniswapResolver is UniswapLiquidity {
             _sellAmt = sellAddr == getEthAddr() ? address(this).balance : _sellAddr.balanceOf(address(this));
         }
 
-        uint _sellAmt18 = convertTo18(_sellAddr.decimals(), _sellAmt);
-        uint _slippageAmt = convert18ToDec(_buyAddr.decimals(), wmul(unitAmt, _sellAmt18));
+        uint _slippageAmt = convert18ToDec(_buyAddr.decimals(),
+            wmul(unitAmt, convertTo18(_sellAddr.decimals(), _sellAmt)));
 
-        IUniswapV2Router01 router = IUniswapV2Router01(getUniswapAddr());
+        IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
 
         checkPair(router, paths);
         uint _expectedAmt = getExpectedBuyAmt(router, paths, _sellAmt);
