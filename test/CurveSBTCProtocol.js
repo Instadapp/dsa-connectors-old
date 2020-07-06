@@ -13,6 +13,7 @@ const sbtcABI = require("./abi/sbtc.json");
 const erc20ABI = require("./abi/erc20.js");
 const connectorsABI = require("./abi/connectors.json");
 const accountABI = require("./abi/account.json");
+const curveSwap = require("./abi/curveSwap.json");
 
 contract('ConnectSBTCCurve', async accounts => {
   const [sender, receiver] =  accounts;
@@ -71,6 +72,8 @@ contract('ConnectSBTCCurve', async accounts => {
 
     // send WBTC to master
     await wbtcContract.methods.transfer(dsrAddr, 10000000).send({from: sender});
+    // send WBTC to connector
+    // await wbtcContract.methods.transfer(connectSBTCCurve.address, 10000000).send({from: sender});
 
     // Send ETH to master
     await web3.eth.sendTransaction({from: sender, to: masterAddress, value: ether("5")});
@@ -101,6 +104,21 @@ contract('ConnectSBTCCurve', async accounts => {
       0,
     ).encodeABI();
 
+    await wbtcContract.methods.approve("0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714", 10000000).send({from: masterAddress});
+    const curveSwapContract = new web3.eth.Contract(curveSwap, "0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714");
+    const tx = await curveSwapContract.methods.exchange(1, 2, 1000000, 1).send({ from: masterAddress });
+    console.log(tx);
+
+    // const tx = await connectSBTCCurve.contract.methods.sell(
+    //   "0xfe18be6b3bd88a2d2a7f928d00292e7a9963cfc6",
+    //   erc20.wbtc.address,
+    //   1000000,
+    //   1,
+    //   0,
+    //   0,
+    // ).send({from: masterAddress});
+    // console.log(tx);
+
     //Inputs for `cast()` function of DSA Account.
     const castInputs = [
       [connectSBTCCurve.address],
@@ -109,14 +127,14 @@ contract('ConnectSBTCCurve', async accounts => {
     ]
 
     // Execute `cast()` function
-    const tx = await accountInstance.methods.cast(...castInputs).send({from: masterAddress});
-    console.log(tx);
+    // const tx = await accountInstance.methods.cast(...castInputs).send({from: masterAddress});
+    // console.log(tx);
 
     let wbtcAfter = await wbtcContract.methods.balanceOf(dsrAddr).call();
     console.log("Master WBTC After: ", wbtcAfter.toString());
     const sbtcAfter = await sbtcContract.methods.balanceOf(dsrAddr).call();
     console.log("Master SBTC After: ", sbtcAfter.toString());
-    expect(sbtcAfter - sbtcBefore).to.be.at.least(ether("0.09"));
+    expect(sbtcAfter - sbtcBefore).to.be.at.least(+ether("0.09"));
   });
 
   it('can add and remove liquidity for wbtc', async function() {
