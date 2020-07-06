@@ -420,15 +420,13 @@ contract UniswapResolver is UniswapLiquidity {
         convertEthToWeth(_sellAddr, _expectedAmt);
         _sellAddr.approve(address(router), _expectedAmt);
 
-        uint[] memory _amts = router.swapTokensForExactTokens(
+        uint _sellAmt = router.swapTokensForExactTokens(
             _buyAmt,
             _expectedAmt,
             paths,
             address(this),
             now + 1
-        );
-
-        uint _sellAmt = _amts[0];
+        )[0];
 
         convertWethToEth(_buyAddr, _buyAmt);
 
@@ -478,15 +476,13 @@ contract UniswapResolver is UniswapLiquidity {
         convertEthToWeth(_sellAddr, _sellAmt);
         _sellAddr.approve(address(router), _sellAmt);
 
-        uint[] memory _amts = router.swapExactTokensForTokens(
+        uint _buyAmt = router.swapExactTokensForTokens(
             _sellAmt,
             _expectedAmt,
             paths,
             address(this),
             now + 1
-        );
-
-        uint _buyAmt = _amts[1];
+        )[1];
 
         convertWethToEth(_buyAddr, _buyAmt);
 
