@@ -1,48 +1,37 @@
 pragma solidity ^0.6.0;
 
 // import files from common directory
-import { TokenInterface , MemoryInterface, EventInterface} from "../common/interfaces.sol";
 import { Stores } from "../common/stores.sol";
 import { DSMath } from "../common/math.sol";
+import { TokenInterface } from "../common/interfaces.sol";
 
 interface ICurve {
-  function underlying_coins(int128 tokenId) external view returns (address token);
-  function calc_token_amount(uint256[4] calldata amounts, bool deposit) external returns (uint256 amount);
-  function add_liquidity(uint256[4] calldata amounts, uint256 min_mint_amount) external;
+  function coins(int128 tokenId) external view returns (address token);
+  function calc_token_amount(uint256[3] calldata amounts, bool deposit) external returns (uint256 amount);
+  function add_liquidity(uint256[3] calldata amounts, uint256 min_mint_amount) external;
   function get_dy(int128 sellTokenId, int128 buyTokenId, uint256 sellTokenAmt) external returns (uint256 buyTokenAmt);
   function exchange(int128 sellTokenId, int128 buyTokenId, uint256 sellTokenAmt, uint256 minBuyToken) external;
-  function remove_liquidity_imbalance(uint256[4] calldata amounts, uint256 max_burn_amount) external;
-}
-
-interface ICurveZap {
+  function remove_liquidity_imbalance(uint256[3] calldata amounts, uint256 max_burn_amount) external;
   function calc_withdraw_one_coin(uint256 _token_amount, int128 i) external returns (uint256 amount);
 }
 
-
-contract CurveHelpers is Stores, DSMath {
+contract CurveSBTCHelpers is Stores, DSMath{
   /**
   * @dev Return Curve Swap Address
   */
   function getCurveSwapAddr() internal pure returns (address) {
-    return 0xA5407eAE9Ba41422680e2e00537571bcC53efBfD;
+    return 0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714;
   }
 
   /**
   * @dev Return Curve Token Address
   */
   function getCurveTokenAddr() internal pure returns (address) {
-    return 0xC25a3A3b969415c80451098fa907EC722572917F;
-  }
-
-  /**
-  * @dev Return Curve Zap Address
-  */
-  function getCurveZapAddr() internal pure returns (address) {
-    return 0xFCBa3E75865d2d561BE8D220616520c171F12851;
+    return 0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3;
   }
 
   function convert18ToDec(uint _dec, uint256 _amt) internal pure returns (uint256 amt) {
-    amt = (_amt / 10 ** (18 - _dec));
+    amt = div(_amt, 10 ** (18 - _dec));
   }
 
   function convertTo18(uint _dec, uint256 _amt) internal pure returns (uint256 amt) {
@@ -50,31 +39,24 @@ contract CurveHelpers is Stores, DSMath {
   }
 
   function getTokenI(address token) internal pure returns (int128 i) {
-    if (token == address(0x6B175474E89094C44Da98b954EedeAC495271d0F)) {
-      // DAI Token
+    if (token == address(0xEB4C2781e4ebA804CE9a9803C67d0893436bB27D)) {
+      // RenBTC Token
       i = 0;
-    } else if (token == address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48)) {
-      // USDC Token
+    } else if (token == address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599)) {
+      // WBTC Token
       i = 1;
-    } else if (token == address(0xdAC17F958D2ee523a2206206994597C13D831ec7)) {
-      // USDT Token
+    } else if (token == address(0xfE18be6b3Bd88A2D2A7f928d00292E7a9963CfC6)) {
+      // SBTC Token
       i = 2;
-    } else if (token == address(0x57Ab1ec28D129707052df4dF418D58a2D46d5f51)) {
-      // sUSD Token
-      i = 3;
     } else {
       revert("token-not-found.");
     }
   }
-
-  function getTokenAddr(ICurve curve, uint256 i) internal view returns (address token) {
-    token = curve.underlying_coins(int128(i));
-    require(token != address(0), "token-not-found.");
-  }
 }
 
-contract CurveProtocol is CurveHelpers {
+contract CurveSBTCProtocol is CurveSBTCHelpers {
 
+  // Events
   event LogSell(
     address indexed buyToken,
     address indexed sellToken,
@@ -87,14 +69,14 @@ contract CurveProtocol is CurveHelpers {
   event LogWithdraw(address token, uint256 amt, uint256 burnAmt, uint256 getId,  uint256 setId);
 
   /**
-  * @dev Sell Stable ERC20_Token.
+  * @dev Sell ERC20_Token.
   * @param buyAddr buying token address.
-    * @param sellAddr selling token amount.
-    * @param sellAmt selling token amount.
-    * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
-    * @param getId Get token amount at this ID from `InstaMemory` Contract.
-    * @param setId Set token amount at this ID in `InstaMemory` Contract.
-    */
+  * @param sellAddr selling token amount.
+  * @param sellAmt selling token amount.
+  * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
+  * @param getId Get token amount at this ID from `InstaMemory` Contract.
+  * @param setId Set token amount at this ID in `InstaMemory` Contract.
+  */
   function sell(
     address buyAddr,
     address sellAddr,
@@ -124,17 +106,16 @@ contract CurveProtocol is CurveHelpers {
     bytes32 _eventCode = keccak256("LogSell(address,address,uint256,uint256,uint256,uint256)");
     bytes memory _eventParam = abi.encode(buyAddr, sellAddr, _buyAmt, _sellAmt, getId, setId);
     emitEvent(_eventCode, _eventParam);
-
   }
 
   /**
   * @dev Deposit Token.
   * @param token token address.
-    * @param amt token amount.
-    * @param unitAmt unit amount of curve_amt/token_amt with slippage.
-    * @param getId Get token amount at this ID from `InstaMemory` Contract.
-    * @param setId Set token amount at this ID in `InstaMemory` Contract.
-    */
+  * @param amt token amount.
+  * @param unitAmt unit amount of curve_amt/token_amt with slippage.
+  * @param getId Get token amount at this ID from `InstaMemory` Contract.
+  * @param setId Set token amount at this ID in `InstaMemory` Contract.
+  */
   function deposit(
     address token,
     uint amt,
@@ -146,7 +127,7 @@ contract CurveProtocol is CurveHelpers {
     TokenInterface tokenContract = TokenInterface(token);
 
     _amt = _amt == uint(-1) ? tokenContract.balanceOf(address(this)) : _amt;
-    uint[4] memory _amts;
+    uint[3] memory _amts;
     _amts[uint(getTokenI(token))] = _amt;
 
     tokenContract.approve(getCurveSwapAddr(), _amt);
@@ -174,11 +155,11 @@ contract CurveProtocol is CurveHelpers {
   /**
   * @dev Withdraw Token.
   * @param token token address.
-    * @param amt token amount.
-    * @param unitAmt unit amount of curve_amt/token_amt with slippage.
-    * @param getId Get token amount at this ID from `InstaMemory` Contract.
-    * @param setId Set token amount at this ID in `InstaMemory` Contract.
-    */
+  * @param amt token amount.
+  * @param unitAmt unit amount of curve_amt/token_amt with slippage.
+  * @param getId Get token amount at this ID from `InstaMemory` Contract.
+  * @param setId Set token amount at this ID in `InstaMemory` Contract.
+  */
   function withdraw(
     address token,
     uint256 amt,
@@ -190,20 +171,18 @@ contract CurveProtocol is CurveHelpers {
     int128 tokenId = getTokenI(token);
 
     TokenInterface curveTokenContract = TokenInterface(getCurveTokenAddr());
-    ICurveZap curveZap = ICurveZap(getCurveZapAddr());
     ICurve curveSwap = ICurve(getCurveSwapAddr());
 
     uint _curveAmt;
-    uint[4] memory _amts;
+    uint[3] memory _amts;
     if (_amt == uint(-1)) {
       _curveAmt = curveTokenContract.balanceOf(address(this));
-      _amt = curveZap.calc_withdraw_one_coin(_curveAmt, tokenId);
+      _amt = curveSwap.calc_withdraw_one_coin(_curveAmt, tokenId);
       _amts[uint(tokenId)] = _amt;
     } else {
       _amts[uint(tokenId)] = _amt;
       _curveAmt = curveSwap.calc_token_amount(_amts, false);
     }
-
 
     uint _amt18 = convertTo18(TokenInterface(token).decimals(), _amt);
     uint _slippageAmt = wmul(unitAmt, _amt18);
@@ -220,9 +199,9 @@ contract CurveProtocol is CurveHelpers {
     bytes memory _eventParam = abi.encode(token, _amt, _curveAmt, getId, setId);
     emitEvent(_eventCode, _eventParam);
   }
-
 }
 
-contract ConnectCurve is CurveProtocol {
-  string public name = "Curve-susd-v1.2";
+contract ConnectSBTCCurve is CurveSBTCProtocol {
+  string public name = "Curve-sbtc-v1";
 }
+

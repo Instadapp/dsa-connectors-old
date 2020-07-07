@@ -5,10 +5,11 @@
   "main": "truffle-config.js",
   "directories": {},
   "scripts": {
-    "test": "npm run ganache sleep 5 && truffle test && npm run stop",
+    "test": "truffle test",
     "coverage": "./node_modules/.bin/solidity-coverage",
     "solium": "solium -d contracts/",
-    "build-contracts": "sol-merger \"./contracts/connectors/mock.sol\" ./contracts/build"
+    "build-contracts": "sol-merger \"./contracts/connectors/mock.sol\" ./contracts/build",
+    "ganache": "ganache-cli --deterministic --unlock 0xfcd22438ad6ed564a1c26151df73f6b33b817b56 -f https://mainnet.infura.io/v3/<Your Key>"
   },
   "repository": {
     "type": "git",
@@ -35,6 +36,9 @@
     "truffle-verify": "^1.0.8"
   },
   "devDependencies": {
+    "@openzeppelin/test-helpers": "^0.5.6",
+    "@studydefi/money-legos": "^2.3.5",
+    "ganache-cli": "^6.10.0-beta.2",
     "sol-merger": "^2.0.1",
     "solidity-coverage": "0.5.11",
     "solium": "1.2.3"

@@ -51,7 +51,7 @@ contract Stores {
     /**
      * @dev Connector Details - needs to be changed before deployment
      */
-    function connectorID() public pure returns(uint model, uint id) {
+    function connectorID() public view returns(uint model, uint id) {
         (model, id) = (0, 0);
     }
 
