@@ -12,8 +12,10 @@ interface IStakingRewards {
 
 contract Helper is Stores {
   function getSynthetixStakingAddr(address token) internal view returns(address){
+    // SBTC
     if (token == address(0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3)){
       return 0x13c1542a468319688b89e323fe9a3be3a90ebb27;
+    // SUSD
     }else if (token == address(0xC25a3A3b969415c80451098fa907EC722572917F)){
       return 0xdcb6a51ea3ca5d3fd898fd6564757c7aaec3ca92;
     }else{
