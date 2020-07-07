@@ -13,7 +13,7 @@ interface IStakingRewards {
 }
 
 contract  SynthetixStakingHelper is DSMath, Stores {
-  function getSynthetixStakingAddr(address token) internal pure returns(address){
+  function getSynthetixStakingAddr(address token) internal pure returns (address){
     if (token == address(0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3)){
       // SBTC
       return 0x13C1542A468319688B89E323fe9A3Be3A90EBb27;
@@ -59,7 +59,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
     uint amt,
     uint getId,
     uint setId
-  ) external {
+  ) external payable {
     uint _amt = getUint(getId, amt);
     IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
     TokenInterface _stakeToken = TokenInterface(token);
@@ -86,7 +86,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
     uint amt,
     uint getId,
     uint setId
-  ) external {
+  ) external payable {
     uint _amt = getUint(getId, amt);
     IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
     TokenInterface snxToken = TokenInterface(getSnxAddr());
