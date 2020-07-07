@@ -1,9 +1,9 @@
 pragma solidity ^0.6.0;
 
 // import files from common directory
+import { TokenInterface } from "../common/interfaces.sol";
 import { Stores } from "../common/stores.sol";
 import { DSMath } from "../common/math.sol";
-import { TokenInterface } from "../common/interfaces.sol";
 
 interface IStakingRewards {
   function stake(uint256 amount) external;
@@ -13,6 +13,9 @@ interface IStakingRewards {
 }
 
 contract  SynthetixStakingHelper is DSMath, Stores {
+  /**
+   * @dev Return Synthetix staking pool address.
+  */
   function getSynthetixStakingAddr(address token) internal pure returns (address){
     if (token == address(0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3)){
       // SBTC
@@ -25,6 +28,9 @@ contract  SynthetixStakingHelper is DSMath, Stores {
     }
   }
 
+  /**
+   * @dev Return Synthetix Token address.
+  */
   function getSnxAddr() internal pure returns (address) {
     return 0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F;
   }
@@ -108,7 +114,6 @@ contract SynthetixStaking is SynthetixStakingHelper {
     bytes memory _eventParam = abi.encode(token, _amt, rewardAmt, getId, setId);
     emitEvent(_eventCode, _eventParam);
   }
-
 }
 
 contract ConnectSynthetixStaking is SynthetixStaking {
