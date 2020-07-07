@@ -2,7 +2,7 @@ pragma solidity ^0.6.0;
 
 // import files from common directory
 import { Stores } from "../common/stores.sol";
-// import { DSMath } from "../common/math.sol";
+import { DSMath } from "../common/math.sol";
 import { TokenInterface } from "../common/interfaces.sol";
 
 interface IStakingRewards {
@@ -12,89 +12,105 @@ interface IStakingRewards {
   function getReward() external;
 }
 
-contract Helper is Stores {
-  function getSynthetixStakingAddr(address token) internal view returns(address){
-    // SBTC
+contract  SynthetixStakingHelper is DSMath, Stores {
+  function getSynthetixStakingAddr(address token) internal pure returns(address){
     if (token == address(0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3)){
+      // SBTC
       return 0x13C1542A468319688B89E323fe9A3Be3A90EBb27;
-    // SUSD
-    }else if (token == address(0xC25a3A3b969415c80451098fa907EC722572917F)){
+    } else if (token == address(0xC25a3A3b969415c80451098fa907EC722572917F)){
+      // SUSD
       return 0xDCB6A51eA3CA5d3Fd898Fd6564757c7aAeC3ca92;
-    }else{
+    } else {
       revert("token-not-found");
     }
   }
+
+  function getSnxAddr() internal pure returns (address) {
+    return 0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F;
+  }
 }
 
-contract SynthetixStakingRewardsProtocol is Helper {
+contract SynthetixStaking is SynthetixStakingHelper {
 
   // Events
-  event LogStake(
-    address stakeAddr,
-    uint256 stakeAmt,
-    uint getId
+  event LogDeposit(
+    address token,
+    uint256 amount,
+    uint getId,
+    uint setId
   );
-  event LogExit(
-    address stakeAddr,
-    uint256 stakeAmt,
-    uint getId
+  event LogWithdraw(
+    address token,
+    uint256 amount,
+    uint256 rewardAmt,
+    uint getId,
+    uint setId
   );
 
   /**
-  * @dev Stake Token.
-  * @param stakeAddr staking token address.
-  * @param stakeAmt staking token amount.
+  * @dev Deposit Token.
+  * @param token staking token address.
+  * @param amt staking token amount.
   * @param getId Get token amount at this ID from `InstaMemory` Contract.
+  * @param setId Set token amount at this ID in `InstaMemory` Contract.
   */
-  function stake(
-    address stakeAddr,
-    uint stakeAmt,
-    uint getId
+  function deposit(
+    address token,
+    uint amt,
+    uint getId,
+    uint setId
   ) external {
-    uint _stakeAmt = getUint(getId, stakeAmt);
-    IStakingRewards rewardPool = IStakingRewards(getSynthetixStakingAddr(stakeAddr));
-    TokenInterface _stakeToken = TokenInterface(stakeAddr);
-    _stakeAmt = _stakeAmt == uint(-1) ? _stakeToken.balanceOf(address(this)) : _stakeAmt;
-    _stakeToken.approve(address(rewardPool), _stakeAmt);
+    uint _amt = getUint(getId, amt);
+    IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
+    TokenInterface _stakeToken = TokenInterface(token);
+    _amt = _amt == uint(-1) ? _stakeToken.balanceOf(address(this)) : _amt;
 
-    rewardPool.stake(_stakeAmt);
+    _stakeToken.approve(address(stakingContract), _amt);
+    stakingContract.stake(_amt);
 
-    emit LogStake(stakeAddr, _stakeAmt, getId);
-    bytes32 _eventCode = keccak256("LogStake(address,uint256, uint256)");
-    bytes memory _eventParam = abi.encode(stakeAddr, _stakeAmt, getId);
+    emit LogDeposit(token, _amt, getId, setId);
+    bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256)");
+    bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
     emitEvent(_eventCode, _eventParam);
   }
 
   /**
-  * @dev Exit Token.
-  * @param stakeAddr staking token address.
-  * @param stakeAmt staking token amount.
+  * @dev Withdraw Token.
+  * @param token staking token address.
+  * @param amt staking token amount.
   * @param getId Get token amount at this ID from `InstaMemory` Contract.
+  * @param setId Set token amount at this ID in `InstaMemory` Contract.
   */
-  function exit(
-    address stakeAddr,
-    uint stakeAmt,
-    uint getId
+  function withdraw(
+    address token,
+    uint amt,
+    uint getId,
+    uint setId
   ) external {
-    uint _stakeAmt = getUint(getId, stakeAmt);
-    IStakingRewards rewardPool = IStakingRewards(getSynthetixStakingAddr(stakeAddr));
+    uint _amt = getUint(getId, amt);
+    IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
+    TokenInterface snxToken = TokenInterface(getSnxAddr());
 
-    if(_stakeAmt == uint(-1)){
-      rewardPool.exit();
+    uint intialBal = snxToken.balanceOf(address(this));
+    if (_amt == uint(-1)) {
+      stakingContract.exit();
+    } else{
+      stakingContract.withdraw(_amt);
+      stakingContract.getReward();
     }
-    else{
-      rewardPool.withdraw(_stakeAmt);
-      rewardPool.getReward();
-    }
+    uint finalBal = snxToken.balanceOf(address(this));
 
-    emit LogExit(stakeAddr, _stakeAmt, getId);
-    bytes32 _eventCode = keccak256("LogExit(address, uint256, uint256)");
-    bytes memory _eventParam = abi.encode(stakeAddr, _stakeAmt, getId);
+    uint rewardAmt = sub(finalBal, intialBal);
+
+    setUint(setId, _amt);
+    emit LogWithdraw(token, _amt, rewardAmt, getId, setId);
+    bytes32 _eventCode = keccak256("LogWithdraw(address,uint256,uint256,uint256,uint256)");
+    bytes memory _eventParam = abi.encode(token, _amt, rewardAmt, getId, setId);
     emitEvent(_eventCode, _eventParam);
   }
 
 }
 
-contract ConnectSynthetixStakingRewardsProtocol is SynthetixStakingRewardsProtocol {
+contract ConnectSynthetixStaking is SynthetixStaking {
   string public name = "synthetix-staking-v1";
 }
