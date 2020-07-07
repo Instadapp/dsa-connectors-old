@@ -6,7 +6,7 @@ import { Stores } from "../common/stores.sol";
 import { TokenInterface } from "../common/interfaces.sol";
 
 interface IStakingRewards {
-  function stake(uint256 amount) public;
+  function stake(uint256 amount) external;
   function exit() external;
 }
 
@@ -14,10 +14,10 @@ contract Helper is Stores {
   function getSynthetixStakingAddr(address token) internal view returns(address){
     // SBTC
     if (token == address(0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3)){
-      return 0x13c1542a468319688b89e323fe9a3be3a90ebb27;
+      return 0x13C1542A468319688B89E323fe9A3Be3A90EBb27;
     // SUSD
     }else if (token == address(0xC25a3A3b969415c80451098fa907EC722572917F)){
-      return 0xdcb6a51ea3ca5d3fd898fd6564757c7aaec3ca92;
+      return 0xDCB6A51eA3CA5d3Fd898Fd6564757c7aAeC3ca92;
     }else{
       revert("token-not-found");
     }
@@ -39,11 +39,12 @@ contract SynthetixStakingRewardsProtocol is Helper {
   * @dev Stake Token.
   * @param stakeAddr staking token address.
   * @param stakeAmt staking token amount.
+  * @param getId Get token amount at this ID from `InstaMemory` Contract.
   */
   function stake(
     address stakeAddr,
     uint stakeAmt,
-    uint getId,
+    uint getId
   ) external {
     uint _stakeAmt = getUint(getId, stakeAmt);
     IStakingRewards rewardPool = IStakingRewards(getSynthetixStakingAddr(stakeAddr));
@@ -61,11 +62,6 @@ contract SynthetixStakingRewardsProtocol is Helper {
 
   /**
   * @dev Exit Token.
-  * @param token token address.
-  * @param amt token amount.
-  * @param unitAmt unit amount of curve_amt/token_amt with slippage.
-  * @param getId Get token amount at this ID from `InstaMemory` Contract.
-  * @param setId Set token amount at this ID in `InstaMemory` Contract.
   */
   function exit(
     address stakeAddr
