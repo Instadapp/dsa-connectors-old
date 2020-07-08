@@ -366,22 +366,22 @@ contract UniswapLiquidity is LiquidityHelpers {
      * @dev Withdraw Liquidity.
      * @param tokenA tokenA address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param tokenB tokenB address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
-     * @param uinAmt uni token amount.
-     * @param unitAmtA unit amount of amtA/uinAmt with slippage.
-     * @param unitAmtB unit amount of amtB/uinAmt with slippage.
+     * @param uniAmt uni token amount.
+     * @param unitAmtA unit amount of amtA/uniAmt with slippage.
+     * @param unitAmtB unit amount of amtB/uniAmt with slippage.
      * @param getId Get token amount at this ID from `InstaMemory` Contract.
      * @param setIds Set token amounts at this IDs in `InstaMemory` Contract.
     */
     function withdraw(
         address tokenA,
         address tokenB,
-        uint uinAmt,
+        uint uniAmt,
         uint unitAmtA,
         uint unitAmtB,
         uint getId,
         uint[] calldata setIds
     ) external payable {
-        uint _amt = getUint(getId, uinAmt);
+        uint _amt = getUint(getId, uniAmt);
 
         (uint _amtA, uint _amtB, uint _uniAmt) = _removeLiquidity(
             tokenA,
