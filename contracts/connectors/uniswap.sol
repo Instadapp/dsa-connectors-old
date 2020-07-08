@@ -219,7 +219,7 @@ contract LiquidityHelpers is UniswapHelpers {
         (_amtA, _amtB) = router.removeLiquidity(
             address(_tokenA),
             address(_tokenB),
-            _amt,
+            _uniAmt,
             minAmtA,
             minAmtB,
             address(this),
@@ -330,6 +330,16 @@ contract UniswapLiquidity is LiquidityHelpers {
         emitEvent(_eventCode, _eventParam);
     }
 
+    /**
+     * @dev Deposit Liquidity.
+     * @param tokenA tokenA address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param tokenB tokenB address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param amtA tokenA amount.
+     * @param unitAmt unit amount of amtB/amtA with slippage.
+     * @param slippage slippage amount.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
     function deposit(
         address tokenA,
         address tokenB,
@@ -352,6 +362,16 @@ contract UniswapLiquidity is LiquidityHelpers {
         emitDeposit(tokenA, tokenB, _amtA, _amtB, _uniAmt, getId, setId);
     }
 
+    /**
+     * @dev Withdraw Liquidity.
+     * @param tokenA tokenA address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param tokenB tokenB address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param uinAmt uni token amount.
+     * @param unitAmtA unit amount of amtA/uinAmt with slippage.
+     * @param unitAmtB unit amount of amtB/uinAmt with slippage.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setIds Set token amounts at this IDs in `InstaMemory` Contract.
+    */
     function withdraw(
         address tokenA,
         address tokenB,
@@ -507,5 +527,5 @@ contract UniswapResolver is UniswapLiquidity {
 
 
 contract ConnectUniswapV2 is UniswapResolver {
-    string public name = "Uniswap-v1";
+    string public name = "UniswapV2-v1";
 }
