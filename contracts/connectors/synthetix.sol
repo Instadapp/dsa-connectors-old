@@ -73,7 +73,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
 
     _stakeToken.approve(address(stakingContract), _amt);
     stakingContract.stake(_amt);
-    
+
     setUint(setId, _amt);
     emit LogDeposit(token, _amt, getId, setId);
     bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256)");
