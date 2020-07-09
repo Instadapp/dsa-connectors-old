@@ -48,8 +48,12 @@ contract SynthetixStaking is SynthetixStakingHelper {
   event LogWithdraw(
     address token,
     uint256 amount,
-    uint256 rewardAmt,
     uint getId,
+    uint setId
+  );
+  event LogClaimedReward(
+    address token,
+    uint256 rewardAmt,
     uint setId
   );
 
@@ -73,7 +77,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
 
     _stakeToken.approve(address(stakingContract), _amt);
     stakingContract.stake(_amt);
-    
+
     setUint(setId, _amt);
     emit LogDeposit(token, _amt, getId, setId);
     bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256)");
@@ -86,13 +90,15 @@ contract SynthetixStaking is SynthetixStakingHelper {
   * @param token staking token address.
   * @param amt staking token amount.
   * @param getId Get token amount at this ID from `InstaMemory` Contract.
-  * @param setId Set token amount at this ID in `InstaMemory` Contract.
+  * @param setIdAmount Set token amount at this ID in `InstaMemory` Contract.
+  * @param setIdReward Set reward amount at this ID in `InstaMemory` Contract.
   */
   function withdraw(
     address token,
     uint amt,
     uint getId,
-    uint setId
+    uint setIdAmount,
+    uint setIdReward
   ) external payable {
     uint _amt = getUint(getId, amt);
     IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
@@ -109,10 +115,42 @@ contract SynthetixStaking is SynthetixStakingHelper {
 
     uint rewardAmt = sub(finalBal, intialBal);
 
-    setUint(setId, _amt);
-    emit LogWithdraw(token, _amt, rewardAmt, getId, setId);
-    bytes32 _eventCode = keccak256("LogWithdraw(address,uint256,uint256,uint256,uint256)");
-    bytes memory _eventParam = abi.encode(token, _amt, rewardAmt, getId, setId);
+    setUint(setIdAmount, _amt);
+    setUint(setIdReward, rewardAmt);
+  
+    emit LogWithdraw(token, _amt, getId, setIdAmount);
+    bytes32 _eventCodeWithdraw = keccak256("LogWithdraw(address,uint256,uint256,uint256)");
+    bytes memory _eventParamWithdraw = abi.encode(token, _amt, getId, setIdAmount);
+    emitEvent(_eventCodeWithdraw, _eventParamWithdraw);
+
+    emit LogClaimedReward(token, rewardAmt, setIdReward);
+    bytes32 _eventCodeReward = keccak256("LogClaimedReward(address,uint256,uint256)");
+    bytes memory _eventParamReward = abi.encode(token, rewardAmt, setIdReward);
+    emitEvent(_eventCodeReward, _eventParamReward);
+  }
+
+  /**
+  * @dev Claim Reward.
+  * @param token staking token address.
+  * @param setId Set reward amount at this ID in `InstaMemory` Contract.
+  */
+  function claimReward(
+    address token,
+    uint setId
+  ) external payable {
+    IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
+    TokenInterface snxToken = TokenInterface(getSnxAddr());
+
+    uint intialBal = snxToken.balanceOf(address(this));
+    stakingContract.getReward();
+    uint finalBal = snxToken.balanceOf(address(this));
+
+    uint rewardAmt = sub(finalBal, intialBal);
+
+    setUint(setId, rewardAmt);
+    emit LogClaimedReward(token, rewardAmt, setId);
+    bytes32 _eventCode = keccak256("LogClaimedReward(address,uint256,uint256)");
+    bytes memory _eventParam = abi.encode(token, rewardAmt, setId);
     emitEvent(_eventCode, _eventParam);
   }
 }
