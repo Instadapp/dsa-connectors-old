@@ -7,13 +7,13 @@ const {
 } = require('@openzeppelin/test-helpers');
 
 const MockContract = artifacts.require("MockContract");
-
-const ConnectSynthetixStaking = artifacts.require('ConnectSynthetixStaking');
+const MockSynthetixStaking = artifacts.require('MockSynthetixStaking');
 const erc20ABI = require("./abi/erc20.js");
 
 contract('ConnectSynthetixStaking', async accounts => {
   const [sender, receiver] =  accounts;
-  const mock = await MockContract.new();
+  const mock = await MockContract.deployed();
+  const mockSynthetixStaking = await MockSynthetixStaking.deployed();
   const crvRenWSBTCContract = new web3.eth.Contract(erc20ABI, mock.address);
 
   before(async function () {
