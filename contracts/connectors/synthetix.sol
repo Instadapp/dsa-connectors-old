@@ -10,6 +10,7 @@ interface IStakingRewards {
   function exit() external;
   function withdraw(uint256 amount) external;
   function getReward() external;
+  function balanceOf(address) external returns (uint256);
 }
 
 contract  SynthetixStakingHelper is DSMath, Stores {
@@ -103,14 +104,11 @@ contract SynthetixStaking is SynthetixStakingHelper {
     uint _amt = getUint(getId, amt);
     IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
     TokenInterface snxToken = TokenInterface(getSnxAddr());
+    _amt = _amt == uint(-1) ? stakingContract.balanceOf(address(this)) : _amt;
 
     uint intialBal = snxToken.balanceOf(address(this));
-    if (_amt == uint(-1)) {
-      stakingContract.exit();
-    } else{
-      stakingContract.withdraw(_amt);
-      stakingContract.getReward();
-    }
+    stakingContract.withdraw(_amt);
+    stakingContract.getReward();
     uint finalBal = snxToken.balanceOf(address(this));
 
     uint rewardAmt = sub(finalBal, intialBal);
