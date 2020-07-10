@@ -13,11 +13,11 @@ interface IStakingRewards {
   function balanceOf(address) external returns (uint256);
 }
 
-contract  SynthetixStakingHelper is DSMath, Stores {
+contract SynthetixStakingHelper is DSMath, Stores {
   /**
    * @dev Return Synthetix staking pool address.
   */
-  function getSynthetixStakingAddr(address token) internal pure returns (address){
+  function getSynthetixStakingAddr(address token) virtual internal view returns (address){
     if (token == address(0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3)){
       // SBTC
       return 0x13C1542A468319688B89E323fe9A3Be3A90EBb27;
@@ -115,7 +115,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
 
     setUint(setIdAmount, _amt);
     setUint(setIdReward, rewardAmt);
-  
+
     emit LogWithdraw(token, _amt, getId, setIdAmount);
     bytes32 _eventCodeWithdraw = keccak256("LogWithdraw(address,uint256,uint256,uint256)");
     bytes memory _eventParamWithdraw = abi.encode(token, _amt, getId, setIdAmount);
