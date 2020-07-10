@@ -10,14 +10,14 @@ interface IStakingRewards {
   function exit() external;
   function withdraw(uint256 amount) external;
   function getReward() external;
-  function balanceOf(address) external returns (uint256);
+  function balanceOf(address) external view returns (uint256);
 }
 
 contract SynthetixStakingHelper is DSMath, Stores {
   /**
    * @dev Return Synthetix staking pool address.
   */
-  function getSynthetixStakingAddr(address token) virtual internal view returns (address){
+  function getSynthetixStakingAddr(address token) internal pure returns (address){
     if (token == address(0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3)){
       // SBTC
       return 0x13C1542A468319688B89E323fe9A3Be3A90EBb27;
