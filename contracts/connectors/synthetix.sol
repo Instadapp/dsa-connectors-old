@@ -13,22 +13,16 @@ interface IStakingRewards {
 }
 
 contract SynthetixStakingHelper is DSMath, Stores {
-  IStakingRewards stakingContract;
-
-  constructor(address _synthetixStakingAddr) public {
-    stakingContract = IStakingRewards(_synthetixStakingAddr);
-  }
-
   /**
    * @dev Return Synthetix staking pool address.
   */
-  function getSynthetixStakingAddr(address token) virtual internal {
+  function getSynthetixStakingAddr(address token) virtual internal returns (address) {
     if (token == address(0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3)){
       // SBTC
-      stakingContract = IStakingRewards(0x13C1542A468319688B89E323fe9A3Be3A90EBb27);
+      return 0x13C1542A468319688B89E323fe9A3Be3A90EBb27;
     } else if (token == address(0xC25a3A3b969415c80451098fa907EC722572917F)){
       // SUSD
-      stakingContract = IStakingRewards(0xDCB6A51eA3CA5d3Fd898Fd6564757c7aAeC3ca92);
+      return 0xDCB6A51eA3CA5d3Fd898Fd6564757c7aAeC3ca92;
     } else {
       revert("token-not-found");
     }
@@ -43,8 +37,6 @@ contract SynthetixStakingHelper is DSMath, Stores {
 }
 
 contract SynthetixStaking is SynthetixStakingHelper {
-
-  constructor(address _synthetixStakingAddr) SynthetixStakingHelper(_synthetixStakingAddr) public {}
 
   // Events
   event LogDeposit(
@@ -79,7 +71,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
     uint setId
   ) external payable {
     uint _amt = getUint(getId, amt);
-    getSynthetixStakingAddr(token);
+    IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
     TokenInterface _stakeToken = TokenInterface(token);
     _amt = _amt == uint(-1) ? _stakeToken.balanceOf(address(this)) : _amt;
 
@@ -109,7 +101,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
     uint setIdReward
   ) external payable {
     uint _amt = getUint(getId, amt);
-    getSynthetixStakingAddr(token);
+    IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
     TokenInterface snxToken = TokenInterface(getSnxAddr());
 
     uint intialBal = snxToken.balanceOf(address(this));
@@ -146,7 +138,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
     address token,
     uint setId
   ) external payable {
-    getSynthetixStakingAddr(token);
+    IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
     TokenInterface snxToken = TokenInterface(getSnxAddr());
 
     uint intialBal = snxToken.balanceOf(address(this));
@@ -165,7 +157,4 @@ contract SynthetixStaking is SynthetixStakingHelper {
 
 contract ConnectSynthetixStaking is SynthetixStaking {
   string public name = "synthetix-staking-v1";
-
-  constructor(address _synthetixStakingAddr) SynthetixStaking(_synthetixStakingAddr) public {}
-
 }
