@@ -58,5 +58,8 @@ Thumbs.db
 .com.apple.timemachine.donotpresent
 
 # truffle
-
 build/contracts
+
+# buidler
+artifacts
+cache

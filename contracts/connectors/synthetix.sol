@@ -13,16 +13,22 @@ interface IStakingRewards {
 }
 
 contract SynthetixStakingHelper is DSMath, Stores {
+  IStakingRewards stakingContract;
+
+  constructor(address _synthetixStakingAddr) public {
+    stakingContract = IStakingRewards(_synthetixStakingAddr);
+  }
+
   /**
    * @dev Return Synthetix staking pool address.
   */
-  function getSynthetixStakingAddr(address token) virtual internal view returns (address){
+  function getSynthetixStakingAddr(address token) virtual internal {
     if (token == address(0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3)){
       // SBTC
-      return 0x13C1542A468319688B89E323fe9A3Be3A90EBb27;
+      stakingContract = IStakingRewards(0x13C1542A468319688B89E323fe9A3Be3A90EBb27);
     } else if (token == address(0xC25a3A3b969415c80451098fa907EC722572917F)){
       // SUSD
-      return 0xDCB6A51eA3CA5d3Fd898Fd6564757c7aAeC3ca92;
+      stakingContract = IStakingRewards(0xDCB6A51eA3CA5d3Fd898Fd6564757c7aAeC3ca92);
     } else {
       revert("token-not-found");
     }
@@ -31,12 +37,14 @@ contract SynthetixStakingHelper is DSMath, Stores {
   /**
    * @dev Return Synthetix Token address.
   */
-  function getSnxAddr() internal pure returns (address) {
+  function getSnxAddr() virtual internal view returns (address) {
     return 0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F;
   }
 }
 
 contract SynthetixStaking is SynthetixStakingHelper {
+
+  constructor(address _synthetixStakingAddr) SynthetixStakingHelper(_synthetixStakingAddr) public {}
 
   // Events
   event LogDeposit(
@@ -71,7 +79,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
     uint setId
   ) external payable {
     uint _amt = getUint(getId, amt);
-    IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
+    getSynthetixStakingAddr(token);
     TokenInterface _stakeToken = TokenInterface(token);
     _amt = _amt == uint(-1) ? _stakeToken.balanceOf(address(this)) : _amt;
 
@@ -101,7 +109,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
     uint setIdReward
   ) external payable {
     uint _amt = getUint(getId, amt);
-    IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
+    getSynthetixStakingAddr(token);
     TokenInterface snxToken = TokenInterface(getSnxAddr());
 
     uint intialBal = snxToken.balanceOf(address(this));
@@ -138,7 +146,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
     address token,
     uint setId
   ) external payable {
-    IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
+    getSynthetixStakingAddr(token);
     TokenInterface snxToken = TokenInterface(getSnxAddr());
 
     uint intialBal = snxToken.balanceOf(address(this));
@@ -157,4 +165,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
 
 contract ConnectSynthetixStaking is SynthetixStaking {
   string public name = "synthetix-staking-v1";
+
+  constructor(address _synthetixStakingAddr) SynthetixStaking(_synthetixStakingAddr) public {}
+
 }

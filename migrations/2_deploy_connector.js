@@ -2,6 +2,7 @@
 // const ConnectSBTCCurve = artifacts.require("ConnectSBTCCurve");
 const MockContract = artifacts.require("MockContract");
 const MockSynthetixStaking = artifacts.require("MockSynthetixStaking");
+// const ConnectSynthetixStaking = artifacts.require("ConnectSynthetixStaking");
 
 // const connectorsABI = require("../test/abi/connectors.json");
 // let connectorsAddr = "0xD6A602C01a023B98Ecfb29Df02FBA380d3B21E0c";
@@ -12,6 +13,7 @@ module.exports = async function(deployer) {
   // let connectorLength = await connectorInstance.methods.connectorLength().call();
   deployer.deploy(MockContract).then(function () {
     // return deployer.deploy(MockSynthetixStaking, MockContract.address, 1, +connectorLength + 1);
+    // return deployer.deploy(ConnectSynthetixStaking, MockContract.address);
     return deployer.deploy(MockSynthetixStaking, MockContract.address);
   });
 
