@@ -99,7 +99,7 @@ contract Helpers is DSMath {
      * @dev Connector Details
     */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 24);
+        (_type, _id) = (1, 31);
     }
 }
 
@@ -124,6 +124,32 @@ contract COMPHelpers is Helpers {
      */
     function getMappingAddr() internal pure returns (address) {
         return 0xe81F70Cc7C0D46e12d70efc60607F16bbD617E88; // InstaMapping Address
+    }
+
+    function mergeTokenArr(address[] memory supplyTokens, address[] memory borrowTokens)
+        internal
+        view
+        returns (address[] memory ctokens, bool isBorrow, bool isSupply)
+    {
+         uint _supplyLen = supplyTokens.length;
+        uint _borrowLen = borrowTokens.length;
+        uint _totalLen = add(_supplyLen, _borrowLen);
+        ctokens = new address[](_totalLen);
+        isBorrow;
+        isSupply;
+        if(_supplyLen > 0) {
+            for (uint i = 0; i < _supplyLen; i++) {
+                ctokens[i] = InstaMapping(getMappingAddr()).cTokenMapping(supplyTokens[i]);
+            }
+            isSupply = true;
+        }
+
+        if(_borrowLen > 0) {
+            for (uint i = 0; i < _borrowLen; i++) {
+                ctokens[_supplyLen + i] = InstaMapping(getMappingAddr()).cTokenMapping(borrowTokens[i]);
+            }
+            isBorrow = true;
+        }
     }
 }
 
@@ -154,6 +180,7 @@ contract BasicResolver is COMPHelpers {
 
     /**
      * @dev Claim Accrued COMP Token.
+     * @param tokens Array of tokens supplied and borrowed.
      * @param setId Set ctoken amount at this ID in `InstaMemory` Contract.
     */
     function ClaimCompTwo(address[] calldata tokens, uint setId) external payable {
@@ -180,28 +207,12 @@ contract BasicResolver is COMPHelpers {
 
     /**
      * @dev Claim Accrued COMP Token.
+     * @param supplyTokens Array of tokens supplied.
+     * @param borrowTokens Array of tokens borrowed.
      * @param setId Set ctoken amount at this ID in `InstaMemory` Contract.
     */
     function ClaimCompThree(address[] calldata supplyTokens, address[] calldata borrowTokens, uint setId) external payable {
-        uint _supplyLen = supplyTokens.length;
-        uint _borrowLen = borrowTokens.length;
-        uint _totalLen = add(_supplyLen, _borrowLen);
-        address[] memory ctokens = new address[](_totalLen);
-        bool isBorrow;
-        bool isSupply;
-        if(_supplyLen > 0) {
-            for (uint i = 0; i < _supplyLen; i++) {
-                ctokens[i] = InstaMapping(getMappingAddr()).cTokenMapping(supplyTokens[i]);
-            }
-            isSupply = true;
-        }
-
-        if(_borrowLen > 0) {
-            for (uint i = 0; i < _borrowLen; i++) {
-                ctokens[_supplyLen + i] = InstaMapping(getMappingAddr()).cTokenMapping(borrowTokens[i]);
-            }
-            isBorrow = true;
-        }
+       (address[] memory ctokens, bool isBorrow, bool isSupply) = mergeTokenArr(supplyTokens, borrowTokens);
 
         address[] memory holders = new address[](1);
         holders[0] = address(this);
@@ -238,7 +249,6 @@ contract BasicResolver is COMPHelpers {
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 }
-
 
 contract ConnectCOMP is BasicResolver {
     string public name = "COMP-v1";
