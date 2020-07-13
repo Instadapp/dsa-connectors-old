@@ -1,4 +1,5 @@
 pragma solidity ^0.6.0;
+pragma experimental ABIEncoderV2;
 
 // import files from common directory
 import { TokenInterface } from "../common/interfaces.sol";
@@ -10,107 +11,138 @@ interface IStakingRewards {
   function exit() external;
   function withdraw(uint256 amount) external;
   function getReward() external;
+  function balanceOf(address) external view returns(uint);
+}
+
+interface SynthetixMapping {
+    struct StakingData {
+        address stakingPool;
+        address stakingToken;
+    }
+
+  function stakingMapping(bytes32) external view returns(StakingData memory);
 }
 
 contract SynthetixStakingHelper is DSMath, Stores {
-  /**
-   * @dev Return Synthetix staking pool address.
-  */
-  function getSynthetixStakingAddr(address token) virtual internal returns (address) {
-    if (token == address(0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3)){
-      // SBTC
-      return 0x13C1542A468319688B89E323fe9A3Be3A90EBb27;
-    } else if (token == address(0xC25a3A3b969415c80451098fa907EC722572917F)){
-      // SUSD
-      return 0xDCB6A51eA3CA5d3Fd898Fd6564757c7aAeC3ca92;
-    } else {
-      revert("token-not-found");
+    /**
+     * @dev Return InstaDApp Synthetix Mapping Addresses
+     */
+    function getMappingAddr() internal pure returns (address) {
+        return 0xe81F70Cc7C0D46e12d70efc60607F16bbD617E88; // InstaMapping Address
     }
-  }
 
-  /**
-   * @dev Return Synthetix Token address.
-  */
-  function getSnxAddr() virtual internal view returns (address) {
-    return 0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F;
-  }
+    /**
+    * @dev Return Synthetix Token address.
+    */
+    function getSnxAddr() internal pure returns (address) {
+        return 0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F;
+    }
+
+    /**
+     * @dev Convert String to bytes32.
+    */
+    function stringToBytes32(string memory str) internal pure returns (bytes32 result) {
+        require(bytes(str).length != 0, "string-empty");
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+            result := mload(add(str, 32))
+        }
+    }
+
+    /**
+     * @dev Get staking data
+    */
+    function getStakingData(string memory stakingName)
+        internal
+        view
+        returns (
+            IStakingRewards stakingContract,
+            TokenInterface stakingToken,
+            bytes32 stakingType
+        )
+    {
+        stakingType = stringToBytes32(stakingName);
+        SynthetixMapping.StakingData memory stakingData = SynthetixMapping(getMappingAddr()).stakingMapping(stakingType);
+        require(stakingData.stakingPool != address(0), "Wrong Staking Name");
+        require(stakingData.stakingToken != address(0), "Wrong Staking Name");
+        stakingContract = IStakingRewards(stakingData.stakingPool);
+        stakingToken = TokenInterface(stakingData.stakingToken);
+    }
 }
 
 contract SynthetixStaking is SynthetixStakingHelper {
-
-  // Events
   event LogDeposit(
     address token,
+    bytes32 stakingType,
     uint256 amount,
     uint getId,
     uint setId
   );
   event LogWithdraw(
     address token,
+    bytes32 stakingType,
     uint256 amount,
     uint getId,
     uint setId
   );
   event LogClaimedReward(
     address token,
+    bytes32 stakingType,
     uint256 rewardAmt,
     uint setId
   );
 
   /**
   * @dev Deposit Token.
-  * @param token staking token address.
+  * @param stakingPoolName staking token address.
   * @param amt staking token amount.
   * @param getId Get token amount at this ID from `InstaMemory` Contract.
   * @param setId Set token amount at this ID in `InstaMemory` Contract.
   */
   function deposit(
-    address token,
+    string calldata stakingPoolName,
     uint amt,
     uint getId,
     uint setId
   ) external payable {
     uint _amt = getUint(getId, amt);
-    IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
-    TokenInterface _stakeToken = TokenInterface(token);
-    _amt = _amt == uint(-1) ? _stakeToken.balanceOf(address(this)) : _amt;
+    (IStakingRewards stakingContract, TokenInterface stakingToken, bytes32 stakingType) = getStakingData(stakingPoolName);
+    _amt = _amt == uint(-1) ? stakingToken.balanceOf(address(this)) : _amt;
 
-    _stakeToken.approve(address(stakingContract), _amt);
+    stakingToken.approve(address(stakingContract), _amt);
     stakingContract.stake(_amt);
 
     setUint(setId, _amt);
-    emit LogDeposit(token, _amt, getId, setId);
-    bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256)");
-    bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
+    emit LogDeposit(address(stakingToken), stakingType, _amt, getId, setId);
+    bytes32 _eventCode = keccak256("LogDeposit(address,bytes32,uint256,uint256,uint256)");
+    bytes memory _eventParam = abi.encode(address(stakingToken), stakingType, _amt, getId, setId);
     emitEvent(_eventCode, _eventParam);
   }
 
   /**
   * @dev Withdraw Token.
-  * @param token staking token address.
+  * @param stakingPoolName staking token address.
   * @param amt staking token amount.
   * @param getId Get token amount at this ID from `InstaMemory` Contract.
   * @param setIdAmount Set token amount at this ID in `InstaMemory` Contract.
   * @param setIdReward Set reward amount at this ID in `InstaMemory` Contract.
   */
   function withdraw(
-    address token,
+    string calldata stakingPoolName,
     uint amt,
     uint getId,
     uint setIdAmount,
     uint setIdReward
   ) external payable {
     uint _amt = getUint(getId, amt);
-    IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
+    (IStakingRewards stakingContract, TokenInterface stakingToken, bytes32 stakingType) = getStakingData(stakingPoolName);
+
     TokenInterface snxToken = TokenInterface(getSnxAddr());
 
+    _amt = _amt == uint(-1) ? stakingContract.balanceOf(address(this)) : _amt;
     uint intialBal = snxToken.balanceOf(address(this));
-    if (_amt == uint(-1)) {
-      stakingContract.exit();
-    } else{
-      stakingContract.withdraw(_amt);
-      stakingContract.getReward();
-    }
+    stakingContract.withdraw(_amt);
+    stakingContract.getReward();
     uint finalBal = snxToken.balanceOf(address(this));
 
     uint rewardAmt = sub(finalBal, intialBal);
@@ -118,27 +150,28 @@ contract SynthetixStaking is SynthetixStakingHelper {
     setUint(setIdAmount, _amt);
     setUint(setIdReward, rewardAmt);
 
-    emit LogWithdraw(token, _amt, getId, setIdAmount);
-    bytes32 _eventCodeWithdraw = keccak256("LogWithdraw(address,uint256,uint256,uint256)");
-    bytes memory _eventParamWithdraw = abi.encode(token, _amt, getId, setIdAmount);
+    emit LogWithdraw(address(stakingToken), stakingType, _amt, getId, setIdAmount);
+    bytes32 _eventCodeWithdraw = keccak256("LogWithdraw(address,bytes32,uint256,uint256,uint256)");
+    bytes memory _eventParamWithdraw = abi.encode(address(stakingToken), _amt, getId, setIdAmount);
     emitEvent(_eventCodeWithdraw, _eventParamWithdraw);
 
-    emit LogClaimedReward(token, rewardAmt, setIdReward);
-    bytes32 _eventCodeReward = keccak256("LogClaimedReward(address,uint256,uint256)");
-    bytes memory _eventParamReward = abi.encode(token, rewardAmt, setIdReward);
+    emit LogClaimedReward(address(stakingToken), stakingType, rewardAmt, setIdReward);
+    bytes32 _eventCodeReward = keccak256("LogClaimedReward(address,bytes32,uint256,uint256)");
+    bytes memory _eventParamReward = abi.encode(address(stakingToken), rewardAmt, setIdReward);
     emitEvent(_eventCodeReward, _eventParamReward);
   }
 
   /**
   * @dev Claim Reward.
-  * @param token staking token address.
+  * @param stakingPoolName staking token address.
   * @param setId Set reward amount at this ID in `InstaMemory` Contract.
   */
   function claimReward(
-    address token,
+    string calldata stakingPoolName,
     uint setId
   ) external payable {
-    IStakingRewards stakingContract = IStakingRewards(getSynthetixStakingAddr(token));
+    (IStakingRewards stakingContract, TokenInterface stakingToken, bytes32 stakingType) = getStakingData(stakingPoolName);
+
     TokenInterface snxToken = TokenInterface(getSnxAddr());
 
     uint intialBal = snxToken.balanceOf(address(this));
@@ -148,9 +181,9 @@ contract SynthetixStaking is SynthetixStakingHelper {
     uint rewardAmt = sub(finalBal, intialBal);
 
     setUint(setId, rewardAmt);
-    emit LogClaimedReward(token, rewardAmt, setId);
-    bytes32 _eventCode = keccak256("LogClaimedReward(address,uint256,uint256)");
-    bytes memory _eventParam = abi.encode(token, rewardAmt, setId);
+    emit LogClaimedReward(address(stakingToken), stakingType, rewardAmt, setId);
+    bytes32 _eventCode = keccak256("LogClaimedReward(address,bytes32,uint256,uint256)");
+    bytes memory _eventParam = abi.encode(address(stakingToken), stakingType, rewardAmt, setId);
     emitEvent(_eventCode, _eventParam);
   }
 }
