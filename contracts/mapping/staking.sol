@@ -45,11 +45,12 @@ contract Helpers is BytesHelper {
   address public constant instaIndex = 0x2971AdFa57b20E5a416aE5a708A8655A9c74f723;
   uint public version = 1;
 
+  mapping (bytes32 => StakingData) public stakingMapping;
+
   struct StakingData {
     address stakingPool;
     address stakingToken;
   }
-  mapping (bytes32 => StakingData) public stakingMapping;
 
   event LogAddStakingMapping(string stakingName, bytes32 stakingType, address stakingAddress, address stakingToken);
   event LogRemoveStakingMapping(string stakingName, bytes32 stakingType, address stakingAddress, address stakingToken);
@@ -60,13 +61,14 @@ contract Helpers is BytesHelper {
       IndexInterface(instaIndex).master() == msg.sender, "not-Chief");
       _;
   }
+
   function addStakingMapping(string memory stakingName, address stakingAddress, address stakingToken) public isChief {
-    require(stakingAddress != address(0), "StakingPool-not-vaild");
-    require(stakingToken != address(0), "StakingToken-not-vaild");
-    require(bytes(stakingName).length < 32, "Lenght-exceeds"); // TODO - test this.
+    require(stakingAddress != address(0), "stakingAddress-not-vaild");
+    require(stakingToken != address(0), "stakingToken-not-vaild");
+    require(bytes(stakingName).length <= 32, "Length-exceeds");
     bytes32 stakeType = stringToBytes32(stakingName);
-    require(stakingMapping[stakeType].stakingPool == address(0), "StakingPool-Already-Added");
-    require(stakingMapping[stakeType].stakingToken == address(0), "StakingPool-Already-Added");
+    require(stakingMapping[stakeType].stakingPool == address(0), "StakingPool-already-added");
+    require(stakingMapping[stakeType].stakingToken == address(0), "StakingToken-already-added");
 
     stakingMapping[stakeType] = StakingData(
       stakingAddress,
@@ -76,12 +78,11 @@ contract Helpers is BytesHelper {
   }
 
   function removeStakingMapping(string memory stakingName, address stakingAddress) public isChief {
-    require(stakingAddress != address(0), "StakingPool-not-vaild");
-    require(bytes(stakingName).length < 32, "Lenght-exceeds"); // TODO - test this.
+    require(stakingAddress != address(0), "stakingAddress-not-vaild");
     bytes32 stakeType = stringToBytes32(stakingName);
-    require(stakingMapping[stakeType].stakingPool != address(0), "StakingPool-Already-Added");
-    require(stakingMapping[stakeType].stakingToken != address(0), "StakingPool-Already-Added");
-    require(stakingMapping[stakeType].stakingPool == stakingAddress, "Not-same-staking-pool");
+    require(stakingMapping[stakeType].stakingPool != address(0), "StakingPool-not-added-yet");
+    require(stakingMapping[stakeType].stakingToken != address(0), "StakingToken-not-added-yet");
+    require(stakingMapping[stakeType].stakingPool == stakingAddress, "different-staking-pool");
 
     emit LogRemoveStakingMapping(stakingName, stakeType, stakingAddress, stakingMapping[stakeType].stakingToken);
     delete stakingMapping[stakeType];
