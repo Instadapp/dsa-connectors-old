@@ -78,8 +78,6 @@ contract('ConnectSBTCCurve', async accounts => {
     // Send ETH to master
     await web3.eth.sendTransaction({from: sender, to: masterAddress, value: ether("5")});
 
-    let connectorID  = await connectSBTCCurve.connectorID();
-
     // Enable the the given connector address
     await connectorInstance.methods.enable(connectSBTCCurve.address).send({from: masterAddress});
     // check if the give connector address is enabled.
