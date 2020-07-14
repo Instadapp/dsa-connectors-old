@@ -20,7 +20,7 @@ contract('ConnectSynthetixStaking', async accounts => {
   before(async function () {
     mock = await MockContract.new();
     mockInstaMapping = await MockInstaMapping.new();
-    mockSynthetixStaking = await MockSynthetixStaking.new(mock.address);
+    mockSynthetixStaking = await MockSynthetixStaking.new(mock.address, mockInstaMapping.address);
     stakingContract = new web3.eth.Contract(synthetixStaking, mock.address);
     token = new web3.eth.Contract(erc20ABI, mock.address);
     mockInstaMapping.addStakingMapping('snx', mock.address, mock.address);
@@ -41,7 +41,7 @@ contract('ConnectSynthetixStaking', async accounts => {
     await mock.givenMethodReturnBool(stake, "true");
 
     const tx = await mockSynthetixStaking.deposit(
-      mock.address,
+      "snx",
       10000000,
       0,
       0
@@ -58,7 +58,7 @@ contract('ConnectSynthetixStaking', async accounts => {
     await mock.givenMethodReturnBool(reward, "true");
 
     const tx = await mockSynthetixStaking.withdraw(
-      mock.address,
+      "snx",
       10000000,
       0,
       111,
@@ -73,9 +73,25 @@ contract('ConnectSynthetixStaking', async accounts => {
     let reward = await stakingContract.methods.getReward().encodeABI();
     await mock.givenMethodReturnBool(reward, "true");
     const tx = await mockSynthetixStaking.claimReward(
-      mock.address,
+      "snx",
       112
     )
     expectEvent(tx, "LogClaimedReward");
   });
+
+  it('cannot deposit if pool removed', async function() {
+    mockInstaMapping.removeStakingMapping('snx', mock.address);
+    // mocking stake
+    let stake = await stakingContract.methods.stake(10000000).encodeABI();
+    await mock.givenMethodReturnBool(stake, "true");
+
+    const tx = mockSynthetixStaking.deposit(
+      "snx",
+      10000000,
+      0,
+      0
+    )
+    expectRevert(tx, "Wrong Staking Name");
+  });
+
 })

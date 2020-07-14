@@ -27,7 +27,7 @@ contract SynthetixStakingHelper is DSMath, Stores {
   /**
    * @dev Return InstaDApp Synthetix Mapping Addresses
    */
-  function getMappingAddr() internal pure returns (address) {
+  function getMappingAddr() virtual internal view returns (address) {
     return 0xe81F70Cc7C0D46e12d70efc60607F16bbD617E88; // InstaMapping Address
   }
 
