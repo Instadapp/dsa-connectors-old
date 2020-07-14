@@ -8,7 +8,6 @@ import { DSMath } from "../common/math.sol";
 
 interface IStakingRewards {
   function stake(uint256 amount) external;
-  function exit() external;
   function withdraw(uint256 amount) external;
   function getReward() external;
   function balanceOf(address) external view returns(uint);
@@ -27,14 +26,14 @@ contract SynthetixStakingHelper is DSMath, Stores {
   /**
    * @dev Return InstaDApp Synthetix Mapping Addresses
    */
-  function getMappingAddr() virtual internal view returns (address) {
+  function getMappingAddr() internal virtual view returns (address) {
     return 0xe81F70Cc7C0D46e12d70efc60607F16bbD617E88; // InstaMapping Address
   }
 
   /**
   * @dev Return Synthetix Token address.
    */
-  function getSnxAddr() virtual internal view returns (address) {
+  function getSnxAddr() internal virtual view returns (address) {
     return 0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F;
   }
 
@@ -45,7 +44,7 @@ contract SynthetixStakingHelper is DSMath, Stores {
     require(bytes(str).length != 0, "string-empty");
     // solium-disable-next-line security/no-inline-assembly
     assembly {
-result := mload(add(str, 32))
+      result := mload(add(str, 32))
     }
   }
 
@@ -53,8 +52,8 @@ result := mload(add(str, 32))
    * @dev Get staking data
    */
   function getStakingData(string memory stakingName)
-  virtual
   internal
+  virtual
   view
   returns (
     IStakingRewards stakingContract,
@@ -64,8 +63,7 @@ result := mload(add(str, 32))
   {
     stakingType = stringToBytes32(stakingName);
     SynthetixMapping.StakingData memory stakingData = SynthetixMapping(getMappingAddr()).stakingMapping(stakingType);
-    require(stakingData.stakingPool != address(0), "Wrong Staking Name");
-    require(stakingData.stakingToken != address(0), "Wrong Staking Name");
+    require(stakingData.stakingPool != address(0) && stakingData.stakingToken != address(0), "Wrong Staking Name");
     stakingContract = IStakingRewards(stakingData.stakingPool);
     stakingToken = TokenInterface(stakingData.stakingToken);
   }
@@ -79,6 +77,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
     uint getId,
     uint setId
   );
+
   event LogWithdraw(
     address token,
     bytes32 stakingType,
@@ -86,6 +85,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
     uint getId,
     uint setId
   );
+  
   event LogClaimedReward(
     address token,
     bytes32 stakingType,
@@ -95,11 +95,11 @@ contract SynthetixStaking is SynthetixStakingHelper {
 
   /**
   * @dev Deposit Token.
-  * @param stakingPoolName staking token address.
+    * @param stakingPoolName staking token address.
     * @param amt staking token amount.
     * @param getId Get token amount at this ID from `InstaMemory` Contract.
     * @param setId Set token amount at this ID in `InstaMemory` Contract.
-    */
+  */
   function deposit(
     string calldata stakingPoolName,
     uint amt,
@@ -122,12 +122,12 @@ contract SynthetixStaking is SynthetixStakingHelper {
 
   /**
   * @dev Withdraw Token.
-  * @param stakingPoolName staking token address.
+    * @param stakingPoolName staking token address.
     * @param amt staking token amount.
     * @param getId Get token amount at this ID from `InstaMemory` Contract.
     * @param setIdAmount Set token amount at this ID in `InstaMemory` Contract.
     * @param setIdReward Set reward amount at this ID in `InstaMemory` Contract.
-    */
+  */
   function withdraw(
     string calldata stakingPoolName,
     uint amt,
@@ -164,9 +164,9 @@ contract SynthetixStaking is SynthetixStakingHelper {
 
   /**
   * @dev Claim Reward.
-  * @param stakingPoolName staking token address.
+    * @param stakingPoolName staking token address.
     * @param setId Set reward amount at this ID in `InstaMemory` Contract.
-    */
+  */
   function claimReward(
     string calldata stakingPoolName,
     uint setId
