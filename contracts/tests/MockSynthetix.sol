@@ -9,9 +9,9 @@ contract MockSynthetixStaking is ConnectSynthetixStaking{
     synthetixStakingAddr = _synthetixStakingAddr;
   }
 
-  function getSynthetixStakingAddr(address token) override internal returns (address) {
-    return synthetixStakingAddr;
-  }
+  // function getSynthetixStakingAddr(address token) override internal returns (address) {
+  //   return synthetixStakingAddr;
+  // }
 
   function emitEvent(bytes32 eventCode, bytes memory eventData) override internal {}
 

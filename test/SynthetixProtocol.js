@@ -8,20 +8,22 @@ const {
 
 const MockContract = artifacts.require("MockContract");
 const MockSynthetixStaking = artifacts.require('MockSynthetixStaking');
-// const ConnectSynthetixStaking = artifacts.require('ConnectSynthetixStaking');
+const MockInstaMapping = artifacts.require('MockInstaMapping');
 const erc20ABI = require("./abi/erc20.js");
 const synthetixStaking = require("./abi/synthetixStaking.json");
 
 contract('ConnectSynthetixStaking', async accounts => {
   const [sender, receiver] =  accounts;
   let mock, mockSynthetixStaking, stakingContract, token;
+  let instaMapping;
 
   before(async function () {
-    // const connectSynthetixStaking = await ConnectSynthetixStaking.deployed();
     mock = await MockContract.new();
+    mockInstaMapping = await MockInstaMapping.new();
     mockSynthetixStaking = await MockSynthetixStaking.new(mock.address);
     stakingContract = new web3.eth.Contract(synthetixStaking, mock.address);
     token = new web3.eth.Contract(erc20ABI, mock.address);
+    mockInstaMapping.addStakingMapping('snx', mock.address, mock.address);
 
     // mocking balanceOf
     let balanceOf = await token.methods.balanceOf(mockSynthetixStaking.address).encodeABI();
