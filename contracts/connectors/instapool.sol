@@ -298,7 +298,7 @@ contract LiquidityAccess is LiquidityManage {
         _transfer(payable(address(liquidityContract)), token, _amt);
         liquidityContract.returnLiquidity(_tknAddrs);
 
-        _transfer(payable(IndexInterface(getIndexAddr).master()), token, feeAmt);
+        _transfer(payable(IndexInterface(getIndexAddr()).master()), token, feeAmt);
 
 
         setUint(setId, _amt);
@@ -358,7 +358,7 @@ contract LiquidityAccess is LiquidityManage {
             (uint feeAmt,) = calculateFeeAmt(tokens[i], _amt);
 
             _transfer(payable(address(liquidityContract)), tokens[i], _amt);
-            _transfer(payable(IndexInterface(getIndexAddr).master()), tokens[i], feeAmt);
+            _transfer(payable(IndexInterface(getIndexAddr()).master()), tokens[i], feeAmt);
 
             setUint(setId[i], _amt);
 
@@ -391,7 +391,7 @@ contract LiquidityAccess is LiquidityManage {
 
         _transfer(payable(address(liquidityContract)), token, _amt);
         liquidityContract.returnLiquidity(_tknAddrs);
-        _transfer(payable(IndexInterface(getIndexAddr).master()), token, poolFeeAmt);
+        _transfer(payable(IndexInterface(getIndexAddr()).master()), token, poolFeeAmt);
         _transfer(payable(origin), token, originFeeAmt);
 
 
