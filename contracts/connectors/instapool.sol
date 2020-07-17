@@ -52,10 +52,6 @@ interface EventInterface {
     function emitEvent(uint _connectorType, uint _connectorID, bytes32 _eventCode, bytes calldata _eventData) external;
 }
 
-interface IndexInterface {
-    function master() external view returns (address);
-}
-
 contract DSMath {
 
     function add(uint x, uint y) internal pure returns (uint z) {
@@ -106,13 +102,6 @@ contract Helpers is DSMath {
      */
     function getEventAddr() internal pure returns (address) {
         return 0x2af7ea6Cb911035f3eb1ED895Cb6692C39ecbA97; // InstaEvent Address
-    }
-
-    /**
-     * @dev Return InstaIndex Address.
-     */
-    function getIndexAddr() internal pure returns (address) {
-        return 0x2971AdFa57b20E5a416aE5a708A8655A9c74f723; // InstaIndex Address
     }
 
     /**
