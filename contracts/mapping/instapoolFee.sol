@@ -6,6 +6,10 @@ interface IndexInterface {
 }
 
 contract Helpers {
+
+    event LogChangeFee(uint256 _fee);
+    event LogChangeFeeCollector(address _feeCollector);
+
     address public constant instaIndex = 0x2971AdFa57b20E5a416aE5a708A8655A9c74f723;
     uint256 public fee;
     address public feeCollector;
@@ -18,12 +22,14 @@ contract Helpers {
     function changeFee(uint256 _fee) external isChief {
         require(fee <= 2 * 10 ** 15, "Fee is more than 0.2%");
         fee = uint64(_fee);
+        emit LogChangeFee(_fee);
     }
 
     function changeFeeCollector(address _feeCollector) external isChief {
         require(feeCollector != _feeCollector, "Same-feeCollector");
         require(_feeCollector != address(0), "feeCollector-is-address(0)");
         feeCollector = _feeCollector;
+        emit LogChangeFeeCollector(_feeCollector);
     }
 }
 
