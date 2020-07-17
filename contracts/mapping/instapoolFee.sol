@@ -20,7 +20,7 @@ contract Helpers {
     }
 
     function changeFee(uint256 _fee) external isChief {
-        require(fee <= 2 * 10 ** 15, "Fee is more than 0.2%");
+        require(_fee <= 2 * 10 ** 15, "Fee is more than 0.2%");
         fee = uint64(_fee);
         emit LogChangeFee(_fee);
     }
