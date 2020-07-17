@@ -307,7 +307,7 @@ contract EventHelpers is LiquidityManage {
 
 contract LiquidityAccessHelper is EventHelpers {
     /**
-     * @dev Set feeAmt of borrowed flashloan using `getId`.
+     * @dev Set Fee Amount of borrowed flashloan using `getId`.
      * @param getId Get token amount at this ID from `InstaMemory` Contract.
      * @param setId Set token amount at this ID in `InstaMemory` Contract.
     */
@@ -320,7 +320,7 @@ contract LiquidityAccessHelper is EventHelpers {
     }
 
     /**
-     * @dev Set feeAmt of borrowed flashloan using `token`.
+     * @dev Set Fee Amount of borrowed flashloan using `token`.
      * @param token token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param setId Set token amount at this ID in `InstaMemory` Contract.
     */
@@ -405,7 +405,6 @@ contract LiquidityAccess is LiquidityAccessHelper {
             _transfer(payable(origin), token, originFeeAmt);
         }
 
-
         setUint(setId, _amt);
 
         emitFlashPayback(token, _amt, poolFeeAmt, getId, setId);
@@ -470,7 +469,7 @@ contract LiquidityAccessMulti is LiquidityAccess {
     }
 
     /**
-     * @dev Return Multiple token liquidity from InstaPool.
+     * @dev Return Multiple token liquidity from InstaPool and Tranfer 20% of the Fee to Origin.
      * @param tokens Array of token addresses.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param getId get token amounts at this IDs from `InstaMemory` Contract.
      * @param setId set token amounts at this IDs in `InstaMemory` Contract.
@@ -485,7 +484,7 @@ contract LiquidityAccessMulti is LiquidityAccess {
             (address feeCollector, uint poolFeeAmt, uint originFeeAmt) = calculateFeeAmtOrigin(tokens[i], _amt);
 
            _transfer(payable(address(liquidityContract)), tokens[i], _amt);
-            
+
             if (poolFeeAmt > 0) {
                 _transfer(payable(feeCollector), tokens[i], poolFeeAmt);
                 _transfer(payable(origin), tokens[i], originFeeAmt);
