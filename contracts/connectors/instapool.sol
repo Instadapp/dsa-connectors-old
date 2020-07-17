@@ -1,8 +1,8 @@
 pragma solidity ^0.6.0;
 pragma experimental ABIEncoderV2;
 
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "../../node_modules/@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import { IERC20 } from "../../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface LiqudityInterface {
     function deposit(address, uint) external payable;
@@ -156,7 +156,7 @@ contract LiquidityHelpers is Helpers {
 
     function calculateTotalFeeAmt(address token, uint amt) internal view returns (uint totalAmt) {
         uint fee = InstaPoolFeeInterface(getInstaPoolFeeAddr()).fee();
-        uint flashAmt = liquidityContract.borrowedToken(token);
+        uint flashAmt = LiqudityInterface(getLiquidityAddress()).borrowedToken(token);
         if (fee == 0) {
             totalAmt = amt;
         } else {
@@ -314,7 +314,7 @@ contract LiquidityAccessHelper is EventHelpers {
      * @param setId Set token amount at this ID in `InstaMemory` Contract.
     */
     function setFeeAmount(address token, uint amt, uint getId, uint setId) external payable {
-        _amt = getUint(getId, amt);
+        uint _amt = getUint(getId, amt);
         require(_amt != 0, "amt-is-0");
         uint totalFee = calculateTotalFeeAmt(token, _amt);
 
