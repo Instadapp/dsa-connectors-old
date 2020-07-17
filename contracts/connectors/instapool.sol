@@ -75,9 +75,7 @@ contract DSMath {
     function wdiv(uint x, uint y) internal pure returns (uint z) {
         z = add(mul(x, WAD), y / 2) / y;
     }
-
 }
-
 
 contract Helpers is DSMath {
 
@@ -119,10 +117,10 @@ contract Helpers is DSMath {
     }
 
     /**
-     * @dev Connector Details
+     * @dev Connector Details.
     */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 8);
+        (_type, _id) = (1, 33);
     }
 
     function _transfer(address payable to, IERC20 token, uint _amt) internal {
@@ -151,7 +149,7 @@ contract LiquidityHelpers is Helpers {
      * @dev Return InstaPoolFee address
      */
     function getInstaPoolFeeAddr() internal pure returns (address) {
-        return 0x06cB7C24990cBE6b9F99982f975f9147c000fec6; // TODO - change
+        return 0xAaA91046C1D1a210017e36394C83bD5070dadDa5;
     }
 
     function calculateTotalFeeAmt(IERC20 token, uint amt) internal view returns (uint totalAmt) {
@@ -223,7 +221,7 @@ contract LiquidityManage is LiquidityHelpers {
             _amt = _amt == uint(-1) ? address(this).balance : _amt;
             ethAmt = _amt;
         } else {
-            TokenInterface tokenContract = TokenInterface(token);
+            IERC20 tokenContract = IERC20(token);
             _amt = _amt == uint(-1) ? tokenContract.balanceOf(address(this)) : _amt;
             tokenContract.approve(getLiquidityAddress(), _amt);
         }
@@ -309,7 +307,7 @@ contract EventHelpers is LiquidityManage {
 
 contract LiquidityAccessHelper is EventHelpers {
     /**
-     * @dev Set Fee Amount of borrowed flashloan using `getId`.
+     * @dev Add Fee Amount to borrowed flashloan/
      * @param amt Get token amount at this ID from `InstaMemory` Contract.
      * @param getId Get token amount at this ID from `InstaMemory` Contract.
      * @param setId Set token amount at this ID in `InstaMemory` Contract.
@@ -372,7 +370,7 @@ contract LiquidityAccess is LiquidityAccessHelper {
     }
 
     /**
-     * @dev Return Token Liquidity from InstaPool.
+     * @dev Return Token Liquidity from InstaPool and Transfer 20% of Collected Fee to `origin`.
      * @param origin origin address to transfer 20% of the collected fee.
      * @param token token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param getId Get token amount at this ID from `InstaMemory` Contract.
@@ -494,5 +492,5 @@ contract LiquidityAccessMulti is LiquidityAccess {
 }
 
 contract ConnectInstaPool is LiquidityAccessMulti {
-    string public name = "InstaPool-v2";
+    string public name = "InstaPool-v2.1";
 }
