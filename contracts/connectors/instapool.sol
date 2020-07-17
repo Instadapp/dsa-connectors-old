@@ -169,7 +169,7 @@ contract LiquidityHelpers is Helpers {
         InstaPoolFeeInterface feeContract = InstaPoolFeeInterface(getInstaPoolFeeAddr());
         uint fee = feeContract.fee();
         feeCollector = feeContract.feeCollector();
-        if(fee == 0) {
+        if (fee == 0) {
             feeAmt = 0;
         } else {
             feeAmt = wmul(amt, fee);
@@ -182,8 +182,8 @@ contract LiquidityHelpers is Helpers {
     }
 
     function calculateFeeAmtOrigin(address token, uint amt)
-    internal
-    view
+        internal
+        view
     returns (
         address feeCollector,
         uint poolFeeAmt,
@@ -192,7 +192,7 @@ contract LiquidityHelpers is Helpers {
     {
         uint feeAmt;
         (feeCollector, feeAmt) = calculateFeeAmt(token, amt);
-        if(feeAmt == 0) {
+        if (feeAmt == 0) {
             poolFeeAmt = 0;
             originFee = 0;
         } else {
