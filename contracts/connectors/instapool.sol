@@ -19,8 +19,8 @@ interface LiqudityInterface {
 }
 
 interface InstaPoolFeeInterface {
-    function getFee() external view returns(uint);
-    function getFeeCollector() external view returns(address);
+    function fee() external view returns(uint);
+    function feeCollector() external view returns(address);
 }
 
 interface CTokenInterface {
@@ -154,14 +154,23 @@ contract LiquidityHelpers is Helpers {
         return 0x06cB7C24990cBE6b9F99982f975f9147c000fec6; // TODO - change
     }
 
-    function calculateFeeAmt(address token, uint amt) internal view returns (uint feeAmt, uint totalAmt) {
-        uint fee = InstaPoolFeeInterface(getInstaPoolFeeAddr()).getFee();
+    function calculateTotalFeeAmt(uint amt) internal view returns (uint totalAmt) {
+        uint fee = InstaPoolFeeInterface(getInstaPoolFeeAddr()).fee();
         if(fee == 0) {
-            feeAmt = 0;
             totalAmt = amt;
         } else {
-            feeAmt = wmul(amt, fee);
+            uint feeAmt = wmul(amt, fee);
             totalAmt = add(amt, feeAmt);
+        }
+    }
+
+    function calculateFeeAmt(address token, uint amt) internal view returns (uint feeAmt) {
+        uint fee = InstaPoolFeeInterface(getInstaPoolFeeAddr()).fee();
+        if(fee == 0) {
+            feeAmt = 0;
+        } else {
+            feeAmt = wmul(amt, fee);
+            uint totalAmt = add(amt, feeAmt);
 
             uint totalBal = _getBalance(token);
             require(totalBal >= totalAmt - 10, "Not-enough-balance");
@@ -170,7 +179,7 @@ contract LiquidityHelpers is Helpers {
     }
 
     function calculateFeeAmtOrigin(address token, uint amt) internal view returns (uint poolFeeAmt, uint originFee) {
-        (uint feeAmt,) = calculateFeeAmt(token, amt);
+        (uint feeAmt) = calculateFeeAmt(token, amt);
         if(feeAmt == 0) {
             poolFeeAmt = 0;
             originFee = 0;
@@ -280,7 +289,7 @@ contract LiquidityAccess is LiquidityManage {
         LiqudityInterface liquidityContract = LiqudityInterface(getLiquidityAddress());
         uint _amt = liquidityContract.borrowedToken(token);
 
-        (uint feeAmt,) = calculateFeeAmt(token, _amt);
+        uint feeAmt = calculateFeeAmt(token, _amt);
 
         address[] memory _tknAddrs = new address[](1);
         _tknAddrs[0] = token;
@@ -288,7 +297,8 @@ contract LiquidityAccess is LiquidityManage {
         _transfer(payable(address(liquidityContract)), token, _amt);
         liquidityContract.returnLiquidity(_tknAddrs);
 
-        _transfer(payable(InstaPoolFeeInterface(getInstaPoolFeeAddr()).getFeeCollector()), token, feeAmt);
+        if (feeAmt > 0)
+            _transfer(payable(InstaPoolFeeInterface(getInstaPoolFeeAddr()).feeCollector()), token, feeAmt);
 
         setUint(setId, _amt);
 
@@ -344,14 +354,17 @@ contract LiquidityAccess is LiquidityManage {
 
         for (uint i = 0; i < _length; i++) {
             uint _amt = liquidityContract.borrowedToken(tokens[i]);
-            (uint feeAmt,) = calculateFeeAmt(tokens[i], _amt);
+            uint feeAmt = calculateFeeAmt(tokens[i], _amt);
 
             _transfer(payable(address(liquidityContract)), tokens[i], _amt);
-            _transfer(
-                payable(InstaPoolFeeInterface(getInstaPoolFeeAddr()).getFeeCollector()),
-                tokens[i],
-                feeAmt
-            );
+            
+            if (feeAmt > 0) {
+                _transfer(
+                    payable(InstaPoolFeeInterface(getInstaPoolFeeAddr()).feeCollector()),
+                    tokens[i],
+                    feeAmt
+                );
+            }
 
             setUint(setId[i], _amt);
 
@@ -384,12 +397,15 @@ contract LiquidityAccess is LiquidityManage {
 
         _transfer(payable(address(liquidityContract)), token, _amt);
         liquidityContract.returnLiquidity(_tknAddrs);
-        _transfer(
-            payable(InstaPoolFeeInterface(getInstaPoolFeeAddr()).getFeeCollector()),
-            token,
-            poolFeeAmt
-        );
-        _transfer(payable(origin), token, originFeeAmt);
+
+        if (poolFeeAmt > 0) {
+            _transfer(
+                payable(InstaPoolFeeInterface(getInstaPoolFeeAddr()).feeCollector()),
+                token,
+                poolFeeAmt
+            );
+            _transfer(payable(origin), token, originFeeAmt);
+        }
 
 
         setUint(setId, _amt);
@@ -406,8 +422,33 @@ contract LiquidityAccess is LiquidityManage {
         bytes memory _eventParamOrigin = abi.encode(origin, token, _amt, poolFeeAmt);
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCodeOrigin, _eventParamOrigin);
     }
-}
 
+    /**
+     * @dev Set feeAmt of borrowed flashloan using `getId`.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
+    function setFeeAmount(uint getId, uint setId) external payable {
+        uint amt = getUint(getId, 0);
+        require(amt != 0, "amt-is-0");
+        uint totalFee = calculateTotalFeeAmt(amt);
+
+        setUint(setId, totalFee);
+    }
+
+    /**
+     * @dev Set feeAmt of borrowed flashloan using `token`.
+     * @param token token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
+    function setFeeAmountToken(address token, uint setId) external payable {
+        uint amt = LiqudityInterface(getLiquidityAddress()).borrowedToken(token);
+        require(amt != 0, "amt-is-0");
+        uint totalFee = calculateTotalFeeAmt(amt);
+
+        setUint(setId, totalFee);
+    }
+}
 
 contract ConnectInstaPool is LiquidityAccess {
     string public name = "InstaPool-v2";
