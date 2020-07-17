@@ -373,8 +373,7 @@ contract LiquidityAccess is LiquidityAccessHelper {
         _transfer(payable(address(liquidityContract)), token, _amt);
         liquidityContract.returnLiquidity(_tknAddrs);
 
-        if (feeAmt > 0)
-            _transfer(payable(feeCollector), token, feeAmt);
+        if (feeAmt > 0) _transfer(payable(feeCollector), token, feeAmt);
 
         setUint(setId, _amt);
         emitFlashPayback(token, _amt, feeAmt, getId, setId);
@@ -456,9 +455,8 @@ contract LiquidityAccessMulti is LiquidityAccess {
             (address feeCollector, uint feeAmt) = calculateFeeAmt(tokens[i], _amt);
 
             _transfer(payable(address(liquidityContract)), tokens[i], _amt);
-            
-            if (feeAmt > 0)
-                _transfer(payable(feeCollector), tokens[i], feeAmt);
+
+            if (feeAmt > 0) _transfer(payable(feeCollector), tokens[i], feeAmt);
 
             setUint(setId[i], _amt);
 
