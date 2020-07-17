@@ -154,12 +154,13 @@ contract LiquidityHelpers is Helpers {
         return 0x06cB7C24990cBE6b9F99982f975f9147c000fec6; // TODO - change
     }
 
-    function calculateTotalFeeAmt(uint amt) internal view returns (uint totalAmt) {
+    function calculateTotalFeeAmt(address token, uint amt) internal view returns (uint totalAmt) {
         uint fee = InstaPoolFeeInterface(getInstaPoolFeeAddr()).fee();
-        if(fee == 0) {
+        uint flashAmt = liquidityContract.borrowedToken(token);
+        if (fee == 0) {
             totalAmt = amt;
         } else {
-            uint feeAmt = wmul(amt, fee);
+            uint feeAmt = wmul(flashAmt, fee);
             totalAmt = add(amt, feeAmt);
         }
     }
@@ -312,10 +313,10 @@ contract LiquidityAccessHelper is EventHelpers {
      * @param getId Get token amount at this ID from `InstaMemory` Contract.
      * @param setId Set token amount at this ID in `InstaMemory` Contract.
     */
-    function setFeeAmount(uint amt, uint getId, uint setId) external payable {
+    function setFeeAmount(address token, uint amt, uint getId, uint setId) external payable {
         _amt = getUint(getId, amt);
         require(_amt != 0, "amt-is-0");
-        uint totalFee = calculateTotalFeeAmt(_amt);
+        uint totalFee = calculateTotalFeeAmt(token, _amt);
 
         setUint(setId, totalFee);
     }
