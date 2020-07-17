@@ -313,7 +313,7 @@ contract LiquidityAccessHelper is EventHelpers {
      * @param getId Get token amount at this ID from `InstaMemory` Contract.
      * @param setId Set token amount at this ID in `InstaMemory` Contract.
     */
-    function setFeeAmount(address token, uint amt, uint getId, uint setId) external payable {
+    function addFeeAmount(address token, uint amt, uint getId, uint setId) external payable {
         uint _amt = getUint(getId, amt);
         require(_amt != 0, "amt-is-0");
         uint totalFee = calculateTotalFeeAmt(token, _amt);
