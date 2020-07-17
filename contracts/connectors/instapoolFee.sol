@@ -7,8 +7,8 @@ interface IndexInterface {
 
 contract Helpers {
     address public constant instaIndex = 0x2971AdFa57b20E5a416aE5a708A8655A9c74f723;
-    uint64 internal fee;
-    address internal feeCollector;
+    uint256 public fee;
+    address public feeCollector;
 
     modifier isChief {
         require(IndexInterface(instaIndex).master() == msg.sender, "not-Master");
@@ -31,13 +31,5 @@ contract InstaPoolFee is Helpers {
     constructor () public {
         fee = 9 * 10 ** 14;  // 0.09%
         feeCollector = IndexInterface(instaIndex).master();
-    }
-
-    function getFee() public view returns (uint256) {
-        return uint256(fee);
-    }
-
-    function getFeeCollector() public view returns (address) {
-        return feeCollector;
     }
 }
