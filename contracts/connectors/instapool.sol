@@ -51,6 +51,10 @@ interface EventInterface {
     function emitEvent(uint _connectorType, uint _connectorID, bytes32 _eventCode, bytes calldata _eventData) external;
 }
 
+interface IndexInterface {
+    function master() external view returns (address);
+}
+
 contract DSMath {
 
     function add(uint x, uint y) internal pure returns (uint z) {
@@ -104,6 +108,13 @@ contract Helpers is DSMath {
     }
 
     /**
+     * @dev Return InstaIndex Address.
+     */
+    function getIndexAddr() internal pure returns (address) {
+        return 0x2971AdFa57b20E5a416aE5a708A8655A9c74f723; // InstaIndex Address
+    }
+
+    /**
      * @dev Get Uint value from InstaMemory Contract.
     */
     function getUint(uint getId, uint val) internal returns (uint returnVal) {
@@ -150,13 +161,6 @@ contract LiquidityHelpers is Helpers {
      * @dev Return InstaPoolFee address
      */
     function getInstaPoolFeeAddr() internal pure returns (address) {
-        return 0x06cB7C24990cBE6b9F99982f975f9147c000fec6; // TODO - change
-    }
-
-    /**
-     * @dev Return Fee collector address
-     */
-    function getFeeCollectorAddr() internal pure returns (address) {
         return 0x06cB7C24990cBE6b9F99982f975f9147c000fec6; // TODO - change
     }
 
@@ -293,7 +297,8 @@ contract LiquidityAccess is LiquidityManage {
 
         _transfer(payable(address(liquidityContract)), token, _amt);
         liquidityContract.returnLiquidity(_tknAddrs);
-        _transfer(payable(getFeeCollectorAddr()), token, feeAmt);
+
+        _transfer(payable(IndexInterface(getIndexAddr).master()), token, feeAmt);
 
 
         setUint(setId, _amt);
@@ -353,7 +358,7 @@ contract LiquidityAccess is LiquidityManage {
             (uint feeAmt,) = calculateFeeAmt(tokens[i], _amt);
 
             _transfer(payable(address(liquidityContract)), tokens[i], _amt);
-            _transfer(payable(getFeeCollectorAddr()), tokens[i], feeAmt);
+            _transfer(payable(IndexInterface(getIndexAddr).master()), tokens[i], feeAmt);
 
             setUint(setId[i], _amt);
 
@@ -386,7 +391,7 @@ contract LiquidityAccess is LiquidityManage {
 
         _transfer(payable(address(liquidityContract)), token, _amt);
         liquidityContract.returnLiquidity(_tknAddrs);
-        _transfer(payable(getFeeCollectorAddr()), token, poolFeeAmt);
+        _transfer(payable(IndexInterface(getIndexAddr).master()), token, poolFeeAmt);
         _transfer(payable(origin), token, originFeeAmt);
 
 
