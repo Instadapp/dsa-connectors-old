@@ -29,7 +29,7 @@ contract Helpers {
 
 contract InstaPoolFee is Helpers {
     constructor () public {
-        fee = 9 * 10 ** 14;
+        fee = 9 * 10 ** 14;  // 0.09%
         feeCollector = IndexInterface(instaIndex).master();
     }
 
