@@ -308,29 +308,18 @@ contract EventHelpers is LiquidityManage {
 contract LiquidityAccessHelper is EventHelpers {
     /**
      * @dev Set Fee Amount of borrowed flashloan using `getId`.
+     * @param amt Get token amount at this ID from `InstaMemory` Contract.
      * @param getId Get token amount at this ID from `InstaMemory` Contract.
      * @param setId Set token amount at this ID in `InstaMemory` Contract.
     */
-    function setFeeAmount(uint getId, uint setId) external payable {
-        uint amt = getUint(getId, 0);
-        require(amt != 0, "amt-is-0");
-        uint totalFee = calculateTotalFeeAmt(amt);
+    function setFeeAmount(uint amt, uint getId, uint setId) external payable {
+        _amt = getUint(getId, amt);
+        require(_amt != 0, "amt-is-0");
+        uint totalFee = calculateTotalFeeAmt(_amt);
 
         setUint(setId, totalFee);
     }
 
-    /**
-     * @dev Set Fee Amount of borrowed flashloan using `token`.
-     * @param token token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
-     * @param setId Set token amount at this ID in `InstaMemory` Contract.
-    */
-    function setFeeAmountToken(address token, uint setId) external payable {
-        uint amt = LiqudityInterface(getLiquidityAddress()).borrowedToken(token);
-        require(amt != 0, "amt-is-0");
-        uint totalFee = calculateTotalFeeAmt(amt);
-
-        setUint(setId, totalFee);
-    }
 }
 
 contract LiquidityAccess is LiquidityAccessHelper {
