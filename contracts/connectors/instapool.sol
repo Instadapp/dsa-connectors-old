@@ -125,16 +125,16 @@ contract Helpers is DSMath {
         (_type, _id) = (1, 8);
     }
 
-    function _transfer(address payable to, address token, uint _amt) internal {
-        token == getAddressETH() ?
+    function _transfer(address payable to, IERC20 token, uint _amt) internal {
+        address(token) == getAddressETH() ?
             to.transfer(_amt) :
-            IERC20(token).safeTransfer(to, _amt);
+            token.safeTransfer(to, _amt);
     }
 
-    function _getBalance(address token) internal view returns (uint256) {
-        return token == getAddressETH() ?
+    function _getBalance(IERC20 token) internal view returns (uint256) {
+        return address(token) == getAddressETH() ?
             address(this).balance :
-            TokenInterface(token).balanceOf(address(this));
+            token.balanceOf(address(this));
     }
 }
 
@@ -154,9 +154,9 @@ contract LiquidityHelpers is Helpers {
         return 0x06cB7C24990cBE6b9F99982f975f9147c000fec6; // TODO - change
     }
 
-    function calculateTotalFeeAmt(address token, uint amt) internal view returns (uint totalAmt) {
+    function calculateTotalFeeAmt(IERC20 token, uint amt) internal view returns (uint totalAmt) {
         uint fee = InstaPoolFeeInterface(getInstaPoolFeeAddr()).fee();
-        uint flashAmt = LiqudityInterface(getLiquidityAddress()).borrowedToken(token);
+        uint flashAmt = LiqudityInterface(getLiquidityAddress()).borrowedToken(address(token));
         if (fee == 0) {
             totalAmt = amt;
         } else {
@@ -165,7 +165,7 @@ contract LiquidityHelpers is Helpers {
         }
     }
 
-    function calculateFeeAmt(address token, uint amt) internal view returns (address feeCollector, uint feeAmt) {
+    function calculateFeeAmt(IERC20 token, uint amt) internal view returns (address feeCollector, uint feeAmt) {
         InstaPoolFeeInterface feeContract = InstaPoolFeeInterface(getInstaPoolFeeAddr());
         uint fee = feeContract.fee();
         feeCollector = feeContract.feeCollector();
@@ -181,7 +181,7 @@ contract LiquidityHelpers is Helpers {
         }
     }
 
-    function calculateFeeAmtOrigin(address token, uint amt)
+    function calculateFeeAmtOrigin(IERC20 token, uint amt)
         internal
         view
     returns (
@@ -223,8 +223,9 @@ contract LiquidityManage is LiquidityHelpers {
             _amt = _amt == uint(-1) ? address(this).balance : _amt;
             ethAmt = _amt;
         } else {
-            _amt = _amt == uint(-1) ? TokenInterface(token).balanceOf(address(this)) : _amt;
-            TokenInterface(token).approve(getLiquidityAddress(), _amt);
+            TokenInterface tokenContract = TokenInterface(token);
+            _amt = _amt == uint(-1) ? tokenContract.balanceOf(address(this)) : _amt;
+            tokenContract.approve(getLiquidityAddress(), _amt);
         }
 
         LiqudityInterface(getLiquidityAddress()).deposit.value(ethAmt)(token, _amt);
@@ -316,7 +317,7 @@ contract LiquidityAccessHelper is EventHelpers {
     function addFeeAmount(address token, uint amt, uint getId, uint setId) external payable {
         uint _amt = getUint(getId, amt);
         require(_amt != 0, "amt-is-0");
-        uint totalFee = calculateTotalFeeAmt(token, _amt);
+        uint totalFee = calculateTotalFeeAmt(IERC20(token), _amt);
 
         setUint(setId, totalFee);
     }
@@ -354,16 +355,17 @@ contract LiquidityAccess is LiquidityAccessHelper {
     function flashPayback(address token, uint getId, uint setId) external payable {
         LiqudityInterface liquidityContract = LiqudityInterface(getLiquidityAddress());
         uint _amt = liquidityContract.borrowedToken(token);
+        IERC20 tokenContract = IERC20(token);
 
-        (address feeCollector, uint feeAmt) = calculateFeeAmt(token, _amt);
+        (address feeCollector, uint feeAmt) = calculateFeeAmt(tokenContract, _amt);
 
         address[] memory _tknAddrs = new address[](1);
         _tknAddrs[0] = token;
 
-        _transfer(payable(address(liquidityContract)), token, _amt);
+        _transfer(payable(address(liquidityContract)), tokenContract, _amt);
         liquidityContract.returnLiquidity(_tknAddrs);
 
-        if (feeAmt > 0) _transfer(payable(feeCollector), token, feeAmt);
+        if (feeAmt > 0) _transfer(payable(feeCollector), tokenContract, feeAmt);
 
         setUint(setId, _amt);
         emitFlashPayback(token, _amt, feeAmt, getId, setId);
@@ -380,18 +382,19 @@ contract LiquidityAccess is LiquidityAccessHelper {
         require(origin != address(0), "origin-is-address(0)");
         LiqudityInterface liquidityContract = LiqudityInterface(getLiquidityAddress());
         uint _amt = liquidityContract.borrowedToken(token);
+        IERC20 tokenContract = IERC20(token);
 
-        (address feeCollector, uint poolFeeAmt, uint originFeeAmt) = calculateFeeAmtOrigin(token, _amt);
+        (address feeCollector, uint poolFeeAmt, uint originFeeAmt) = calculateFeeAmtOrigin(tokenContract, _amt);
 
         address[] memory _tknAddrs = new address[](1);
         _tknAddrs[0] = token;
 
-        _transfer(payable(address(liquidityContract)), token, _amt);
+        _transfer(payable(address(liquidityContract)), tokenContract, _amt);
         liquidityContract.returnLiquidity(_tknAddrs);
 
         if (poolFeeAmt > 0) {
-            _transfer(payable(feeCollector), token, poolFeeAmt);
-            _transfer(payable(origin), token, originFeeAmt);
+            _transfer(payable(feeCollector), tokenContract, poolFeeAmt);
+            _transfer(payable(origin), tokenContract, originFeeAmt);
         }
 
         setUint(setId, _amt);
@@ -442,11 +445,12 @@ contract LiquidityAccessMulti is LiquidityAccess {
 
         for (uint i = 0; i < _length; i++) {
             uint _amt = liquidityContract.borrowedToken(tokens[i]);
-            (address feeCollector, uint feeAmt) = calculateFeeAmt(tokens[i], _amt);
+            IERC20 tokenContract = IERC20(tokens[i]);
+            (address feeCollector, uint feeAmt) = calculateFeeAmt(tokenContract, _amt);
 
-            _transfer(payable(address(liquidityContract)), tokens[i], _amt);
+            _transfer(payable(address(liquidityContract)), tokenContract, _amt);
 
-            if (feeAmt > 0) _transfer(payable(feeCollector), tokens[i], feeAmt);
+            if (feeAmt > 0) _transfer(payable(feeCollector), tokenContract, feeAmt);
 
             setUint(setId[i], _amt);
 
@@ -469,13 +473,15 @@ contract LiquidityAccessMulti is LiquidityAccess {
 
         for (uint i = 0; i < _length; i++) {
             uint _amt = liquidityContract.borrowedToken(tokens[i]);
-            (address feeCollector, uint poolFeeAmt, uint originFeeAmt) = calculateFeeAmtOrigin(tokens[i], _amt);
+            IERC20 tokenContract = IERC20(tokens[i]);
 
-           _transfer(payable(address(liquidityContract)), tokens[i], _amt);
+            (address feeCollector, uint poolFeeAmt, uint originFeeAmt) = calculateFeeAmtOrigin(tokenContract, _amt);
+
+           _transfer(payable(address(liquidityContract)), tokenContract, _amt);
 
             if (poolFeeAmt > 0) {
-                _transfer(payable(feeCollector), tokens[i], poolFeeAmt);
-                _transfer(payable(origin), tokens[i], originFeeAmt);
+                _transfer(payable(feeCollector), tokenContract, poolFeeAmt);
+                _transfer(payable(origin), tokenContract, originFeeAmt);
             }
 
             setUint(setId[i], _amt);
@@ -483,7 +489,6 @@ contract LiquidityAccessMulti is LiquidityAccess {
             emitFlashPayback(tokens[i], _amt, poolFeeAmt,  getId[i], setId[i]);
             emitOriginFeeCollected(origin, tokens[i], _amt, originFeeAmt);
         }
-
         liquidityContract.returnLiquidity(tokens);
     }
 }
