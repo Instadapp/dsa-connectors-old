@@ -18,6 +18,10 @@ interface LiqudityInterface {
     function borrowedToken(address) external view returns(uint);
 }
 
+interface InstaPoolFeeInterface {
+    function getFee() external view returns(uint);
+}
+
 interface CTokenInterface {
     function borrowBalanceCurrent(address account) external returns (uint);
     function balanceOf(address owner) external view returns (uint256 balance);
@@ -55,6 +59,10 @@ contract DSMath {
 
     function mul(uint x, uint y) internal pure returns (uint z) {
         require(y == 0 || (z = x * y) / y == x, "math-not-safe");
+    }
+
+    function sub(uint x, uint y) internal pure returns (uint z) {
+        require((z = x - y) <= x, "sub-overflow");
     }
 
     uint constant WAD = 10 ** 18;
@@ -116,10 +124,16 @@ contract Helpers is DSMath {
         (_type, _id) = (1, 8);
     }
 
-    function _transfer(address payable to,address token, uint _amt) internal {
+    function _transfer(address payable to, address token, uint _amt) internal {
         token == getAddressETH() ?
             to.transfer(_amt) :
             IERC20(token).safeTransfer(to, _amt);
+    }
+
+    function _getBalance(address token) internal view returns (uint256) {
+        return token == getAddressETH() ?
+            address(this).balance :
+            TokenInterface(token).balanceOf(address(this));
     }
 }
 
@@ -129,7 +143,47 @@ contract LiquidityHelpers is Helpers {
      * @dev Return InstaPool address
      */
     function getLiquidityAddress() internal pure returns (address) {
-        return 0x1879BEE186BFfBA9A8b1cAD8181bBFb218A5Aa61;
+        return 0x06cB7C24990cBE6b9F99982f975f9147c000fec6;
+    }
+
+    /**
+     * @dev Return InstaPoolFee address
+     */
+    function getInstaPoolFeeAddr() internal pure returns (address) {
+        return 0x06cB7C24990cBE6b9F99982f975f9147c000fec6; // TODO - change
+    }
+
+    /**
+     * @dev Return Fee collector address
+     */
+    function getFeeCollectorAddr() internal pure returns (address) {
+        return 0x06cB7C24990cBE6b9F99982f975f9147c000fec6; // TODO - change
+    }
+
+    function calculateFeeAmt(address token, uint amt) internal view returns (uint feeAmt, uint totalAmt) {
+        uint fee = InstaPoolFeeInterface(getInstaPoolFeeAddr()).getFee();
+        if(fee == 0) {
+            feeAmt = 0;
+            totalAmt = amt;
+        } else {
+            feeAmt = wmul(amt, fee);
+            totalAmt = add(amt, feeAmt);
+
+            uint totalBal = _getBalance(token);
+            require(totalBal >= totalAmt - 10, "Not-enough-balance");
+            feeAmt = totalBal > totalAmt ? feeAmt : sub(totalBal, amt);
+        }
+    }
+
+    function calculateFeeAmtOrigin(address token, uint amt) internal view returns (uint poolFeeAmt, uint originFee) {
+        (uint feeAmt,) = calculateFeeAmt(token, amt);
+        if(feeAmt == 0) {
+            poolFeeAmt = 0;
+            originFee = 0;
+        } else {
+            originFee = wmul(feeAmt, 20 * 10 ** 16);
+            poolFeeAmt = sub(feeAmt, originFee);
+        }
     }
 }
 
@@ -192,7 +246,9 @@ contract LiquidityManage is LiquidityHelpers {
 
 contract LiquidityAccess is LiquidityManage {
     event LogFlashBorrow(address indexed token, uint256 tokenAmt, uint256 getId, uint256 setId);
-    event LogFlashPayback(address indexed token, uint256 tokenAmt, uint256 getId, uint256 setId);
+    event LogFlashPayback(address indexed token, uint256 tokenAmt, uint256 feeCollected, uint256 getId, uint256 setId);
+
+    event LogOriginFeeCollector(address indexed origin, address indexed token, uint256 tokenAmt, uint256 originFeeAmt);
 
     /**
      * @dev Access Token Liquidity from InstaPool.
@@ -230,17 +286,21 @@ contract LiquidityAccess is LiquidityManage {
         LiqudityInterface liquidityContract = LiqudityInterface(getLiquidityAddress());
         uint _amt = liquidityContract.borrowedToken(token);
 
+        (uint feeAmt,) = calculateFeeAmt(token, _amt);
+
         address[] memory _tknAddrs = new address[](1);
         _tknAddrs[0] = token;
 
         _transfer(payable(address(liquidityContract)), token, _amt);
         liquidityContract.returnLiquidity(_tknAddrs);
+        _transfer(payable(getFeeCollectorAddr()), token, feeAmt);
+
 
         setUint(setId, _amt);
 
-        emit LogFlashPayback(token, _amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogFlashPayback(address,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
+        emit LogFlashPayback(token, _amt, feeAmt, getId, setId);
+        bytes32 _eventCode = keccak256("LogFlashPayback(address,uint256,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(token, _amt, feeAmt, getId, setId);
         (uint _type, uint _id) = connectorID();
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
@@ -290,19 +350,59 @@ contract LiquidityAccess is LiquidityManage {
 
         for (uint i = 0; i < _length; i++) {
             uint _amt = liquidityContract.borrowedToken(tokens[i]);
+            (uint feeAmt,) = calculateFeeAmt(tokens[i], _amt);
 
             _transfer(payable(address(liquidityContract)), tokens[i], _amt);
+            _transfer(payable(getFeeCollectorAddr()), tokens[i], feeAmt);
 
             setUint(setId[i], _amt);
 
-            emit LogFlashPayback(tokens[i], _amt, getId[i], setId[i]);
-            bytes32 _eventCode = keccak256("LogFlashPayback(address,uint256,uint256,uint256)");
-            bytes memory _eventParam = abi.encode(tokens[i], _amt, getId[i], setId[i]);
+            emit LogFlashPayback(tokens[i], _amt, feeAmt, getId[i], setId[i]);
+            bytes32 _eventCode = keccak256("LogFlashPayback(address,uint256,uint256,uint256,uint256)");
+            bytes memory _eventParam = abi.encode(tokens[i], _amt, feeAmt, getId[i], setId[i]);
             (uint _type, uint _id) = connectorID();
             EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
         }
 
         liquidityContract.returnLiquidity(tokens);
+    }
+
+    /**
+     * @dev Return Token Liquidity from InstaPool.
+     * @param origin origin address to transfer 20% of the collected fee.
+     * @param token token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
+    function flashPaybackOrigin(address origin, address token, uint getId, uint setId) external payable {
+        require(origin != address(0), "origin-is-address(0)");
+        LiqudityInterface liquidityContract = LiqudityInterface(getLiquidityAddress());
+        uint _amt = liquidityContract.borrowedToken(token);
+
+        (uint poolFeeAmt, uint originFeeAmt) = calculateFeeAmtOrigin(token, _amt);
+
+        address[] memory _tknAddrs = new address[](1);
+        _tknAddrs[0] = token;
+
+        _transfer(payable(address(liquidityContract)), token, _amt);
+        liquidityContract.returnLiquidity(_tknAddrs);
+        _transfer(payable(getFeeCollectorAddr()), token, poolFeeAmt);
+        _transfer(payable(origin), token, originFeeAmt);
+
+
+        setUint(setId, _amt);
+
+        (uint _type, uint _id) = connectorID();
+
+        emit LogFlashPayback(token, _amt, poolFeeAmt, getId, setId);
+        bytes32 _eventCodePayback = keccak256("LogFlashPayback(address,uint256,uint256,uint256,uint256)");
+        bytes memory _eventParamPayback = abi.encode(token, _amt, poolFeeAmt, getId, setId);
+        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCodePayback, _eventParamPayback);
+
+        emit LogOriginFeeCollector(origin, token, _amt, originFeeAmt);
+        bytes32 _eventCodeOrigin = keccak256("LogOriginFeeCollector(address,address,uint256,uint256)");
+        bytes memory _eventParamOrigin = abi.encode(origin, token, _amt, poolFeeAmt);
+        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCodeOrigin, _eventParamOrigin);
     }
 }
 
