@@ -195,7 +195,7 @@ contract LiquidityHelpers is Helpers {
             poolFeeAmt = 0;
             originFee = 0;
         } else {
-            originFee = wmul(feeAmt, 20 * 10 ** 16);
+            originFee = wmul(feeAmt, 20 * 10 ** 16); // 20%
             poolFeeAmt = sub(feeAmt, originFee);
         }
     }
