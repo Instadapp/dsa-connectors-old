@@ -22,6 +22,8 @@ Be sure to comply with the requirements while building connectors for better com
 - Use `getEthAddr()` to denote Ethereum (non-ERC20).
 - Use `address(this)` instead of `msg.sender` for fetching balance on-chain, etc.
 - Only `approve()` limited amount while giving ERC20 allowance, which strictly needs to be 0 by the end of the spell.
+- Use `getId()` for getting value that saved from previous spell.
+- Use `setId()` for setting value to save for the future spell.
 
 <!-- - If required, Add two additional parameter, `getId` & `setId` in external public functions.
 - Use `getUint()` or `setUint()` functions to fetch or store values.
