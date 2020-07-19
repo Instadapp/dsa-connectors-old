@@ -14,10 +14,6 @@ contract MockSynthetixStaking is ConnectSynthetixStaking{
 
   function emitEvent(bytes32 eventCode, bytes memory eventData) override internal {}
 
-  function getSnxAddr() override internal view returns (address) {
-    return synthetixStakingAddr;
-  }
-
   function getMappingAddr() override internal view returns (address) {
     return instaMappingAddr;
   }
