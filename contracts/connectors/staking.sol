@@ -47,7 +47,7 @@ contract StakingHelper is DSMath, Stores {
    * @dev Get staking data
    */
   function getStakingData(string memory stakingName)
-  public
+  internal
   view
   returns (
     IStakingRewards stakingContract,
