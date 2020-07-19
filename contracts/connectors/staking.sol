@@ -14,17 +14,19 @@ interface IStakingRewards {
 }
 
 interface SynthetixMapping {
+
   struct StakingData {
     address stakingPool;
     address stakingToken;
   }
 
   function stakingMapping(bytes32) external view returns(StakingData memory);
+
 }
 
-contract SynthetixStakingHelper is DSMath, Stores {
+contract StakingHelper is DSMath, Stores {
   /**
-   * @dev Return InstaDApp Synthetix Mapping Addresses
+   * @dev Return InstaDApp Staking Mapping Addresses
    */
   function getMappingAddr() internal virtual view returns (address) {
     return 0x772590F33eD05b0E83553650BF9e75A04b337526; // InstaMapping Address
@@ -62,7 +64,7 @@ contract SynthetixStakingHelper is DSMath, Stores {
   }
 }
 
-contract SynthetixStaking is SynthetixStakingHelper {
+contract Staking is StakingHelper {
   event LogDeposit(
     address token,
     bytes32 stakingType,
@@ -78,7 +80,7 @@ contract SynthetixStaking is SynthetixStakingHelper {
     uint getId,
     uint setId
   );
-  
+
   event LogClaimedReward(
     address token,
     bytes32 stakingType,
@@ -178,6 +180,6 @@ contract SynthetixStaking is SynthetixStakingHelper {
   }
 }
 
-contract ConnectSynthetixStaking is SynthetixStaking {
-  string public name = "synthetix-staking-v1";
+contract ConnectStaking is Staking {
+  string public name = "staking-v1";
 }
