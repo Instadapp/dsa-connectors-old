@@ -31,13 +31,6 @@ contract SynthetixStakingHelper is DSMath, Stores {
   }
 
   /**
-  * @dev Return Synthetix Token address.
-   */
-  function getSnxAddr() internal virtual view returns (address) {
-    return 0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F;
-  }
-
-  /**
    * @dev Convert String to bytes32.
    */
   function stringToBytes32(string memory str) internal pure returns (bytes32 result) {
@@ -138,13 +131,11 @@ contract SynthetixStaking is SynthetixStakingHelper {
     uint _amt = getUint(getId, amt);
     (IStakingRewards stakingContract, TokenInterface stakingToken, bytes32 stakingType) = getStakingData(stakingPoolName);
 
-    TokenInterface snxToken = TokenInterface(getSnxAddr());
-
     _amt = _amt == uint(-1) ? stakingContract.balanceOf(address(this)) : _amt;
-    uint intialBal = snxToken.balanceOf(address(this));
+    uint intialBal = stakingToken.balanceOf(address(this));
     stakingContract.withdraw(_amt);
     stakingContract.getReward();
-    uint finalBal = snxToken.balanceOf(address(this));
+    uint finalBal = stakingToken.balanceOf(address(this));
 
     uint rewardAmt = sub(finalBal, intialBal);
 
@@ -173,11 +164,9 @@ contract SynthetixStaking is SynthetixStakingHelper {
   ) external payable {
     (IStakingRewards stakingContract, TokenInterface stakingToken, bytes32 stakingType) = getStakingData(stakingPoolName);
 
-    TokenInterface snxToken = TokenInterface(getSnxAddr());
-
-    uint intialBal = snxToken.balanceOf(address(this));
+    uint intialBal = stakingToken.balanceOf(address(this));
     stakingContract.getReward();
-    uint finalBal = snxToken.balanceOf(address(this));
+    uint finalBal = stakingToken.balanceOf(address(this));
 
     uint rewardAmt = sub(finalBal, intialBal);
 
