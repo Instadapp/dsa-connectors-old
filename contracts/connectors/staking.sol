@@ -18,6 +18,7 @@ interface SynthetixMapping {
   struct StakingData {
     address stakingPool;
     address stakingToken;
+    address rewardToken;
   }
 
   function stakingMapping(bytes32) external view returns(StakingData memory);
@@ -52,6 +53,7 @@ contract StakingHelper is DSMath, Stores {
   returns (
     IStakingRewards stakingContract,
     TokenInterface stakingToken,
+    TokenInterface rewardToken,
     bytes32 stakingType
   )
   {
@@ -60,29 +62,30 @@ contract StakingHelper is DSMath, Stores {
     require(stakingData.stakingPool != address(0) && stakingData.stakingToken != address(0), "Wrong Staking Name");
     stakingContract = IStakingRewards(stakingData.stakingPool);
     stakingToken = TokenInterface(stakingData.stakingToken);
+    rewardToken = TokenInterface(stakingData.rewardToken);
   }
 }
 
 contract Staking is StakingHelper {
   event LogDeposit(
-    address token,
-    bytes32 stakingType,
+    address indexed stakingToken,
+    bytes32 indexed stakingType,
     uint256 amount,
     uint getId,
     uint setId
   );
 
   event LogWithdraw(
-    address token,
-    bytes32 stakingType,
+    address indexed stakingToken,
+    bytes32 indexed stakingType,
     uint256 amount,
     uint getId,
     uint setId
   );
 
   event LogClaimedReward(
-    address token,
-    bytes32 stakingType,
+    address indexed rewardToken,
+    bytes32 indexed stakingType,
     uint256 rewardAmt,
     uint setId
   );
@@ -101,7 +104,13 @@ contract Staking is StakingHelper {
     uint setId
   ) external payable {
     uint _amt = getUint(getId, amt);
-    (IStakingRewards stakingContract, TokenInterface stakingToken, bytes32 stakingType) = getStakingData(stakingPoolName);
+    (
+      IStakingRewards stakingContract,
+      TokenInterface stakingToken,
+      ,
+      bytes32 stakingType
+    ) = getStakingData(stakingPoolName);
+
     _amt = _amt == uint(-1) ? stakingToken.balanceOf(address(this)) : _amt;
 
     stakingToken.approve(address(stakingContract), _amt);
@@ -130,13 +139,18 @@ contract Staking is StakingHelper {
     uint setIdReward
   ) external payable {
     uint _amt = getUint(getId, amt);
-    (IStakingRewards stakingContract, TokenInterface stakingToken, bytes32 stakingType) = getStakingData(stakingPoolName);
+    (
+      IStakingRewards stakingContract,
+      TokenInterface stakingToken,
+      TokenInterface rewardToken,
+      bytes32 stakingType
+    ) = getStakingData(stakingPoolName);
 
     _amt = _amt == uint(-1) ? stakingContract.balanceOf(address(this)) : _amt;
-    uint intialBal = stakingToken.balanceOf(address(this));
+    uint intialBal = rewardToken.balanceOf(address(this));
     stakingContract.withdraw(_amt);
     stakingContract.getReward();
-    uint finalBal = stakingToken.balanceOf(address(this));
+    uint finalBal = rewardToken.balanceOf(address(this));
 
     uint rewardAmt = sub(finalBal, intialBal);
 
@@ -148,9 +162,9 @@ contract Staking is StakingHelper {
     bytes memory _eventParamWithdraw = abi.encode(address(stakingToken), _amt, getId, setIdAmount);
     emitEvent(_eventCodeWithdraw, _eventParamWithdraw);
 
-    emit LogClaimedReward(address(stakingToken), stakingType, rewardAmt, setIdReward);
+    emit LogClaimedReward(address(rewardToken), stakingType, rewardAmt, setIdReward);
     bytes32 _eventCodeReward = keccak256("LogClaimedReward(address,bytes32,uint256,uint256)");
-    bytes memory _eventParamReward = abi.encode(address(stakingToken), rewardAmt, setIdReward);
+    bytes memory _eventParamReward = abi.encode(address(rewardToken), rewardAmt, setIdReward);
     emitEvent(_eventCodeReward, _eventParamReward);
   }
 
@@ -163,22 +177,27 @@ contract Staking is StakingHelper {
     string calldata stakingPoolName,
     uint setId
   ) external payable {
-    (IStakingRewards stakingContract, TokenInterface stakingToken, bytes32 stakingType) = getStakingData(stakingPoolName);
+     (
+      IStakingRewards stakingContract,
+      ,
+      TokenInterface rewardToken,
+      bytes32 stakingType
+    ) = getStakingData(stakingPoolName);
 
-    uint intialBal = stakingToken.balanceOf(address(this));
+    uint intialBal = rewardToken.balanceOf(address(this));
     stakingContract.getReward();
-    uint finalBal = stakingToken.balanceOf(address(this));
+    uint finalBal = rewardToken.balanceOf(address(this));
 
     uint rewardAmt = sub(finalBal, intialBal);
 
     setUint(setId, rewardAmt);
-    emit LogClaimedReward(address(stakingToken), stakingType, rewardAmt, setId);
+    emit LogClaimedReward(address(rewardToken), stakingType, rewardAmt, setId);
     bytes32 _eventCode = keccak256("LogClaimedReward(address,bytes32,uint256,uint256)");
-    bytes memory _eventParam = abi.encode(address(stakingToken), stakingType, rewardAmt, setId);
+    bytes memory _eventParam = abi.encode(address(rewardToken), stakingType, rewardAmt, setId);
     emitEvent(_eventCode, _eventParam);
   }
 }
 
 contract ConnectStaking is Staking {
-  string public name = "staking-v1";
+  string public name = "Staking-v1.1";
 }
