@@ -1,9 +1,9 @@
 pragma solidity ^0.6.0;
 pragma experimental ABIEncoderV2;
 
-import { ConnectSynthetixStaking } from "../connectors/synthetix.sol";
+import { ConnectStaking } from "../connectors/staking.sol";
 
-contract MockSynthetixStaking is ConnectSynthetixStaking{
+contract MockSynthetixStaking is ConnectStaking{
   address public synthetixStakingAddr;
   address public instaMappingAddr;
 
