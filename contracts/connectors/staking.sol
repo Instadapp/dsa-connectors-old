@@ -48,7 +48,6 @@ contract StakingHelper is DSMath, Stores {
    */
   function getStakingData(string memory stakingName)
   internal
-  virtual
   view
   returns (
     IStakingRewards stakingContract,
