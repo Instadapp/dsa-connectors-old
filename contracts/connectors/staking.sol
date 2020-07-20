@@ -159,12 +159,12 @@ contract Staking is StakingHelper {
 
     emit LogWithdraw(address(stakingToken), stakingType, _amt, getId, setIdAmount);
     bytes32 _eventCodeWithdraw = keccak256("LogWithdraw(address,bytes32,uint256,uint256,uint256)");
-    bytes memory _eventParamWithdraw = abi.encode(address(stakingToken), _amt, getId, setIdAmount);
+    bytes memory _eventParamWithdraw = abi.encode(address(stakingToken), stakingType, _amt, getId, setIdAmount);
     emitEvent(_eventCodeWithdraw, _eventParamWithdraw);
 
     emit LogClaimedReward(address(rewardToken), stakingType, rewardAmt, setIdReward);
     bytes32 _eventCodeReward = keccak256("LogClaimedReward(address,bytes32,uint256,uint256)");
-    bytes memory _eventParamReward = abi.encode(address(rewardToken), rewardAmt, setIdReward);
+    bytes memory _eventParamReward = abi.encode(address(rewardToken), stakingType, rewardAmt, setIdReward);
     emitEvent(_eventCodeReward, _eventParamReward);
   }
 
