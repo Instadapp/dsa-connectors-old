@@ -110,6 +110,25 @@ contract OneHelpers is Stores, DSMath {
         buyDec = address(buyAddr) == getEthAddr() ?  18 : buyAddr.decimals();
         sellDec = address(sellAddr) == getEthAddr() ?  18 : sellAddr.decimals();
     }
+
+    function getSlippageAmt(
+        TokenInterface _buyAddr,
+        TokenInterface _sellAddr,
+        uint _sellAmt,
+        uint unitAmt
+    ) internal view returns(uint _slippageAmt) {
+        (uint _buyDec, uint _sellDec) = getTokensDec(_buyAddr, _sellAddr);
+        uint _sellAmt18 = convertTo18(_sellDec, _sellAmt);
+        _slippageAmt = convert18ToDec(_buyDec, wmul(unitAmt, _sellAmt18));
+    }
+
+    function convertToTokenInterface(address[] memory tokens) internal pure returns(TokenInterface[] memory) {
+        TokenInterface[] memory _tokens = new TokenInterface[](tokens.length);
+        for (uint i = 0; i < tokens.length; i++) {
+            _tokens[i] = TokenInterface(tokens[i]);
+        }
+        return _tokens;
+    }
 }
 
 
@@ -133,9 +152,7 @@ contract Resolver is OneHelpers {
         uint[] memory distribution,
         uint disableDexes
     ) internal returns (uint buyAmt){
-        (uint _buyDec, uint _sellDec) = getTokensDec(_buyAddr, _sellAddr);
-        uint _sellAmt18 = convertTo18(_sellDec, _sellAmt);
-        uint _slippageAmt = convert18ToDec(_buyDec, wmul(unitAmt, _sellAmt18));
+        uint _slippageAmt = getSlippageAmt(_buyAddr, _sellAddr, _sellAmt, unitAmt);
 
         uint ethAmt;
         if (address(_sellAddr) == getEthAddr()) {
@@ -164,8 +181,7 @@ contract Resolver is OneHelpers {
     }
 
     function oneProtoSwapMulti(
-        OneProtoInterface oneSplitContract,
-        TokenInterface[] memory _tokens,
+        address[] memory tokens,
         TokenInterface _sellAddr,
         TokenInterface _buyAddr,
         uint _sellAmt,
@@ -173,9 +189,8 @@ contract Resolver is OneHelpers {
         uint[] memory distribution,
         uint[] memory disableDexes
     ) internal returns (uint buyAmt){
-        (uint _buyDec, uint _sellDec) = getTokensDec(_buyAddr, _sellAddr);
-        uint _sellAmt18 = convertTo18(_sellDec, _sellAmt);
-        uint _slippageAmt = convert18ToDec(_buyDec, wmul(unitAmt, _sellAmt18));
+        OneProtoInterface oneSplitContract = OneProtoInterface(getOneSplitAddress());
+        uint _slippageAmt = getSlippageAmt(_buyAddr, _sellAddr, _sellAmt, unitAmt);
 
         uint ethAmt;
         if (address(_sellAddr) == getEthAddr()) {
@@ -186,7 +201,7 @@ contract Resolver is OneHelpers {
 
         uint initalBal = getTokenBal(_buyAddr);
         oneSplitContract.swapWithReferralMulti.value(ethAmt)(
-            _tokens,
+            convertToTokenInterface(tokens),
             _sellAmt,
             _slippageAmt,
             distribution,
@@ -372,21 +387,14 @@ contract OneProtoResolver is Resolver {
         uint setId
     ) external payable {
         uint _sellAmt = getUint(getId, sellAmt);
-        uint len = tokens.length;
-        require(len >= 2, "token length is less than 2");
+        require(tokens.length >= 2, "token tokens.lengthgth is less than 2");
         TokenInterface _sellAddr = TokenInterface(address(tokens[0]));
-        TokenInterface _buyAddr = TokenInterface(address(tokens[len-1]));
+        TokenInterface _buyAddr = TokenInterface(address(tokens[tokens.length-1]));
 
         _sellAmt = _sellAmt == uint(-1) ? getTokenBal(_sellAddr) : _sellAmt;
 
-        TokenInterface[] memory _tokens = new TokenInterface[](len);
-        for (uint i = 0; i < len; i++) {
-            _tokens[i] = TokenInterface(tokens[i]);
-        }
-
         uint _buyAmt = oneProtoSwapMulti(
-            OneProtoInterface(getOneSplitAddress()),
-            _tokens,
+            tokens,
             _sellAddr,
             _buyAddr,
             _sellAmt,
@@ -397,9 +405,21 @@ contract OneProtoResolver is Resolver {
 
         setUint(setId, _buyAmt);
 
-        emit LogSellMulti(tokens, address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
+        emitLogSellMulti(tokens, address(_sellAddr), address(_buyAddr), _buyAmt, _sellAmt, getId, setId);
+    }
+
+    function emitLogSellMulti(
+        address[] memory tokens,
+        address buyToken,
+        address sellToken,
+        uint256 buyAmt,
+        uint256 sellAmt,
+        uint256 getId,
+        uint256 setId
+    ) internal {
+        emit LogSellMulti(tokens, address(buyToken), address(sellToken), buyAmt, sellAmt, getId, setId);
         bytes32 _eventCode = keccak256("LogSellMulti(address[],address,address,uint256,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(tokens, address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
+        bytes memory _eventParam = abi.encode(tokens, address(buyToken), address(sellToken), buyAmt, sellAmt, getId, setId);
         emitEvent(_eventCode, _eventParam);
     }
 }
