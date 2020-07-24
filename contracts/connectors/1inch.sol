@@ -70,21 +70,21 @@ contract OneHelpers is Stores, DSMath {
     }
 
     /**
-     * @dev Return 1Split Address
+     * @dev Return 1proto Address
      */
-    function getOneSplitAddress() internal pure returns (address payable) {
-        return 0xC586BeF4a0992C495Cf22e1aeEE4E446CECDee0E;
+    function getOneProtoAddress() internal pure returns (address payable) {
+        return 0x50FDA034C0Ce7a8f7EFDAebDA7Aa7cA21CC1267e;
     }
 
     /**
-     * @dev Return 1Split Token Taker Address
+     * @dev Return 1inch Token Taker Address
      */
     function getOneSplitTokenTaker() internal pure returns (address payable) {
         return 0xE4C9194962532fEB467DCe8b3d42419641c6eD2E;
     }
 
     /**
-     * @dev Return 1Split swap function sig
+     * @dev Return 1inch swap function sig
      */
     function getOneSplitSig() internal pure returns (bytes4) {
         return 0xf88309d7;
@@ -189,7 +189,7 @@ contract Resolver is OneHelpers {
         uint[] memory distribution,
         uint[] memory disableDexes
     ) internal returns (uint buyAmt){
-        OneProtoInterface oneSplitContract = OneProtoInterface(getOneSplitAddress());
+        OneProtoInterface oneSplitContract = OneProtoInterface(getOneProtoAddress());
         uint _slippageAmt = getSlippageAmt(_buyAddr, _sellAddr, _sellAmt, unitAmt);
 
         uint ethAmt;
@@ -293,7 +293,7 @@ contract OneProtoResolver is Resolver {
 
         _sellAmt = _sellAmt == uint(-1) ? getTokenBal(_sellAddr) : _sellAmt;
 
-        OneProtoInterface oneSplitContract = OneProtoInterface(getOneSplitAddress());
+        OneProtoInterface oneSplitContract = OneProtoInterface(getOneProtoAddress());
 
         (, uint[] memory distribution) = oneSplitContract.getExpectedReturn(
                 _sellAddr,
@@ -350,7 +350,7 @@ contract OneProtoResolver is Resolver {
         _sellAmt = _sellAmt == uint(-1) ? getTokenBal(_sellAddr) : _sellAmt;
 
         uint _buyAmt = oneProtoSwap(
-            OneProtoInterface(getOneSplitAddress()),
+            OneProtoInterface(getOneProtoAddress()),
             _sellAddr,
             _buyAddr,
             _sellAmt,
