@@ -47,10 +47,10 @@ interface OneProtoInterface {
 
     function getExpectedReturn(
         TokenInterface fromToken,
-        TokenInterface toToken,
+        TokenInterface destToken,
         uint256 amount,
         uint256 parts,
-        uint256 disableFlags
+        uint256 flags // See constants in IOneSplit.sol
     )
     external
     view
