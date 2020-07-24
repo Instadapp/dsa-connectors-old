@@ -23,15 +23,27 @@ interface OneInchInterace {
     returns (uint256 returnAmount);
 }
 
-interface OneSplitInterface {
-    function swap(
+interface OneProtoInterface {
+    function swapWithReferral(
         TokenInterface fromToken,
-        TokenInterface toToken,
+        TokenInterface destToken,
         uint256 amount,
         uint256 minReturn,
         uint256[] calldata distribution,
-        uint256 disableFlags
-    ) external payable;
+        uint256 flags, // See contants in IOneSplit.sol
+        address referral,
+        uint256 feePercent
+    ) external payable returns(uint256);
+
+    function swapWithReferralMulti(
+        TokenInterface[] calldata tokens,
+        uint256 amount,
+        uint256 minReturn,
+        uint256[] calldata distribution,
+        uint256[] calldata flags,
+        address referral,
+        uint256 feePercent
+    ) external payable returns(uint256 returnAmount);
 
     function getExpectedReturn(
         TokenInterface fromToken,
@@ -78,6 +90,10 @@ contract OneHelpers is Stores, DSMath {
         return 0xf88309d7;
     }
 
+    function getReferralAddr() internal pure returns (address) {
+        return 0xa7615CD307F323172331865181DC8b80a2834324;
+    }
+
     function convert18ToDec(uint _dec, uint256 _amt) internal pure returns (uint256 amt) {
         amt = (_amt / 10 ** (18 - _dec));
     }
@@ -108,8 +124,8 @@ contract Resolver is OneHelpers {
         isOk = sig == getOneSplitSig();
     }
 
-    function oneSplitSwap(
-        OneSplitInterface oneSplitContract,
+    function oneProtoSwap(
+        OneProtoInterface oneSplitContract,
         TokenInterface _sellAddr,
         TokenInterface _buyAddr,
         uint _sellAmt,
@@ -130,16 +146,56 @@ contract Resolver is OneHelpers {
 
         uint initalBal = getTokenBal(_buyAddr);
 
-        oneSplitContract.swap.value(ethAmt)(
+        oneSplitContract.swapWithReferral.value(ethAmt)(
             _sellAddr,
             _buyAddr,
             _sellAmt,
             _slippageAmt,
             distribution,
-            disableDexes
+            disableDexes,
+            getReferralAddr(),
+            0
         );
 
         uint finalBal = getTokenBal(_buyAddr);
+        buyAmt = sub(finalBal, initalBal);
+
+        require(_slippageAmt <= buyAmt, "Too much slippage");
+    }
+
+    function oneProtoSwapMulti(
+        OneProtoInterface oneSplitContract,
+        TokenInterface[] memory _tokens,
+        TokenInterface _sellAddr,
+        TokenInterface _buyAddr,
+        uint _sellAmt,
+        uint unitAmt,
+        uint[] memory distribution,
+        uint[] memory disableDexes
+    ) internal returns (uint buyAmt){
+        (uint _buyDec, uint _sellDec) = getTokensDec(_buyAddr, _sellAddr);
+        uint _sellAmt18 = convertTo18(_sellDec, _sellAmt);
+        uint _slippageAmt = convert18ToDec(_buyDec, wmul(unitAmt, _sellAmt18));
+
+        uint ethAmt;
+        if (address(_sellAddr) == getEthAddr()) {
+            ethAmt = _sellAmt;
+        } else {
+            _sellAddr.approve(address(oneSplitContract), _sellAmt);
+        }
+
+        uint initalBal = getTokenBal(_buyAddr);
+        oneSplitContract.swapWithReferralMulti.value(ethAmt)(
+            _tokens,
+            _sellAmt,
+            _slippageAmt,
+            distribution,
+            disableDexes,
+            getReferralAddr(),
+            0
+        );
+        uint finalBal = getTokenBal(_buyAddr);
+
         buyAmt = sub(finalBal, initalBal);
 
         require(_slippageAmt <= buyAmt, "Too much slippage");
@@ -169,7 +225,7 @@ contract Resolver is OneHelpers {
     }
 }
 
-contract BasicResolver is Resolver {
+contract OneProtoResolver is Resolver {
     event LogSell(
         address indexed buyToken,
         address indexed sellToken,
@@ -188,7 +244,8 @@ contract BasicResolver is Resolver {
         uint256 setId
     );
 
-    event LogSellThree(
+    event LogSellMulti(
+        address[] tokens,
         address indexed buyToken,
         address indexed sellToken,
         uint256 buyAmt,
@@ -221,7 +278,7 @@ contract BasicResolver is Resolver {
 
         _sellAmt = _sellAmt == uint(-1) ? getTokenBal(_sellAddr) : _sellAmt;
 
-        OneSplitInterface oneSplitContract = OneSplitInterface(getOneSplitAddress());
+        OneProtoInterface oneSplitContract = OneProtoInterface(getOneSplitAddress());
 
         (, uint[] memory distribution) = oneSplitContract.getExpectedReturn(
                 _sellAddr,
@@ -231,7 +288,7 @@ contract BasicResolver is Resolver {
                 0
             );
 
-        uint _buyAmt = oneSplitSwap(
+        uint _buyAmt = oneProtoSwap(
             oneSplitContract,
             _sellAddr,
             _buyAddr,
@@ -277,8 +334,8 @@ contract BasicResolver is Resolver {
 
         _sellAmt = _sellAmt == uint(-1) ? getTokenBal(_sellAddr) : _sellAmt;
 
-        uint _buyAmt = oneSplitSwap(
-            OneSplitInterface(getOneSplitAddress()),
+        uint _buyAmt = oneProtoSwap(
+            OneProtoInterface(getOneSplitAddress()),
             _sellAddr,
             _buyAddr,
             _sellAmt,
@@ -296,6 +353,68 @@ contract BasicResolver is Resolver {
     }
 
     /**
+     * @dev Sell ETH/ERC20_Token using 1split using muliple token.
+     * @param tokens buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAmt selling token amount.
+     * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
+     * @param distribution distribution of swap across different dex.
+     * @param disableDexes disable a dex. (To disable none: 0)
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
+    function sellMulti(
+        address[] calldata tokens,
+        uint sellAmt,
+        uint unitAmt,
+        uint[] calldata distribution,
+        uint[] calldata disableDexes,
+        uint getId,
+        uint setId
+    ) external payable {
+        uint _sellAmt = getUint(getId, sellAmt);
+        uint len = tokens.length;
+        require(len >= 2, "token length is less than 2");
+        TokenInterface _sellAddr = TokenInterface(address(tokens[0]));
+        TokenInterface _buyAddr = TokenInterface(address(tokens[len-1]));
+
+        _sellAmt = _sellAmt == uint(-1) ? getTokenBal(_sellAddr) : _sellAmt;
+
+        TokenInterface[] memory _tokens = new TokenInterface[](len);
+        for (uint i = 0; i < len; i++) {
+            _tokens[i] = TokenInterface(tokens[i]);
+        }
+
+        uint _buyAmt = oneProtoSwapMulti(
+            OneProtoInterface(getOneSplitAddress()),
+            _tokens,
+            _sellAddr,
+            _buyAddr,
+            _sellAmt,
+            unitAmt,
+            distribution,
+            disableDexes
+        );
+
+        setUint(setId, _buyAmt);
+
+        emit LogSellMulti(tokens, address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
+        bytes32 _eventCode = keccak256("LogSellMulti(address[],address,address,uint256,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(tokens, address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
+        emitEvent(_eventCode, _eventParam);
+    }
+}
+
+contract OneInchResolver is OneProtoResolver {
+    event LogSellThree(
+        address indexed buyToken,
+        address indexed sellToken,
+        uint256 buyAmt,
+        uint256 sellAmt,
+        uint256 getId,
+        uint256 setId
+    );
+
+     /**
      * @dev Sell ETH/ERC20_Token using 1split.
      * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param sellAddr selling token amount.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
@@ -334,7 +453,6 @@ contract BasicResolver is Resolver {
         emitEvent(_eventCode, _eventParam);
     }
 }
-
-contract ConnectOne is BasicResolver {
-    string public name = "1Inch-1Split-v1";
+contract ConnectOne is OneInchResolver {
+    string public name = "1Inch-1proto-v1";
 }
