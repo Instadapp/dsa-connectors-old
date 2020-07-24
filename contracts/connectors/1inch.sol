@@ -79,14 +79,14 @@ contract OneHelpers is Stores, DSMath {
     /**
      * @dev Return 1inch Token Taker Address
      */
-    function getOneSplitTokenTaker() internal pure returns (address payable) {
+    function getOneInchTokenTaker() internal pure returns (address payable) {
         return 0xE4C9194962532fEB467DCe8b3d42419641c6eD2E;
     }
 
     /**
      * @dev Return 1inch swap function sig
      */
-    function getOneSplitSig() internal pure returns (bytes4) {
+    function getOneInchSig() internal pure returns (bytes4) {
         return 0xf88309d7;
     }
 
@@ -140,7 +140,7 @@ contract Resolver is OneHelpers {
         assembly {
             sig := mload(add(_data, 32))
         }
-        isOk = sig == getOneSplitSig();
+        isOk = sig == getOneInchSig();
     }
 
     function oneProtoSwap(
@@ -458,7 +458,7 @@ contract OneInchResolver is OneProtoResolver {
         if (address(_sellAddr) == getEthAddr()) {
             ethAmt = sellAmt;
         } else {
-            TokenInterface(_sellAddr).approve(getOneSplitTokenTaker(), sellAmt);
+            TokenInterface(_sellAddr).approve(getOneInchTokenTaker(), sellAmt);
         }
 
         require(checkOneInchSig(callData), "Not-swap-function");
