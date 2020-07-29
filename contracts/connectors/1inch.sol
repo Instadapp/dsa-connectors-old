@@ -5,6 +5,9 @@ import { TokenInterface , MemoryInterface, EventInterface} from "../common/inter
 import { Stores } from "../common/stores.sol";
 import { DSMath } from "../common/math.sol";
 
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 interface OneInchInterace {
     function swap(
         TokenInterface fromToken,
@@ -62,6 +65,7 @@ interface OneProtoInterface {
 
 
 contract OneHelpers is Stores, DSMath {
+    using SafeERC20 for IERC20;
     /**
      * @dev Return  1Inch Address
      */
@@ -128,6 +132,30 @@ contract OneHelpers is Stores, DSMath {
             _tokens[i] = TokenInterface(tokens[i]);
         }
         return _tokens;
+    }
+
+    function _transfer(address payable to, IERC20 token, uint _amt) internal {
+        address(token) == getEthAddr() ?
+            to.transfer(_amt) :
+            token.safeTransfer(to, _amt);
+    }
+
+    function takeFee(
+        address token,
+        uint amount,
+        address feeCollector,
+        uint feePercent
+    ) internal returns (uint leftAmt, uint feeAmount){
+        if (feeCollector != address(0)) {
+            feeAmount = wmul(amount, feePercent);
+            leftAmt = sub(amount, feeAmount);
+            uint feeCollectorAmt = wmul(feeAmount, 3 * 10 ** 17);
+            uint restAmt = sub(feeAmount, feeCollectorAmt);
+            _transfer(payable(feeCollector), IERC20(token), feeCollectorAmt);
+            _transfer(payable(getReferralAddr()), IERC20(token), restAmt); // TODO - change address
+        } else {
+            leftAmt = amount;
+        }
     }
 }
 
