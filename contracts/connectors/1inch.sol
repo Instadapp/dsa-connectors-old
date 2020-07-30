@@ -268,7 +268,7 @@ contract Resolver is OneHelpers {
     }
 }
 
-contract OneProtoResolver is Resolver {
+contract OneProtoEventResolver is Resolver {
     event LogSell(
         address indexed buyToken,
         address indexed sellToken,
@@ -278,6 +278,26 @@ contract OneProtoResolver is Resolver {
         uint256 setId
     );
 
+    function emitLogSell(
+        address buyToken,
+        address sellToken,
+        uint256 buyAmt,
+        uint256 sellAmt,
+        address feeCollector,
+        uint256 feePercent,
+        uint256 getId,
+        uint256 setId
+    ) internal {
+        bytes32 _eventCode;
+        bytes memory _eventParam;
+        if (feeCollector == address(0)) {
+            emit LogSell(buyToken, sellToken, buyAmt, sellAmt, getId, setId);
+            _eventCode = keccak256("LogSell(address,address,uint256,uint256,uint256,uint256)");
+            _eventParam = abi.encode(buyToken, sellToken, buyAmt, sellAmt, getId, setId);
+        }
+        emitEvent(_eventCode, _eventParam);
+    }
+
     event LogSellTwo(
         address indexed buyToken,
         address indexed sellToken,
@@ -286,6 +306,26 @@ contract OneProtoResolver is Resolver {
         uint256 getId,
         uint256 setId
     );
+    
+    function emitLogSellTwo(
+        address buyToken,
+        address sellToken,
+        uint256 buyAmt,
+        uint256 sellAmt,
+        address feeCollector,
+        uint256 feePercent,
+        uint256 getId,
+        uint256 setId
+    ) internal {
+        bytes32 _eventCode;
+        bytes memory _eventParam;
+        if (feeCollector == address(0)) {
+            emit LogSellTwo(buyToken, sellToken, buyAmt, sellAmt, getId, setId);
+            _eventCode = keccak256("LogSellTwo(address,address,uint256,uint256,uint256,uint256)");
+            _eventParam = abi.encode(buyToken, sellToken, buyAmt, sellAmt, getId, setId);
+        }
+        emitEvent(_eventCode, _eventParam);
+    }
 
     event LogSellMulti(
         address[] tokens,
@@ -296,7 +336,30 @@ contract OneProtoResolver is Resolver {
         uint256 getId,
         uint256 setId
     );
+    
+    function emitLogSellMulti(
+        address[] memory tokens,
+        uint256 buyAmt,
+        uint256 sellAmt,
+        address feeCollector,
+        uint256 feePercent,
+        uint256 getId,
+        uint256 setId
+    ) internal {
+        address buyToken = tokens[tokens.length - 1];
+        address sellToken = tokens[0];
+        bytes32 _eventCode;
+        bytes memory _eventParam;
+        if (feeCollector == address(0)) {
+            emit LogSellMulti(tokens, buyToken, sellToken, buyAmt, sellAmt, getId, setId);
+            _eventCode = keccak256("LogSellMulti(address[],address,address,uint256,uint256,uint256,uint256)");
+            _eventParam = abi.encode(tokens, buyToken, sellToken, buyAmt, sellAmt, getId, setId);
+        }
+        emitEvent(_eventCode, _eventParam);
+    }
 
+}
+contract OneProtoResolver is OneProtoEventResolver {
     /**
      * @dev Sell ETH/ERC20_Token using 1split.
      * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
@@ -343,10 +406,7 @@ contract OneProtoResolver is Resolver {
 
         setUint(setId, _buyAmt);
 
-        emit LogSell(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
-        bytes32 _eventCode = keccak256("LogSell(address,address,uint256,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
-        emitEvent(_eventCode, _eventParam);
+        emitLogSell(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, address(0), 0, getId, setId);
     }
 
     /**
@@ -389,10 +449,7 @@ contract OneProtoResolver is Resolver {
 
         setUint(setId, _buyAmt);
 
-        emit LogSellTwo(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
-        bytes32 _eventCode = keccak256("LogSellTwo(address,address,uint256,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, getId, setId);
-        emitEvent(_eventCode, _eventParam);
+        emitLogSellTwo(address(_buyAddr), address(_sellAddr), _buyAmt, _sellAmt, address(0), 0, getId, setId);
     }
 
     /**
@@ -433,22 +490,7 @@ contract OneProtoResolver is Resolver {
 
         setUint(setId, _buyAmt);
 
-        emitLogSellMulti(tokens, address(_sellAddr), address(_buyAddr), _buyAmt, _sellAmt, getId, setId);
-    }
-
-    function emitLogSellMulti(
-        address[] memory tokens,
-        address buyToken,
-        address sellToken,
-        uint256 buyAmt,
-        uint256 sellAmt,
-        uint256 getId,
-        uint256 setId
-    ) internal {
-        emit LogSellMulti(tokens, address(buyToken), address(sellToken), buyAmt, sellAmt, getId, setId);
-        bytes32 _eventCode = keccak256("LogSellMulti(address[],address,address,uint256,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(tokens, address(buyToken), address(sellToken), buyAmt, sellAmt, getId, setId);
-        emitEvent(_eventCode, _eventParam);
+        emitLogSellMulti(tokens, _buyAmt, _sellAmt, address(0), 0, getId, setId);
     }
 }
 
