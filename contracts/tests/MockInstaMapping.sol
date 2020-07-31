@@ -1,7 +1,7 @@
 pragma solidity ^0.6.0;
 
-import { InstaMapping } from "../mapping/staking.sol";
+import { InstaStakingMapping } from "../mapping/staking.sol";
 
-contract MockInstaMapping is InstaMapping {
+contract MockInstaMapping is InstaStakingMapping {
   modifier isChief override {_;}
 }
