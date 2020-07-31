@@ -135,7 +135,11 @@ contract Resolver is OneHelpers {
         uint[] distribution;
         uint disableDexes;
     }
-    function oneProtoSwap(OneProtoInterface oneSplitContract, OneProtoData memory oneProtoData) internal returns (uint buyAmt){
+
+    function oneProtoSwap(
+        OneProtoInterface oneProtoContract,
+        OneProtoData memory oneProtoData
+    ) internal returns (uint buyAmt) {
         TokenInterface _sellAddr = oneProtoData.sellToken;
         TokenInterface _buyAddr = oneProtoData.buyToken;
         uint _sellAmt = oneProtoData._sellAmt;
@@ -146,12 +150,12 @@ contract Resolver is OneHelpers {
         if (address(_sellAddr) == getEthAddr()) {
             ethAmt = _sellAmt;
         } else {
-            _sellAddr.approve(address(oneSplitContract), _sellAmt);
+            _sellAddr.approve(address(oneProtoContract), _sellAmt);
         }
 
         uint initalBal = getTokenBal(_buyAddr);
 
-        oneSplitContract.swapWithReferral.value(ethAmt)(
+        oneProtoContract.swapWithReferral.value(ethAmt)(
             _sellAddr,
             _buyAddr,
             _sellAmt,
@@ -180,13 +184,14 @@ contract Resolver is OneHelpers {
         uint[] distribution;
         uint[] disableDexes;
     }
-    function oneProtoSwapMulti(OneProtoMultiData memory oneProtoData) internal returns (uint buyAmt){
-        OneProtoInterface oneSplitContract = OneProtoInterface(getOneProtoAddress());
+
+    function oneProtoSwapMulti(OneProtoMultiData memory oneProtoData) internal returns (uint buyAmt) {
         TokenInterface _sellAddr = oneProtoData.sellToken;
         TokenInterface _buyAddr = oneProtoData.buyToken;
         uint _sellAmt = oneProtoData._sellAmt;
         uint _slippageAmt = getSlippageAmt(_buyAddr, _sellAddr, _sellAmt, oneProtoData.unitAmt);
 
+        OneProtoInterface oneSplitContract = OneProtoInterface(getOneProtoAddress());
         uint ethAmt;
         if (address(_sellAddr) == getEthAddr()) {
             ethAmt = _sellAmt;
@@ -293,7 +298,7 @@ contract OneProtoEventResolver is Resolver {
         uint256 setId
     );
 
-     event LogSellFeeTwo(
+    event LogSellFeeTwo(
         address indexed buyToken,
         address indexed sellToken,
         uint256 buyAmt,
@@ -365,7 +370,7 @@ contract OneProtoEventResolver is Resolver {
         uint256 setId
     );
 
-     event LogSellFeeMulti(
+    event LogSellFeeMulti(
         address[] tokens,
         address indexed buyToken,
         address indexed sellToken,
@@ -431,8 +436,8 @@ contract OneProtoEventResolver is Resolver {
         }
         emitEvent(_eventCode, _eventParam);
     }
-
 }
+
 contract OneProtoResolverHelpers is OneProtoEventResolver {
     function _sell(
         OneProtoData memory oneProtoData,
@@ -441,14 +446,14 @@ contract OneProtoResolverHelpers is OneProtoEventResolver {
         uint256 setId
     ) internal {
         uint _sellAmt = getUint(getId, oneProtoData._sellAmt);
-        
+
         oneProtoData._sellAmt = _sellAmt == uint(-1) ?
             getTokenBal(oneProtoData.sellToken) :
             _sellAmt;
 
-        OneProtoInterface oneSplitContract = OneProtoInterface(getOneProtoAddress());
+        OneProtoInterface oneProtoContract = OneProtoInterface(getOneProtoAddress());
 
-        (, oneProtoData.distribution) = oneSplitContract.getExpectedReturn(
+        (, oneProtoData.distribution) = oneProtoContract.getExpectedReturn(
                 oneProtoData.sellToken,
                 oneProtoData.buyToken,
                 oneProtoData._sellAmt,
@@ -457,7 +462,7 @@ contract OneProtoResolverHelpers is OneProtoEventResolver {
             );
 
         oneProtoData._buyAmt = oneProtoSwap(
-            oneSplitContract,
+            oneProtoContract,
             oneProtoData
         );
 
@@ -467,6 +472,7 @@ contract OneProtoResolverHelpers is OneProtoEventResolver {
             oneProtoData.feeCollector,
             feePercent
         );
+
         setUint(setId, leftBuyAmt);
         oneProtoData.feeAmount = feeAmount;
 
@@ -509,7 +515,7 @@ contract OneProtoResolverHelpers is OneProtoEventResolver {
         uint setId
     ) internal {
         uint _sellAmt = getUint(getId, oneProtoData._sellAmt);
-        
+
         oneProtoData._sellAmt = _sellAmt == uint(-1) ?
             getTokenBal(oneProtoData.sellToken) :
             _sellAmt;
@@ -532,7 +538,7 @@ contract OneProtoResolver is OneProtoResolverHelpers {
     /**
      * @dev Sell ETH/ERC20_Token using 1proto.
      * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
-     * @param sellAddr selling token amount.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAddr selling token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param sellAmt selling token amount.
      * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
      * @param getId Get token amount at this ID from `InstaMemory` Contract.
@@ -559,13 +565,12 @@ contract OneProtoResolver is OneProtoResolverHelpers {
         });
 
         _sell(oneProtoData, 0, getId, setId);
-
     }
 
     /**
-     * @dev Sell ETH/ERC20_Token using 1proto.
+     * @dev Sell ETH/ERC20_Token using 1proto on-chain calculation.
      * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
-     * @param sellAddr selling token amount.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAddr selling token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param sellAmt selling token amount.
      * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
      * @param feeCollector Fee amount to transfer.
@@ -602,9 +607,9 @@ contract OneProtoResolver is OneProtoResolverHelpers {
     }
 
     /**
-     * @dev Sell ETH/ERC20_Token using 1proto.
+     * @dev Sell ETH/ERC20_Token using 1proto using off-chain calculation.
      * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
-     * @param sellAddr selling token amount.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAddr selling token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param sellAmt selling token amount.
      * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
      * @param distribution distribution of swap across different dex.
@@ -641,7 +646,7 @@ contract OneProtoResolver is OneProtoResolverHelpers {
     /**
      * @dev Sell ETH/ERC20_Token using 1proto.
      * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
-     * @param sellAddr selling token amount.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param sellAddr selling token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param sellAmt selling token amount.
      * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
      * @param distribution distribution of swap across different dex.
@@ -682,7 +687,7 @@ contract OneProtoResolver is OneProtoResolverHelpers {
 
     /**
      * @dev Sell ETH/ERC20_Token using 1proto using muliple token.
-     * @param tokens buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param tokens array of tokens.
      * @param sellAmt selling token amount.
      * @param unitAmt unit amount of buyAmt/sellAmt with slippage.
      * @param distribution distribution of swap across different dex.
