@@ -318,6 +318,6 @@ contract OneInchResolver is OneInchResolverHelpers {
     }
 }
 
-contract ConnectOneInch is OneInchResolver {
-    string public name = "1Inch-v1";
+contract ConnectOneInchOnChain is OneInchResolver {
+    string public name = "1inch-Onchain-v1";
 }

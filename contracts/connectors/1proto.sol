@@ -767,6 +767,6 @@ contract OneProtoResolver is OneProtoResolverHelpers {
     }
 }
 
-contract ConnectOne is OneProtoResolver {
-    string public name = "1proto-v1";
+contract ConnectOneInchOffChain is OneProtoResolver {
+    string public name = "1inch-OffChain-v1";
 }
