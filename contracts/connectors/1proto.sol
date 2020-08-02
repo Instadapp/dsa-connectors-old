@@ -1,4 +1,6 @@
 pragma solidity ^0.6.0;
+pragma experimental ABIEncoderV2;
+
 
 // import files from common directory
 import { TokenInterface , MemoryInterface, EventInterface} from "../common/interfaces.sol";
@@ -53,7 +55,7 @@ contract OneHelpers is Stores, DSMath {
     /**
      * @dev Return 1proto Address
      */
-    function getOneProtoAddress() internal pure returns (address payable) {
+    function getOneProtoAddress() internal virtual view returns (address payable) {
         return 0x50FDA034C0Ce7a8f7EFDAebDA7Aa7cA21CC1267e;
     }
 
@@ -112,10 +114,11 @@ contract OneHelpers is Stores, DSMath {
         if (feeCollector != address(0)) {
             feeAmount = wmul(amount, feePercent);
             leftAmt = sub(amount, feeAmount);
-            uint feeCollectorAmt = wmul(feeAmount, 3 * 10 ** 17);
-            uint restAmt = sub(feeAmount, feeCollectorAmt);
-            _transfer(payable(feeCollector), IERC20(token), feeCollectorAmt);
-            _transfer(payable(getReferralAddr()), IERC20(token), restAmt);
+            uint feeCollectorAmt = wmul(feeAmount, 7 * 10 ** 17); // 70% to feeCollector
+            uint restAmt = sub(feeAmount, feeCollectorAmt); // rest 30%
+            IERC20 tokenContract = IERC20(token);
+            _transfer(payable(feeCollector), tokenContract, feeCollectorAmt);
+            _transfer(payable(getReferralAddr()), tokenContract, restAmt);
         } else {
             leftAmt = amount;
         }
@@ -153,8 +156,8 @@ contract Resolver is OneHelpers {
             _sellAddr.approve(address(oneProtoContract), _sellAmt);
         }
 
-        uint initalBal = getTokenBal(_buyAddr);
 
+        uint initalBal = getTokenBal(_buyAddr);
         oneProtoContract.swapWithReferral.value(ethAmt)(
             _sellAddr,
             _buyAddr,
@@ -165,8 +168,8 @@ contract Resolver is OneHelpers {
             getReferralAddr(),
             0
         );
-
         uint finalBal = getTokenBal(_buyAddr);
+
         buyAmt = sub(finalBal, initalBal);
 
         require(_slippageAmt <= buyAmt, "Too much slippage");
@@ -232,8 +235,8 @@ contract OneProtoEventResolver is Resolver {
         address indexed sellToken,
         uint256 buyAmt,
         uint256 sellAmt,
-        address indexed collector,
-        uint256 fee,
+        address indexed feeCollector,
+        uint256 feeAmount,
         uint256 getId,
         uint256 setId
     );
@@ -274,7 +277,7 @@ contract OneProtoEventResolver is Resolver {
                 getId,
                 setId
             );
-            _eventCode = keccak256("LogSellFee(address,address,uint256,uint256,uint256,uint256)");
+            _eventCode = keccak256("LogSellFee(address,address,uint256,uint256,address,uint256,uint256,uint256)");
             _eventParam = abi.encode(
                 address(oneProtoData.buyToken),
                 address(oneProtoData.sellToken),
@@ -303,8 +306,8 @@ contract OneProtoEventResolver is Resolver {
         address indexed sellToken,
         uint256 buyAmt,
         uint256 sellAmt,
-        address indexed collector,
-        uint256 fee,
+        address indexed feeCollector,
+        uint256 feeAmount,
         uint256 getId,
         uint256 setId
     );
@@ -345,7 +348,7 @@ contract OneProtoEventResolver is Resolver {
                 getId,
                 setId
             );
-            _eventCode = keccak256("LogSellFeeTwo(address,address,uint256,uint256,uint256,uint256)");
+            _eventCode = keccak256("LogSellFeeTwo(address,address,uint256,uint256,address,uint256,uint256,uint256)");
             _eventParam = abi.encode(
                 address(oneProtoData.buyToken),
                 address(oneProtoData.sellToken),
@@ -376,8 +379,8 @@ contract OneProtoEventResolver is Resolver {
         address indexed sellToken,
         uint256 buyAmt,
         uint256 sellAmt,
-        address indexed collector,
-        uint256 fee,
+        address indexed feeCollector,
+        uint256 feeAmount,
         uint256 getId,
         uint256 setId
     );
@@ -421,7 +424,7 @@ contract OneProtoEventResolver is Resolver {
                 getId,
                 setId
             );
-            _eventCode = keccak256("LogSellFeeMulti(address[],address,address,uint256,uint256,uint256,uint256)");
+            _eventCode = keccak256("LogSellFeeMulti(address[],address,address,uint256,uint256,address,uint256,uint256,uint256)");
             _eventParam = abi.encode(
                 oneProtoData.tokens,
                 address(oneProtoData.buyToken),
@@ -446,7 +449,6 @@ contract OneProtoResolverHelpers is OneProtoEventResolver {
         uint256 setId
     ) internal {
         uint _sellAmt = getUint(getId, oneProtoData._sellAmt);
-
         oneProtoData._sellAmt = _sellAmt == uint(-1) ?
             getTokenBal(oneProtoData.sellToken) :
             _sellAmt;
@@ -466,7 +468,7 @@ contract OneProtoResolverHelpers is OneProtoEventResolver {
             oneProtoData
         );
 
-        (uint feeAmount, uint leftBuyAmt) = takeFee(
+        (uint leftBuyAmt, uint feeAmount) = takeFee(
             address(oneProtoData.buyToken),
             oneProtoData._buyAmt,
             oneProtoData.feeCollector,
@@ -496,12 +498,13 @@ contract OneProtoResolverHelpers is OneProtoEventResolver {
             oneProtoData
         );
 
-        (uint feeAmount, uint leftBuyAmt) = takeFee(
+        (uint leftBuyAmt, uint feeAmount) = takeFee(
             address(oneProtoData.buyToken),
             oneProtoData._buyAmt,
             oneProtoData.feeCollector,
             feePercent
         );
+
         setUint(setId, leftBuyAmt);
         oneProtoData.feeAmount = feeAmount;
 
@@ -521,8 +524,9 @@ contract OneProtoResolverHelpers is OneProtoEventResolver {
             _sellAmt;
 
         oneProtoData._buyAmt = oneProtoSwapMulti(oneProtoData);
+
         uint leftBuyAmt;
-        (oneProtoData.feeAmount, leftBuyAmt) = takeFee(
+        (leftBuyAmt, oneProtoData.feeAmount) = takeFee(
             address(oneProtoData.buyToken),
             oneProtoData._buyAmt,
             oneProtoData.feeCollector,
@@ -555,10 +559,10 @@ contract OneProtoResolver is OneProtoResolverHelpers {
         OneProtoData memory oneProtoData = OneProtoData({
             buyToken: TokenInterface(buyAddr),
             sellToken: TokenInterface(sellAddr),
+            _sellAmt: sellAmt,
             unitAmt: unitAmt,
             distribution: new uint[](0),
             feeCollector: address(0),
-            _sellAmt: sellAmt,
             _buyAmt: 0,
             disableDexes: 0,
             feeAmount: 0
@@ -588,16 +592,16 @@ contract OneProtoResolver is OneProtoResolverHelpers {
         uint getId,
         uint setId
     ) external payable {
-        require(feePercent > 0 && feePercent <= 2*10*16, "Fee more than 2%");
+        require(feePercent > 0 && feePercent <= 2 * 10 ** 16, "Fee more than 2%");
         require(feeCollector != address(0), "feeCollector is not vaild address");
 
         OneProtoData memory oneProtoData = OneProtoData({
             buyToken: TokenInterface(buyAddr),
             sellToken: TokenInterface(sellAddr),
+            _sellAmt: sellAmt,
             unitAmt: unitAmt,
             distribution: new uint[](0),
             feeCollector: feeCollector,
-            _sellAmt: sellAmt,
             _buyAmt: 0,
             disableDexes: 0,
             feeAmount: 0
@@ -630,10 +634,10 @@ contract OneProtoResolver is OneProtoResolverHelpers {
         OneProtoData memory oneProtoData = OneProtoData({
             buyToken: TokenInterface(buyAddr),
             sellToken: TokenInterface(sellAddr),
+            _sellAmt: sellAmt,
             unitAmt: unitAmt,
             distribution: distribution,
             disableDexes: disableDexes,
-            _sellAmt: sellAmt,
             feeCollector: address(0),
             _buyAmt: 0,
             feeAmount: 0
@@ -668,16 +672,16 @@ contract OneProtoResolver is OneProtoResolverHelpers {
         uint getId,
         uint setId
     ) external payable {
-        require(feePercent > 0 && feePercent <= 2*10*16, "Fee more than 2%");
+        require(feePercent > 0 && feePercent <= 2 * 10 ** 16, "Fee more than 2%");
         require(feeCollector != address(0), "feeCollector is not vaild address");
         OneProtoData memory oneProtoData = OneProtoData({
             buyToken: TokenInterface(buyAddr),
             sellToken: TokenInterface(sellAddr),
+            _sellAmt: sellAmt,
             unitAmt: unitAmt,
             distribution: distribution,
             disableDexes: disableDexes,
             feeCollector: feeCollector,
-            _sellAmt: sellAmt,
             _buyAmt: 0,
             feeAmount: 0
         });
@@ -743,18 +747,18 @@ contract OneProtoResolver is OneProtoResolverHelpers {
         uint getId,
         uint setId
     ) external payable {
-        require(feePercent > 0 && feePercent <= 2*10*16, "Fee more than 2%");
+        require(feePercent > 0 && feePercent <= 2 * 10 ** 16, "Fee more than 2%");
         require(feeCollector != address(0), "feeCollector is not vaild address");
-        TokenInterface buyToken = TokenInterface(address(tokens[tokens.length-1]));
+        TokenInterface buyToken = TokenInterface(address(tokens[tokens.length - 1]));
         OneProtoMultiData memory oneProtoData = OneProtoMultiData({
             tokens: tokens,
             buyToken: buyToken,
             sellToken: TokenInterface(address(tokens[0])),
+            _sellAmt: sellAmt,
             unitAmt: unitAmt,
             distribution: distribution,
-            feeCollector: feeCollector,
             disableDexes: disableDexes,
-            _sellAmt: sellAmt,
+            feeCollector: feeCollector,
             _buyAmt: 0,
             feeAmount: 0
         });

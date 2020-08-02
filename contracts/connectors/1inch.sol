@@ -300,7 +300,7 @@ contract OneInchResolver is OneInchResolverHelpers {
         uint feePercent,
         uint setId
     ) external payable {
-        require(feePercent > 0 && feePercent <= 2*10*16, "Fee more than 2%");
+        require(feePercent > 0 && feePercent <= 2 * 10 ** 16, "Fee more than 2%");
         require(feeCollector != address(0), "feeCollector is not vaild address");
 
         OneInchData memory oneInchData = OneInchData({
