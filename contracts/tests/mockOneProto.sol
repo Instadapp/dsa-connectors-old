@@ -15,6 +15,10 @@ contract MockConnectOne is ConnectOne {
   function setUint(uint setId, uint val) override internal {}
 
   function sub(uint x, uint y) internal override pure returns (uint z) {
-      z = 100000;
+      z = 21 * 10 ** 18;
   }
+
+    function getOneProtoAddress() internal override view returns (address payable) {
+        return payable(oneProtoAddr);
+    }
 }

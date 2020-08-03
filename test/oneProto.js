@@ -50,7 +50,7 @@ const {
             5,
             0
         ).encodeABI();
-        await mock.givenMethodReturnUint(getExpectedReturn, String(sellAmt));
+        await mock.givenMethodReturn(getExpectedReturn, web3.eth.abi.encodeParameters(["uint256", "uint256[]"], [20000, [0,0,0,1]]));
       // mocking stake
       let swapWithReferral = await oneProtoContract.methods.swapWithReferral(
             mock.address,
