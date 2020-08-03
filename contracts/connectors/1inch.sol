@@ -234,7 +234,7 @@ contract OneInchResolverHelpers is OneInchEventResolver {
 
         uint buyAmt = oneInchSwap(oneInchData, ethAmt);
 
-        (uint feeAmount, uint leftBuyAmt) = takeFee(
+        (uint leftBuyAmt, uint feeAmount) = takeFee(
             address(_buyAddr),
             buyAmt,
             oneInchData.feeCollector,
