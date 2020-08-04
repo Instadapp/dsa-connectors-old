@@ -23,52 +23,27 @@ contract ChiHelpers is DSMath, Stores  {
 
 
 contract ChiResolver is ChiHelpers {
-    event LogMint(uint256 tokenAmt, uint256 getId, uint256 setId);
-    event LogBurn(uint256 tokenAmt, uint256 getId, uint256 setId);
-
     /**
      * @dev Mint CHI token.
      * @param amt token amount to mint.
-     * @param getId Get token amount at this ID from `InstaMemory` Contract.
-     * @param setId Set token amount at this ID in `InstaMemory` Contract.
      */
-    function mint(uint amt, uint getId, uint setId) public payable {
-        uint _amt = getUint(getId, amt);
-        _amt = _amt == uint(-1) ? 140 : _amt;
+    function mint(uint amt) public payable {
+        uint _amt = amt == uint(-1) ? 140 : amt;
         require(_amt <= 140, "Max minting is 140 chi");
-
         CHIInterface(getCHIAddress()).mint(_amt);
-
-        setUint(setId, _amt);
-
-        emit LogMint(_amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogMint(uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(_amt, getId, setId);
-        emitEvent(_eventCode, _eventParam);
     }
 
     /**
      * @dev burn CHI token.
      * @param amt token amount to burn.
-     * @param getId Get token amount at this ID from `InstaMemory` Contract.
-     * @param setId Set token amount at this ID in `InstaMemory` Contract.
      */
-    function burn(uint amt, uint getId, uint setId) public payable {
-        uint _amt = getUint(getId, amt);
+    function burn(uint amt) public payable {
         CHIInterface chiToken = CHIInterface(getCHIAddress());
-        _amt = _amt == uint(-1) ? chiToken.balanceOf(address(this)) : _amt;
+        uint _amt = amt == uint(-1) ? chiToken.balanceOf(address(this)) : amt;
 
         chiToken.free(_amt);
-
-        setUint(setId, _amt);
-
-        emit LogBurn(_amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogBurn(uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(_amt, getId, setId);
-        emitEvent(_eventCode, _eventParam);
     }
 }
-
 
 contract ConnectCHI is ChiResolver {
     string public name = "CHI-v1";
