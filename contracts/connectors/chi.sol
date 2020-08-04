@@ -1,18 +1,12 @@
 pragma solidity ^0.6.0;
 
-// import files from common directory
-import { TokenInterface , MemoryInterface, EventInterface} from "../common/interfaces.sol";
-import { Stores } from "../common/stores.sol";
-import { DSMath } from "../common/math.sol";
-
 interface CHIInterface {
     function mint(uint256 value) external;
     function free(uint256 value) external returns (uint256);
     function balanceOf(address) external view returns (uint);
 }
 
-
-contract ChiHelpers is DSMath, Stores  {
+contract ChiHelpers  {
     /**
      * @dev CHI token Address
      */
@@ -20,7 +14,6 @@ contract ChiHelpers is DSMath, Stores  {
         return 0x0000000000004946c0e9F43F4Dee607b0eF1fA1c;
     }
 }
-
 
 contract ChiResolver is ChiHelpers {
     /**
