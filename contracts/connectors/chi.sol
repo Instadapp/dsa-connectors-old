@@ -4,6 +4,7 @@ interface CHIInterface {
     function mint(uint256 value) external;
     function free(uint256 value) external returns (uint256);
     function balanceOf(address) external view returns (uint);
+    function approve(address, uint256) external;
 }
 
 contract ChiHelpers  {
@@ -12,6 +13,13 @@ contract ChiHelpers  {
      */
     function getCHIAddress() internal pure returns (address) {
         return 0x0000000000004946c0e9F43F4Dee607b0eF1fA1c;
+    }
+
+    /**
+    * @dev Connector Details.
+    */
+    function connectorID() public view returns(uint model, uint id) {
+        (model, id) = (1, 36);
     }
 }
 
@@ -33,7 +41,7 @@ contract ChiResolver is ChiHelpers {
     function burn(uint amt) public payable {
         CHIInterface chiToken = CHIInterface(getCHIAddress());
         uint _amt = amt == uint(-1) ? chiToken.balanceOf(address(this)) : amt;
-
+        chiToken.approve(address(chiToken), _amt);
         chiToken.free(_amt);
     }
 }
