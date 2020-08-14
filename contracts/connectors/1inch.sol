@@ -1,7 +1,6 @@
 pragma solidity ^0.6.0;
 pragma experimental ABIEncoderV2;
 
-
 // import files from common directory
 import { TokenInterface , MemoryInterface, EventInterface} from "../common/interfaces.sol";
 import { Stores } from "../common/stores.sol";
@@ -26,25 +25,21 @@ interface OneInchInterace {
 }
 
 interface OneProtoInterface {
-    function swapWithReferral(
+    function swap(
         TokenInterface fromToken,
         TokenInterface destToken,
         uint256 amount,
         uint256 minReturn,
         uint256[] calldata distribution,
-        uint256 flags, // See contants in IOneSplit.sol
-        address referral,
-        uint256 feePercent
+        uint256 flags // See contants in IOneSplit.sol
     ) external payable returns(uint256);
 
-    function swapWithReferralMulti(
+    function swapMulti(
         TokenInterface[] calldata tokens,
         uint256 amount,
         uint256 minReturn,
         uint256[] calldata distribution,
-        uint256[] calldata flags,
-        address referral,
-        uint256 feePercent
+        uint256[] calldata flags
     ) external payable returns(uint256 returnAmount);
 
     function getExpectedReturn(
@@ -62,13 +57,25 @@ interface OneProtoInterface {
     );
 }
 
+interface OneProtoMappingInterface {
+    function oneProtoAddress() external view returns(address);
+}
+
 
 contract OneHelpers is Stores, DSMath {
+
+    /**
+     * @dev Return 1proto mapping Address
+     */
+    function getOneProtoMappingAddress() internal pure returns (address payable) {
+        return 0x8d0287AFa7755BB5f2eFe686AA8d4F0A7BC4AE7F;
+    }
+
     /**
      * @dev Return 1proto Address
      */
-    function getOneProtoAddress() internal pure returns (address payable) {
-        return 0x50FDA034C0Ce7a8f7EFDAebDA7Aa7cA21CC1267e;
+    function getOneProtoAddress() internal view returns (address payable) {
+        return payable(OneProtoMappingInterface(getOneProtoMappingAddress()).oneProtoAddress());
     }
 
     /**
@@ -90,10 +97,6 @@ contract OneHelpers is Stores, DSMath {
      */
     function getOneInchSig() internal pure returns (bytes4) {
         return 0xf88309d7;
-    }
-
-    function getReferralAddr() internal pure returns (address) {
-        return 0xa7615CD307F323172331865181DC8b80a2834324;  // TODO - change address
     }
 
     function convert18ToDec(uint _dec, uint256 _amt) internal pure returns (uint256 amt) {
@@ -164,15 +167,13 @@ contract OneProtoResolver is OneHelpers {
 
 
         uint initalBal = getTokenBal(_buyAddr);
-        oneProtoContract.swapWithReferral.value(ethAmt)(
+        oneProtoContract.swap.value(ethAmt)(
             _sellAddr,
             _buyAddr,
             _sellAmt,
             _slippageAmt,
             oneProtoData.distribution,
-            oneProtoData.disableDexes,
-            getReferralAddr(),
-            0
+            oneProtoData.disableDexes
         );
         uint finalBal = getTokenBal(_buyAddr);
 
@@ -207,14 +208,12 @@ contract OneProtoResolver is OneHelpers {
         }
 
         uint initalBal = getTokenBal(_buyAddr);
-        oneSplitContract.swapWithReferralMulti.value(ethAmt)(
+        oneSplitContract.swapMulti.value(ethAmt)(
             convertToTokenInterface(oneProtoData.tokens),
             _sellAmt,
             _slippageAmt,
             oneProtoData.distribution,
-            oneProtoData.disableDexes,
-            getReferralAddr(),
-            0
+            oneProtoData.disableDexes
         );
         uint finalBal = getTokenBal(_buyAddr);
 
