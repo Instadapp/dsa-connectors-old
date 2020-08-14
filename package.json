@@ -9,7 +9,7 @@
     "coverage": "./node_modules/.bin/solidity-coverage",
     "solium": "solium -d contracts/",
     "build-contracts": "sol-merger \"./contracts/connectors/mock.sol\" ./contracts/build",
-    "ganache": "ganache-cli --deterministic --unlock 0xfcd22438ad6ed564a1c26151df73f6b33b817b56 -f https://mainnet.infura.io/v3/<Your Key>"
+    "ganache": "ganache-cli"
   },
   "repository": {
     "type": "git",

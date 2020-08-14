@@ -10,7 +10,7 @@ contract DSMath {
     z = SafeMath.add(x, y);
   }
 
-  function sub(uint x, uint y) internal pure returns (uint z) {
+  function sub(uint x, uint y) internal virtual pure returns (uint z) {
     z = SafeMath.sub(x, y);
   }
 
