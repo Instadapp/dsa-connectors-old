@@ -17,7 +17,7 @@ contract Helpers {
     address public constant instaIndex = 0x2971AdFa57b20E5a416aE5a708A8655A9c74f723;
     address public oneProtoAddress;
 
-    modifier isChief virtual {
+    modifier isChief {
         require(
         ConnectorsInterface(connectors).chief(msg.sender) ||
         IndexInterface(instaIndex).master() == msg.sender, "not-Chief");
