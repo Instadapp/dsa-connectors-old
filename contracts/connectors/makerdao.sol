@@ -383,29 +383,6 @@ contract BasicResolver is MakerHelpers {
     }
 
     /**
-     * @dev Transfer Vault
-     * @param vault Vault ID to transfer.
-    */
-    function transfer(uint vault, address nextOwner) external payable {
-        require(AccountInterface(address(this)).isAuth(nextOwner), "nextOwner-is-not-auth");
-
-        ManagerLike managerContract = ManagerLike(getMcdManager());
-
-        uint _vault = getVault(managerContract, vault);
-        (bytes32 ilk,) = getVaultData(managerContract, _vault);
-
-        require(managerContract.owns(_vault) == address(this), "not-owner");
-
-        managerContract.give(_vault, nextOwner);
-
-        emit LogTransfer(_vault, ilk, nextOwner);
-        bytes32 _eventCode = keccak256("LogTransfer(uint256,bytes32,address)");
-        bytes memory _eventParam = abi.encode(_vault, ilk, nextOwner);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
-    }
-
-    /**
      * @dev Deposit ETH/ERC20_Token Collateral.
      * @param vault Vault ID.
      * @param amt token amount to deposit.
