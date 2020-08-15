@@ -52,7 +52,7 @@ contract CurveVestingProtocol is CurveVestingHelpers {
   }
 }
 
-contract ConnectCurveVestingProtocol is CurveVestingProtocol {
+contract ConnectCurveVesting is CurveVestingProtocol {
   string public name = "Curve-vesting-v1";
 }
 
