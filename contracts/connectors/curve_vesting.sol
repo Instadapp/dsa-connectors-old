@@ -9,7 +9,7 @@ interface ICurve {
   function claim(address addr) external;
 }
 
-contract CurveVestingHelpers is Stores, DSMath{
+contract CurveVestingHelpers is Stores, DSMath {
   /**
   * @dev Return Curve Token Address
   */
@@ -26,7 +26,7 @@ contract CurveVestingHelpers is Stores, DSMath{
 }
 
 contract CurveVestingProtocol is CurveVestingHelpers {
-  event LogClaim(address account, uint256 claimable, uint256 getId, uint256 setId);
+  event LogClaim(address account, uint256 claimAmount, uint256 getId, uint256 setId);
 
   /**
   * @dev Claim Curve DAO Token.
@@ -35,10 +35,9 @@ contract CurveVestingProtocol is CurveVestingHelpers {
   */
   function claim(uint getId, uint setId) external{
     TokenInterface curveTokenContract = TokenInterface(getCurveTokenAddr());
+
     uint initialCurveBal = curveTokenContract.balanceOf(address(this));
-
     ICurve(getCurveVestingAddr()).claim(address(this));
-
     uint finalCurveBal = curveTokenContract.balanceOf(address(this));
 
     uint claimedAmt = sub(finalCurveBal, initialCurveBal);
