@@ -26,15 +26,14 @@ contract CurveVestingHelpers is Stores, DSMath{
 }
 
 contract CurveVestingProtocol is CurveVestingHelpers {
-  event LogClaim(address sender, uint256 claimable, uint256 getId, uint256 setId);
+  event LogClaim(address account, uint256 claimable, uint256 getId, uint256 setId);
 
   /**
   * @dev Claim Curve DAO Token.
-  * @param sender address of the sender.
   * @param getId Get token amount at this ID from `InstaMemory` Contract.
   * @param setId Set token amount at this ID in `InstaMemory` Contract.
   */
-  function claim(address sender, uint getId, uint setId) external{
+  function claim(uint getId, uint setId) external{
     TokenInterface curveTokenContract = TokenInterface(getCurveTokenAddr());
     uint initialCurveBal = curveTokenContract.balanceOf(address(this));
 

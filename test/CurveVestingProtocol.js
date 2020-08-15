@@ -28,7 +28,6 @@ contract("ConnectCurveVestingProtocol", async accounts => {
 
   it('can claim CRV', async function() {
     const tx = await mockConnectCurveVestingProtocol.claim(
-      sender,
       0,
       0
     )
