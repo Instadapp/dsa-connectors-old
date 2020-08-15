@@ -13,14 +13,14 @@ contract CurveVestingHelpers is Stores, DSMath{
   /**
   * @dev Return Curve Token Address
   */
-  function getCurveTokenAddr() internal pure returns (address) {
+  function getCurveTokenAddr() virtual internal view returns (address) {
     return 0xD533a949740bb3306d119CC777fa900bA034cd52;
   }
 
   /**
   * @dev Return Curve Vesting Address
   */
-  function getCurveVestingAddr() internal pure returns (address) {
+  function getCurveVestingAddr() virtual internal view returns (address) {
     return 0x575CCD8e2D300e2377B43478339E364000318E2c;
   }
 }
@@ -52,3 +52,8 @@ contract CurveVestingProtocol is CurveVestingHelpers {
     emitEvent(_eventCode, _eventParam);
   }
 }
+
+contract ConnectCurveVestingProtocol is CurveVestingProtocol {
+  string public name = "Curve-vesting-v1";
+}
+
