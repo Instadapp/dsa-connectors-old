@@ -126,20 +126,18 @@ contract CurveGauge is GaugeHelper {
     uint setIdReward
   ) external payable {
     uint _amt = getUint(getId, amt);
-    CurveGaugeMapping curveGaugeMapping = CurveGaugeMapping(getCurveGaugeMappingAddr());
-    address curveGaugeAddr = curveGaugeMapping.gaugeMapping(bytes32(stringToBytes32(gaugePoolName)));
+    address curveGaugeAddr = CurveGaugeMapping(getCurveGaugeMappingAddr())
+      .gaugeMapping(bytes32(stringToBytes32(gaugePoolName)));
     require(curveGaugeAddr != address(0), "wrong-gauge-pool-name");
     IGauge gauge = IGauge(curveGaugeAddr);
-    TokenInterface lp_token = TokenInterface(address(gauge.lp_token()));
     TokenInterface crv_token = TokenInterface(address(gauge.crv_token()));
     TokenInterface rewarded_token = TokenInterface(address(gauge.rewarded_token()));
-    IMintor mintor = IMintor(getCurveMintorAddr());
     Balances memory balances;
 
-    _amt = _amt == uint(-1) ? lp_token.balanceOf(address(this)) : _amt;
+    _amt = _amt == uint(-1) ? TokenInterface(address(gauge.lp_token())).balanceOf(address(this)) : _amt;
     balances.intialCRVBal = crv_token.balanceOf(address(this));
     balances.intialRewardBal = rewarded_token.balanceOf(address(this));
-    mintor.mint(curveGaugeAddr);
+    IMintor(getCurveMintorAddr()).mint(curveGaugeAddr);
     gauge.withdraw(_amt);
     balances.finalCRVBal = crv_token.balanceOf(address(this));
     balances.finalRewardBal = rewarded_token.balanceOf(address(this));
@@ -150,6 +148,11 @@ contract CurveGauge is GaugeHelper {
     setUint(setIdCRVReward, balances.crvRewardAmt);
     setUint(setIdReward, balances.rewardAmt);
 
+    emitLogWithdraw(gaugePoolName, _amt, getId, setId, setIdCRVReward, setIdReward);
+
+  }
+
+  function emitLogWithdraw(string memory gaugePoolName, uint _amt, uint getId, uint setId, uint setIdCRVReward, uint setIdReward) internal {
     emit LogWithdraw(gaugePoolName, _amt, getId, setId, setIdCRVReward, setIdReward);
     bytes32 _eventCodeWithdraw = keccak256("LogWithdraw(string,uint256,uint256,uint256,uint256,uint256)");
     bytes memory _eventParamWithdraw = abi.encode(gaugePoolName, _amt, getId, setId, setIdCRVReward, setIdReward);
