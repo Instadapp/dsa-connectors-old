@@ -113,6 +113,7 @@ contract CurveGauge is GaugeHelper {
     _amt = _amt == uint(-1) ? lp_token.balanceOf(address(this)) : _amt;
     lp_token.approve(address(curveGaugeAddr), _amt);
     gauge.deposit(_amt);
+
     setUint(setId, _amt);
 
     emit LogDeposit(gaugePoolName, _amt, getId, setId);
@@ -148,12 +149,16 @@ contract CurveGauge is GaugeHelper {
     Balances memory balances;
 
     _amt = _amt == uint(-1) ? TokenInterface(address(gauge.lp_token())).balanceOf(address(this)) : _amt;
+
     balances.intialCRVBal = crv_token.balanceOf(address(this));
     balances.intialRewardBal = rewarded_token.balanceOf(address(this));
+
     IMintor(getCurveMintorAddr()).mint(curveGaugeAddr);
     gauge.withdraw(_amt);
+
     balances.finalCRVBal = crv_token.balanceOf(address(this));
     balances.finalRewardBal = rewarded_token.balanceOf(address(this));
+
     balances.crvRewardAmt = sub(balances.finalCRVBal, balances.intialCRVBal);
     balances.rewardAmt = sub(balances.finalRewardBal, balances.intialRewardBal);
 
@@ -196,6 +201,7 @@ contract CurveGauge is GaugeHelper {
     mintor.mint(curveGaugeAddr);
     balances.finalCRVBal = crv_token.balanceOf(address(this));
     balances.finalRewardBal = rewarded_token.balanceOf(address(this));
+
     balances.crvRewardAmt = sub(balances.finalCRVBal, balances.intialCRVBal);
     balances.rewardAmt = sub(balances.finalRewardBal, balances.intialRewardBal);
 
