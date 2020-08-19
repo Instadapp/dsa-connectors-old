@@ -1,7 +1,7 @@
 pragma solidity ^0.6.0;
 pragma experimental ABIEncoderV2;
 
-import { ConnectOne } from "../connectors/1proto.sol";
+import { ConnectOne } from "../connectors/1inch.sol";
 
 contract MockConnectOne is ConnectOne {
   address public oneProtoAddr;
