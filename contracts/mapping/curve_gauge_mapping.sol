@@ -1,0 +1,95 @@
+pragma solidity ^0.6.0;
+pragma experimental ABIEncoderV2;
+
+interface ConnectorsInterface {
+  function chief(address) external view returns (bool);
+}
+
+interface IndexInterface {
+  function master() external view returns (address);
+}
+
+contract BytesHelper {
+  /**
+  * @dev Convert String to bytes32.
+  */
+  function stringToBytes32(string memory str) internal pure returns (bytes32 result) {
+    require(bytes(str).length != 0, "String-Empty");
+    // solium-disable-next-line security/no-inline-assembly
+    assembly {
+      result := mload(add(str, 32))
+    }
+  }
+
+  function bytes32ToString(bytes32 _bytes32) internal pure returns (string memory) {
+    bytes32  _temp;
+    uint count;
+    for (uint256 i; i < 32; i++) {
+      _temp = _bytes32[i];
+      if( _temp != bytes32(0)) {
+        count += 1;
+      }
+    }
+    bytes memory bytesArray = new bytes(count);
+    for (uint256 i; i < count; i++) {
+      bytesArray[i] = (_bytes32[i]);
+    }
+    return (string(bytesArray));
+  }
+}
+
+contract Helpers is BytesHelper {
+  address public constant connectors = 0xD6A602C01a023B98Ecfb29Df02FBA380d3B21E0c;
+  address public constant instaIndex = 0x2971AdFa57b20E5a416aE5a708A8655A9c74f723;
+  uint public version = 1;
+
+  mapping (bytes32 => address) public gaugeMapping;
+
+  event LogAddGaugeMapping(
+    string gaugeName,
+    address gaugeAddress
+  );
+
+  event LogRemoveGaugeMapping(
+    string gaugeName,
+    address gaugeAddress
+  );
+
+  modifier isChief virtual {
+    require(
+      ConnectorsInterface(connectors).chief(msg.sender) ||
+      IndexInterface(instaIndex).master() == msg.sender, "not-Chief");
+      _;
+  }
+
+  function addGaugeMapping(
+    string memory gaugeName,
+    address gaugeAddress
+  ) public isChief {
+    require(gaugeAddress != address(0), "gaugeAddress-not-vaild");
+    require(bytes(gaugeName).length <= 32, "Length-exceeds");
+    bytes32 gaugeType = stringToBytes32(gaugeName);
+    require(gaugeMapping[gaugeType] == address(0), "gaugePool-already-added");
+
+    gaugeMapping[gaugeType] = gaugeAddress;
+
+    emit LogAddGaugeMapping(gaugeName, gaugeAddress);
+  }
+
+  function removeGaugeMapping(string memory gaugeName, address gaugeAddress) public isChief {
+    require(gaugeAddress != address(0), "gaugeAddress-not-vaild");
+    bytes32 gaugeType = stringToBytes32(gaugeName);
+    require(gaugeMapping[gaugeType] == gaugeAddress, "different-gauge-pool");
+
+    delete gaugeMapping[gaugeType];
+
+    emit LogRemoveGaugeMapping(
+      gaugeName,
+      gaugeAddress
+    );
+  }
+}
+
+contract CurveGaugeMapping is Helpers {
+  string constant public name = "Curve-Gauge-Mapping-v1";
+}
