@@ -82,6 +82,7 @@ contract Helpers is BytesHelper {
   ) public isChief {
     require(stakingAddress != address(0), "stakingAddress-not-vaild");
     require(stakingToken != address(0), "stakingToken-not-vaild");
+    require(rewardToken != address(0), "rewardToken-not-vaild");
     require(bytes(stakingName).length <= 32, "Length-exceeds");
     bytes32 stakeType = stringToBytes32(stakingName);
     require(stakingMapping[stakeType].stakingPool == address(0), "StakingPool-already-added");
