@@ -52,22 +52,11 @@ contract Helpers is BytesHelper {
       _;
   }
 
-  function addGaugeMappings(
-    string[] memory gaugeNames,
-    address[] memory gaugeAddresses,
-    bool[] memory rewardTokens
-  ) public isChief {
-    require(gaugeNames.length == gaugeAddresses.length && gaugeAddresses.length == rewardTokens.length, "length-not-match");
-    for (uint32 i; i < gaugeNames.length; i++) {
-      addGaugeMapping(gaugeNames[i], gaugeAddresses[i], rewardTokens[i]);
-    }
-  }
-
-  function addGaugeMapping(
+  function _addGaugeMapping(
     string memory gaugeName,
     address gaugeAddress,
     bool rewardToken
-  ) public isChief {
+  ) internal {
     require(gaugeAddress != address(0), "gaugeAddress-not-vaild");
     require(bytes(gaugeName).length <= 32, "Length-exceeds");
     bytes32 gaugeType = stringToBytes32(gaugeName);
@@ -77,6 +66,17 @@ contract Helpers is BytesHelper {
     gaugeMapping[gaugeType].rewardToken = rewardToken;
 
     emit LogAddGaugeMapping(gaugeName, gaugeAddress, rewardToken);
+  }
+
+  function addGaugeMappings(
+    string[] memory gaugeNames,
+    address[] memory gaugeAddresses,
+    bool[] memory rewardTokens
+  ) public isChief {
+    require(gaugeNames.length == gaugeAddresses.length && gaugeAddresses.length == rewardTokens.length, "length-not-match");
+    for (uint32 i; i < gaugeNames.length; i++) {
+      _addGaugeMapping(gaugeNames[i], gaugeAddresses[i], rewardTokens[i]);
+    }
   }
 
   function removeGaugeMapping(string memory gaugeName, address gaugeAddress) public isChief {
@@ -95,4 +95,15 @@ contract Helpers is BytesHelper {
 
 contract CurveGaugeMapping is Helpers {
   string constant public name = "Curve-Gauge-Mapping-v1";
+
+  constructor (
+    string[] memory gaugeNames,
+    address[] memory gaugeAddresses,
+    bool[] memory rewardTokens
+  ) public {
+    require(gaugeNames.length == gaugeAddresses.length && gaugeAddresses.length == rewardTokens.length, "length-not-match");
+    for (uint32 i; i < gaugeNames.length; i++) {
+      _addGaugeMapping(gaugeNames[i], gaugeAddresses[i], rewardTokens[i]);
+    }
+  }
 }
