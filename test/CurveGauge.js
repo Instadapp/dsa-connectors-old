@@ -32,8 +32,8 @@ contract("ConnectCurveGauge", async accounts => {
     let rewarded_token = await curveGauge.methods.rewarded_token().encodeABI();
     await mock.givenMethodReturnAddress(rewarded_token, mock.address);
 
-    mockCurveGaugeMapping.addGaugeMapping('compound', mock.address, false);
-    mockCurveGaugeMapping.addGaugeMapping('susd', mock.address, true);
+    await mockCurveGaugeMapping.addGaugeMapping('compound', mock.address, false);
+    await mockCurveGaugeMapping.addGaugeMapping('susd', mock.address, true);
   })
 
   it('can deposit into compound gauge', async function() {
@@ -145,5 +145,10 @@ contract("ConnectCurveGauge", async accounts => {
       0
     )
     await expectRevert(tx, "wrong-gauge-pool-name")
+  });
+
+  it('can add multiple gauge mappings', async function() {
+    const tx = await mockCurveGaugeMapping.addGaugeMappings(['sbtc'], [mock.address], [true]);
+    expectEvent(tx, "LogAddGaugeMapping");
   });
 })

@@ -68,6 +68,17 @@ contract Helpers is BytesHelper {
       _;
   }
 
+  function addGaugeMappings(
+    string[] memory gaugeNames,
+    address[] memory gaugeAddresses,
+    bool[] memory rewardTokens
+  ) public isChief {
+    require(gaugeNames.length == gaugeAddresses.length && gaugeAddresses.length == rewardTokens.length, "length-not-match");
+    for (uint32 i; i < gaugeNames.length; i++) {
+      addGaugeMapping(gaugeNames[i], gaugeAddresses[i], rewardTokens[i]);
+    }
+  }
+
   function addGaugeMapping(
     string memory gaugeName,
     address gaugeAddress,
