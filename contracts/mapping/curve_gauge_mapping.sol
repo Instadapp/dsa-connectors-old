@@ -20,22 +20,6 @@ contract BytesHelper {
       result := mload(add(str, 32))
     }
   }
-
-  function bytes32ToString(bytes32 _bytes32) internal pure returns (string memory) {
-    bytes32  _temp;
-    uint count;
-    for (uint256 i; i < 32; i++) {
-      _temp = _bytes32[i];
-      if( _temp != bytes32(0)) {
-        count += 1;
-      }
-    }
-    bytes memory bytesArray = new bytes(count);
-    for (uint256 i; i < count; i++) {
-      bytesArray[i] = (_bytes32[i]);
-    }
-    return (string(bytesArray));
-  }
 }
 
 contract Helpers is BytesHelper {
