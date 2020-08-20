@@ -43,11 +43,17 @@ contract Helpers is BytesHelper {
   address public constant instaIndex = 0x2971AdFa57b20E5a416aE5a708A8655A9c74f723;
   uint public version = 1;
 
-  mapping (bytes32 => address) public gaugeMapping;
+  mapping (bytes32 => GaugeData) public gaugeMapping;
+
+  struct GaugeData {
+    address gaugeAddress;
+    bool rewardToken;
+  }
 
   event LogAddGaugeMapping(
     string gaugeName,
-    address gaugeAddress
+    address gaugeAddress,
+    bool rewardToken
   );
 
   event LogRemoveGaugeMapping(
@@ -64,22 +70,24 @@ contract Helpers is BytesHelper {
 
   function addGaugeMapping(
     string memory gaugeName,
-    address gaugeAddress
+    address gaugeAddress,
+    bool rewardToken
   ) public isChief {
     require(gaugeAddress != address(0), "gaugeAddress-not-vaild");
     require(bytes(gaugeName).length <= 32, "Length-exceeds");
     bytes32 gaugeType = stringToBytes32(gaugeName);
-    require(gaugeMapping[gaugeType] == address(0), "gaugePool-already-added");
+    require(gaugeMapping[gaugeType].gaugeAddress == address(0), "gaugePool-already-added");
 
-    gaugeMapping[gaugeType] = gaugeAddress;
+    gaugeMapping[gaugeType].gaugeAddress = gaugeAddress;
+    gaugeMapping[gaugeType].rewardToken = rewardToken;
 
-    emit LogAddGaugeMapping(gaugeName, gaugeAddress);
+    emit LogAddGaugeMapping(gaugeName, gaugeAddress, rewardToken);
   }
 
   function removeGaugeMapping(string memory gaugeName, address gaugeAddress) public isChief {
     require(gaugeAddress != address(0), "gaugeAddress-not-vaild");
     bytes32 gaugeType = stringToBytes32(gaugeName);
-    require(gaugeMapping[gaugeType] == gaugeAddress, "different-gauge-pool");
+    require(gaugeMapping[gaugeType].gaugeAddress == gaugeAddress, "different-gauge-pool");
 
     delete gaugeMapping[gaugeType];
 
