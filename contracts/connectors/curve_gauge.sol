@@ -137,7 +137,7 @@ contract CurveGauge is GaugeHelper {
     TokenInterface crv_token = TokenInterface(address(gauge.crv_token()));
     Balances memory balances;
 
-    _amt = _amt == uint(-1) ? TokenInterface(address(gauge.lp_token())).balanceOf(address(this)) : _amt;
+    _amt = _amt == uint(-1) ? gauge.balanceOf(address(this)) : _amt;
     balances.intialCRVBal = crv_token.balanceOf(address(this));
     IMintor(getCurveMintorAddr()).mint(curveGaugeAddr);
     gauge.withdraw(_amt);
