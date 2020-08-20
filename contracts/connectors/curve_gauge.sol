@@ -52,7 +52,7 @@ contract GaugeHelper is DSMath, Stores{
   }
 }
 
-contract CurveGauge is GaugeHelper {
+contract CurveGaugeEvent is GaugeHelper {
   event LogDeposit(
     string indexed gaugePoolName,
     uint amount,
@@ -75,12 +75,22 @@ contract CurveGauge is GaugeHelper {
     uint setIdReward
   );
 
-  event LogClaimedReward(
-    string indexed gaugePoolName,
-    uint amount,
-    uint setId
-  );
+  function emitLogWithdraw(string memory gaugePoolName, uint _amt, uint getId, uint setId) internal {
+    emit LogWithdraw(gaugePoolName, _amt, getId, setId);
+    bytes32 _eventCodeWithdraw = keccak256("LogWithdraw(string,uint256,uint256,uint256)");
+    bytes memory _eventParamWithdraw = abi.encode(gaugePoolName, _amt, getId, setId);
+    emitEvent(_eventCodeWithdraw, _eventParamWithdraw);
+  }
 
+  function emitLogClaimedReward(string memory gaugePoolName, uint crvAmt, uint rewardAmt, uint setIdCrv, uint setIdReward) internal {
+    emit LogClaimedReward(gaugePoolName, crvAmt, rewardAmt, setIdCrv, setIdReward);
+    bytes32 _eventCode = keccak256("LogClaimedReward(string,uint256,uint256,uint256,uint256)");
+    bytes memory _eventParam = abi.encode(gaugePoolName, crvAmt, rewardAmt, setIdCrv, setIdReward);
+    emitEvent(_eventCode, _eventParam);
+  }
+}
+
+contract CurveGauge is CurveGaugeEvent {
   struct Balances{
     uint intialCRVBal;
     uint intialRewardBal;
@@ -105,14 +115,18 @@ contract CurveGauge is GaugeHelper {
   ) external payable {
     uint _amt = getUint(getId, amt);
     ICurveGaugeMapping curveGaugeMapping = ICurveGaugeMapping(getCurveGaugeMappingAddr());
-    ICurveGaugeMapping.GaugeData memory curveGaugeData = curveGaugeMapping.gaugeMapping(bytes32(stringToBytes32(gaugePoolName)));
+    ICurveGaugeMapping.GaugeData memory curveGaugeData = curveGaugeMapping.gaugeMapping(
+        bytes32(stringToBytes32(gaugePoolName)
+    ));
     require(curveGaugeData.gaugeAddress != address(0), "wrong-gauge-pool-name");
     IGauge gauge = IGauge(curveGaugeData.gaugeAddress);
     TokenInterface lp_token = TokenInterface(address(gauge.lp_token()));
 
     _amt = _amt == uint(-1) ? lp_token.balanceOf(address(this)) : _amt;
     lp_token.approve(address(curveGaugeData.gaugeAddress), _amt);
+
     gauge.deposit(_amt);
+
     setUint(setId, _amt);
 
     emit LogDeposit(gaugePoolName, _amt, getId, setId);
@@ -127,7 +141,7 @@ contract CurveGauge is GaugeHelper {
     * @param amt LP token amount.
     * @param getId Get token amount at this ID from `InstaMemory` Contract.
     * @param setId Set token amount at this ID in `InstaMemory` Contract.
-    * @param setIdCRVReward Set CRV token reward amount at this ID in `InstaMemory` Contract.
+    * @param setIdCrv Set CRV token reward amount at this ID in `InstaMemory` Contract.
     * @param setIdReward Set reward amount at this ID in `InstaMemory` Contract.
   */
   function withdraw(
@@ -135,22 +149,25 @@ contract CurveGauge is GaugeHelper {
     uint amt,
     uint getId,
     uint setId,
-    uint setIdCRVReward,
+    uint setIdCrv,
     uint setIdReward
   ) external payable {
     uint _amt = getUint(getId, amt);
     ICurveGaugeMapping curveGaugeMapping = ICurveGaugeMapping(getCurveGaugeMappingAddr());
-    ICurveGaugeMapping.GaugeData memory curveGaugeData = curveGaugeMapping.gaugeMapping(bytes32(stringToBytes32(gaugePoolName)));
+    ICurveGaugeMapping.GaugeData memory curveGaugeData = curveGaugeMapping.gaugeMapping(
+      bytes32(stringToBytes32(gaugePoolName))
+    );
     require(curveGaugeData.gaugeAddress != address(0), "wrong-gauge-pool-name");
     IGauge gauge = IGauge(curveGaugeData.gaugeAddress);
     TokenInterface crv_token = TokenInterface(address(gauge.crv_token()));
+    TokenInterface rewarded_token;
     Balances memory balances;
 
     _amt = _amt == uint(-1) ? gauge.balanceOf(address(this)) : _amt;
     balances.intialCRVBal = crv_token.balanceOf(address(this));
 
-    if(curveGaugeData.rewardToken == true){
-      TokenInterface rewarded_token = TokenInterface(address(gauge.rewarded_token()));
+    if (curveGaugeData.rewardToken) {
+      rewarded_token = TokenInterface(address(gauge.rewarded_token()));
       balances.intialRewardBal = rewarded_token.balanceOf(address(this));
     }
 
@@ -159,40 +176,18 @@ contract CurveGauge is GaugeHelper {
 
     balances.finalCRVBal = crv_token.balanceOf(address(this));
     balances.crvRewardAmt = sub(balances.finalCRVBal, balances.intialCRVBal);
+
     setUint(setId, _amt);
-    setUint(setIdCRVReward, balances.crvRewardAmt);
+    setUint(setIdCrv, balances.crvRewardAmt);
 
-    emitLogWithdraw(gaugePoolName, _amt, getId, setId);
-
-    if(curveGaugeData.rewardToken == true){
-      TokenInterface rewarded_token = TokenInterface(address(gauge.rewarded_token()));
+    if (curveGaugeData.rewardToken) {
       balances.finalRewardBal = rewarded_token.balanceOf(address(this));
       balances.rewardAmt = sub(balances.finalRewardBal, balances.intialRewardBal);
       setUint(setIdReward, balances.rewardAmt);
-      emit LogClaimedReward(gaugePoolName, balances.crvRewardAmt, setIdCRVReward, balances.rewardAmt, setIdReward);
-      bytes32 _eventCode = keccak256("LogClaimedReward(string,uint256,uint256,uint256,uint256)");
-      bytes memory _eventParam = abi.encode(gaugePoolName, balances.crvRewardAmt, setIdCRVReward, balances.rewardAmt, setIdReward);
-      emitEvent(_eventCode, _eventParam);
-    }else{
-      emit LogClaimedReward(gaugePoolName, balances.crvRewardAmt, setIdCRVReward);
-      bytes32 _eventCode = keccak256("LogClaimedReward(string,uint256,uint256");
-      bytes memory _eventParam = abi.encode(gaugePoolName, balances.crvRewardAmt, setIdCRVReward);
-      emitEvent(_eventCode, _eventParam);
     }
-  }
 
-  /**
-  * @dev emit LogWithdraw event
-    * @param gaugePoolName gauge pool name.
-    * @param _amt LP token amount.
-    * @param getId Get token amount at this ID from `InstaMemory` Contract.
-    * @param setId Set token amount at this ID in `InstaMemory` Contract.
-  */
-  function emitLogWithdraw(string memory gaugePoolName, uint _amt, uint getId, uint setId) internal {
-    emit LogWithdraw(gaugePoolName, _amt, getId, setId);
-    bytes32 _eventCodeWithdraw = keccak256("LogWithdraw(string,uint256,uint256,uint256)");
-    bytes memory _eventParamWithdraw = abi.encode(gaugePoolName, _amt, getId, setId);
-    emitEvent(_eventCodeWithdraw, _eventParamWithdraw);
+    emitLogWithdraw(gaugePoolName, _amt, getId, setId);
+    emitLogClaimedReward(gaugePoolName, balances.crvRewardAmt, balances.rewardAmt, setIdCrv, setIdReward);
   }
 
   /**
@@ -207,15 +202,18 @@ contract CurveGauge is GaugeHelper {
     uint setIdReward
   ) external payable {
     ICurveGaugeMapping curveGaugeMapping = ICurveGaugeMapping(getCurveGaugeMappingAddr());
-    ICurveGaugeMapping.GaugeData memory curveGaugeData = curveGaugeMapping.gaugeMapping(bytes32(stringToBytes32(gaugePoolName)));
+    ICurveGaugeMapping.GaugeData memory curveGaugeData = curveGaugeMapping.gaugeMapping(
+      bytes32(stringToBytes32(gaugePoolName))
+    );
     require(curveGaugeData.gaugeAddress != address(0), "wrong-gauge-pool-name");
     IMintor mintor = IMintor(getCurveMintorAddr());
     IGauge gauge = IGauge(curveGaugeData.gaugeAddress);
     TokenInterface crv_token = TokenInterface(address(gauge.crv_token()));
+    TokenInterface rewarded_token;
     Balances memory balances;
 
-    if(curveGaugeData.rewardToken == true){
-      TokenInterface rewarded_token = TokenInterface(address(gauge.rewarded_token()));
+    if (curveGaugeData.rewardToken) {
+      rewarded_token = TokenInterface(address(gauge.rewarded_token()));
       balances.intialRewardBal = rewarded_token.balanceOf(address(this));
     }
 
@@ -225,23 +223,16 @@ contract CurveGauge is GaugeHelper {
 
     balances.finalCRVBal = crv_token.balanceOf(address(this));
     balances.crvRewardAmt = sub(balances.finalCRVBal, balances.intialCRVBal);
+
     setUint(setId, balances.crvRewardAmt);
 
-    if(curveGaugeData.rewardToken == true){
-      TokenInterface rewarded_token = TokenInterface(address(gauge.rewarded_token()));
+    if(curveGaugeData.rewardToken){
       balances.finalRewardBal = rewarded_token.balanceOf(address(this));
       balances.rewardAmt = sub(balances.finalRewardBal, balances.intialRewardBal);
       setUint(setIdReward, balances.rewardAmt);
-      emit LogClaimedReward(gaugePoolName, balances.crvRewardAmt, setId, balances.rewardAmt, setIdReward);
-      bytes32 _eventCode = keccak256("LogClaimedReward(string,uint256,uint256,uint256,uint256)");
-      bytes memory _eventParam = abi.encode(gaugePoolName, balances.crvRewardAmt, setId, balances.rewardAmt, setIdReward);
-      emitEvent(_eventCode, _eventParam);
-    }else{
-      emit LogClaimedReward(gaugePoolName, balances.crvRewardAmt, setId);
-      bytes32 _eventCode = keccak256("LogClaimedReward(string,uint256,uint256");
-      bytes memory _eventParam = abi.encode(gaugePoolName, balances.crvRewardAmt, setId);
-      emitEvent(_eventCode, _eventParam);
     }
+
+    emitLogClaimedReward(gaugePoolName, balances.crvRewardAmt, balances.rewardAmt, setId, setIdReward);
   }
 
 }
