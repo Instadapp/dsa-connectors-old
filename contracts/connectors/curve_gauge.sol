@@ -124,7 +124,9 @@ contract CurveGauge is CurveGaugeEvent {
 
     _amt = _amt == uint(-1) ? lp_token.balanceOf(address(this)) : _amt;
     lp_token.approve(address(curveGaugeData.gaugeAddress), _amt);
+
     gauge.deposit(_amt);
+
     setUint(setId, _amt);
 
     emit LogDeposit(gaugePoolName, _amt, getId, setId);
@@ -152,7 +154,9 @@ contract CurveGauge is CurveGaugeEvent {
   ) external payable {
     uint _amt = getUint(getId, amt);
     ICurveGaugeMapping curveGaugeMapping = ICurveGaugeMapping(getCurveGaugeMappingAddr());
-    ICurveGaugeMapping.GaugeData memory curveGaugeData = curveGaugeMapping.gaugeMapping(bytes32(stringToBytes32(gaugePoolName)));
+    ICurveGaugeMapping.GaugeData memory curveGaugeData = curveGaugeMapping.gaugeMapping(
+      bytes32(stringToBytes32(gaugePoolName))
+    );
     require(curveGaugeData.gaugeAddress != address(0), "wrong-gauge-pool-name");
     IGauge gauge = IGauge(curveGaugeData.gaugeAddress);
     TokenInterface crv_token = TokenInterface(address(gauge.crv_token()));
@@ -172,10 +176,9 @@ contract CurveGauge is CurveGaugeEvent {
 
     balances.finalCRVBal = crv_token.balanceOf(address(this));
     balances.crvRewardAmt = sub(balances.finalCRVBal, balances.intialCRVBal);
+
     setUint(setId, _amt);
     setUint(setIdCrv, balances.crvRewardAmt);
-
-    emitLogWithdraw(gaugePoolName, _amt, getId, setId);
 
     if (curveGaugeData.rewardToken) {
       balances.finalRewardBal = rewarded_token.balanceOf(address(this));
@@ -183,6 +186,7 @@ contract CurveGauge is CurveGaugeEvent {
       setUint(setIdReward, balances.rewardAmt);
     }
 
+    emitLogWithdraw(gaugePoolName, _amt, getId, setId);
     emitLogClaimedReward(gaugePoolName, balances.crvRewardAmt, balances.rewardAmt, setIdCrv, setIdReward);
   }
 
@@ -198,7 +202,9 @@ contract CurveGauge is CurveGaugeEvent {
     uint setIdReward
   ) external payable {
     ICurveGaugeMapping curveGaugeMapping = ICurveGaugeMapping(getCurveGaugeMappingAddr());
-    ICurveGaugeMapping.GaugeData memory curveGaugeData = curveGaugeMapping.gaugeMapping(bytes32(stringToBytes32(gaugePoolName)));
+    ICurveGaugeMapping.GaugeData memory curveGaugeData = curveGaugeMapping.gaugeMapping(
+      bytes32(stringToBytes32(gaugePoolName))
+    );
     require(curveGaugeData.gaugeAddress != address(0), "wrong-gauge-pool-name");
     IMintor mintor = IMintor(getCurveMintorAddr());
     IGauge gauge = IGauge(curveGaugeData.gaugeAddress);
@@ -217,6 +223,7 @@ contract CurveGauge is CurveGaugeEvent {
 
     balances.finalCRVBal = crv_token.balanceOf(address(this));
     balances.crvRewardAmt = sub(balances.finalCRVBal, balances.intialCRVBal);
+
     setUint(setId, balances.crvRewardAmt);
 
     if(curveGaugeData.rewardToken){
