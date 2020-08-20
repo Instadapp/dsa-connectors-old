@@ -139,8 +139,8 @@ contract CurveGauge is CurveGaugeEvent {
   * @dev Withdraw LP Token and claim both CRV and Reward token.
     * @param gaugePoolName gauge pool name.
     * @param amt LP token amount.
-    * @param getId Get token amount at this ID from `InstaMemory` Contract.
-    * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    * @param getId Get LP token amount at this ID from `InstaMemory` Contract.
+    * @param setId Set LP token amount at this ID in `InstaMemory` Contract.
     * @param setIdCrv Set CRV token reward amount at this ID in `InstaMemory` Contract.
     * @param setIdReward Set reward amount at this ID in `InstaMemory` Contract.
   */
@@ -234,7 +234,6 @@ contract CurveGauge is CurveGaugeEvent {
 
     emitLogClaimedReward(gaugePoolName, balances.crvRewardAmt, balances.rewardAmt, setId, setIdReward);
   }
-
 }
 
 contract ConnectCurveGauge is CurveGauge {
