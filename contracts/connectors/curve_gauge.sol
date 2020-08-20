@@ -57,17 +57,7 @@ contract CurveGauge is GaugeHelper {
     string indexed gaugePoolName,
     uint amount,
     uint getId,
-    uint setId,
-    uint setIdCRVReward,
-    uint setIdReward
-  );
-
-  event LogWithdraw(
-    string indexed gaugePoolName,
-    uint amount,
-    uint getId,
-    uint setId,
-    uint setIdCRVReward
+    uint setId
   );
 
   event LogClaimedReward(
@@ -157,9 +147,9 @@ contract CurveGauge is GaugeHelper {
     setUint(setId, _amt);
     setUint(setIdCRVReward, balances.crvRewardAmt);
 
-    emit LogClaimedReward(gaugePoolName, balances.crvRewardAmt, setId);
+    emit LogClaimedReward(gaugePoolName, balances.crvRewardAmt, setIdCRVReward);
     bytes32 _eventCode = keccak256("LogClaimedReward(string,uint256,uint256)");
-    bytes memory _eventParam = abi.encode(gaugePoolName, balances.crvRewardAmt, setId);
+    bytes memory _eventParam = abi.encode(gaugePoolName, balances.crvRewardAmt, setIdCRVReward);
     emitEvent(_eventCode, _eventParam);
 
     emitLogWithdraw(gaugePoolName, _amt, getId, setId);
@@ -205,32 +195,18 @@ contract CurveGauge is GaugeHelper {
     setUint(setIdCRVReward, balances.crvRewardAmt);
     setUint(setIdReward, balances.rewardAmt);
 
-    emit LogClaimedReward(gaugePoolName, balances.crvRewardAmt, setId, balances.rewardAmt, setIdReward);
+    emit LogClaimedReward(gaugePoolName, balances.crvRewardAmt, setIdCRVReward, balances.rewardAmt, setIdReward);
     bytes32 _eventCode = keccak256("LogClaimedReward(string,uint256,uint256,uint256,uint256)");
-    bytes memory _eventParam = abi.encode(gaugePoolName, balances.crvRewardAmt, setId, balances.rewardAmt, setIdReward));
+    bytes memory _eventParam = abi.encode(gaugePoolName, balances.crvRewardAmt, setIdCRVReward, balances.rewardAmt, setIdReward);
     emitEvent(_eventCode, _eventParam);
 
     emitLogWithdraw(gaugePoolName, _amt, getId, setId);
   }
 
   /**
-  * @dev emit LogWithdraw event with CRV Reward
+  * @dev emit LogWithdraw event
     * @param gaugePoolName gauge pool name.
-    * @param amt LP token amount.
-    * @param getId Get token amount at this ID from `InstaMemory` Contract.
-    * @param setId Set token amount at this ID in `InstaMemory` Contract.
-  */
-  function emitLogWithdraw(string memory gaugePoolName, uint _amt, uint getId, uint setId) internal {
-    emit LogWithdraw(gaugePoolName, _amt, getId, setId);
-    bytes32 _eventCodeWithdraw = keccak256("LogWithdraw(string,uint256,uint256,uint256)");
-    bytes memory _eventParamWithdraw = abi.encode(gaugePoolName, _amt, getId, setId);
-    emitEvent(_eventCodeWithdraw, _eventParamWithdraw);
-  }
-
-  /**
-  * @dev emit LogWithdraw event with CRV Reward and reward token
-    * @param gaugePoolName gauge pool name.
-    * @param amt LP token amount.
+    * @param _amt LP token amount.
     * @param getId Get token amount at this ID from `InstaMemory` Contract.
     * @param setId Set token amount at this ID in `InstaMemory` Contract.
   */
@@ -265,9 +241,9 @@ contract CurveGauge is GaugeHelper {
 
     setUint(setId, balances.crvRewardAmt);
 
-    emit LogClaimedReward(gaugePoolName, setId);
+    emit LogClaimedReward(gaugePoolName, balances.crvRewardAmt, setId);
     bytes32 _eventCode = keccak256("LogClaimedReward(string,uint256,uint256)");
-    bytes memory _eventParam = abi.encode(gaugePoolName, setId);
+    bytes memory _eventParam = abi.encode(gaugePoolName, balances.crvRewardAmt, setId);
     emitEvent(_eventCode, _eventParam);
   }
 
@@ -302,9 +278,9 @@ contract CurveGauge is GaugeHelper {
     setUint(setId, balances.crvRewardAmt);
     setUint(setIdReward, balances.rewardAmt);
 
-    emit LogClaimedReward(gaugePoolName, setId, setIdReward);
-    bytes32 _eventCode = keccak256("LogClaimedReward(string,uint256,uint256,uint256)");
-    bytes memory _eventParam = abi.encode(gaugePoolName, setId, setIdReward);
+    emit LogClaimedReward(gaugePoolName, balances.crvRewardAmt, setId, balances.rewardAmt, setIdReward);
+    bytes32 _eventCode = keccak256("LogClaimedReward(string,uint256,uint256,uint256,uint256)");
+    bytes memory _eventParam = abi.encode(gaugePoolName, balances.crvRewardAmt, setId, balances.rewardAmt, setIdReward);
     emitEvent(_eventCode, _eventParam);
   }
 
