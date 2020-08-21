@@ -184,7 +184,7 @@ contract Helpers is DSMath {
      * @dev Connector Details
     */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 26);
+        (_type, _id) = (1, 40);
     }
 }
 
@@ -717,7 +717,7 @@ contract BasicExtraResolver is BasicResolver {
         }
 
         makerData.tokenContract.approve(address(makerData.colAddr), _amtDeposit);
-        makerData.tokenJoinContract.join(address(this), _amtDeposit);
+        makerData.tokenJoinContract.join(urn, _amtDeposit);
 
         managerContract.frob(
             makerData._vault,
@@ -894,5 +894,5 @@ contract DsrResolver is BasicExtraResolver {
 }
 
 contract ConnectMaker is DsrResolver {
-    string public constant name = "MakerDao-v1.2";
+    string public constant name = "MakerDao-v1.3";
 }
