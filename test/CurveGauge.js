@@ -18,7 +18,10 @@ contract("ConnectCurveGauge", async accounts => {
 
   before(async function () {
     mock = await MockContract.new();
-    mockCurveGaugeMapping = await MockCurveGaugeMapping.new();
+    let names = ["compound", "susd"]
+    let poolAddress = [mock.address, mock.address]
+    let rewardArr = [false, true]
+    mockCurveGaugeMapping = await MockCurveGaugeMapping.new(names, poolAddress, rewardArr);
     mockCurveGauge = await MockCurveGauge.new(mock.address, mockCurveGaugeMapping.address);
     // lp_token = new web3.eth.Contract(erc20ABI, mock.address);
     curveGauge = new web3.eth.Contract(gaugeABI, mock.address)
@@ -32,8 +35,8 @@ contract("ConnectCurveGauge", async accounts => {
     let rewarded_token = await curveGauge.methods.rewarded_token().encodeABI();
     await mock.givenMethodReturnAddress(rewarded_token, mock.address);
 
-    await mockCurveGaugeMapping.addGaugeMapping('compound', mock.address, false);
-    await mockCurveGaugeMapping.addGaugeMapping('susd', mock.address, true);
+    // await mockCurveGaugeMapping.addGaugeMapping('compound', mock.address, false);
+    // await mockCurveGaugeMapping.addGaugeMapping('susd', mock.address, true);
   })
 
   it('can deposit into compound gauge', async function() {
