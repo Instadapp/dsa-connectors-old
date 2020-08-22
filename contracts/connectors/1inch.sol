@@ -74,7 +74,7 @@ contract OneHelpers is Stores, DSMath {
     /**
      * @dev Return 1proto Address
      */
-    function getOneProtoAddress() virtual internal view returns (address payable) {
+    function getOneProtoAddress() internal virtual view returns (address payable) {
         return payable(OneProtoMappingInterface(getOneProtoMappingAddress()).oneProtoAddress());
     }
 
