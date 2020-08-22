@@ -184,7 +184,7 @@ contract Helpers is DSMath {
      * @dev Connector Details
     */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 26);
+        (_type, _id) = (1, 40);
     }
 }
 
@@ -333,8 +333,7 @@ contract MakerHelpers is MakerMCDAddresses {
     }
 }
 
-
-contract BasicResolver is MakerHelpers {
+contract EventHelper is MakerHelpers {
     event LogOpen(uint256 indexed vault, bytes32 indexed ilk);
     event LogClose(uint256 indexed vault, bytes32 indexed ilk);
     event LogTransfer(uint256 indexed vault, bytes32 indexed ilk, address newOwner);
@@ -342,6 +341,25 @@ contract BasicResolver is MakerHelpers {
     event LogWithdraw(uint256 indexed vault, bytes32 indexed ilk, uint256 tokenAmt, uint256 getId, uint256 setId);
     event LogBorrow(uint256 indexed vault, bytes32 indexed ilk, uint256 tokenAmt, uint256 getId, uint256 setId);
     event LogPayback(uint256 indexed vault, bytes32 indexed ilk, uint256 tokenAmt, uint256 getId, uint256 setId);
+
+    function emitLogDeposit(uint256 vault, bytes32 ilk, uint256 tokenAmt, uint256 getId, uint256 setId) internal {
+        emit LogDeposit(vault, ilk, tokenAmt, getId, setId);
+        bytes32 _eventCode = keccak256("LogDeposit(uint256,bytes32,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(vault, ilk, tokenAmt, getId, setId);
+        (uint _type, uint _id) = connectorID();
+        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+    }
+
+    function emitLogBorrow(uint256 vault, bytes32 ilk, uint256 tokenAmt, uint256 getId, uint256 setId) internal {
+        emit LogBorrow(vault, ilk, tokenAmt, getId, setId);
+        bytes32 _eventCode = keccak256("LogBorrow(uint256,bytes32,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(vault, ilk, tokenAmt, getId, setId);
+        (uint _type, uint _id) = connectorID();
+        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+    }
+}
+
+contract BasicResolver is EventHelper {
 
     /**
      * @dev Open Vault
@@ -427,11 +445,7 @@ contract BasicResolver is MakerHelpers {
 
         setUint(setId, _amt);
 
-        emit LogDeposit(_vault, ilk, _amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogDeposit(uint256,bytes32,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(_vault, ilk, _amt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+        emitLogDeposit(_vault, ilk, _amt, getId, setId);
     }
 
     /**
@@ -542,11 +556,7 @@ contract BasicResolver is MakerHelpers {
 
         setUint(setId, _amt);
 
-        emit LogBorrow(_vault, ilk, _amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogBorrow(uint256,bytes32,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(_vault, ilk, _amt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+        emitLogBorrow(_vault, ilk, _amt, getId, setId);
     }
 
     /**
@@ -654,6 +664,90 @@ contract BasicExtraResolver is BasicResolver {
         bytes memory _eventParam = abi.encode(vault, ilk, _amt, getId, setId);
         (uint _type, uint _id) = connectorID();
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+    }
+
+    struct MakerData {
+        uint _vault;
+        address colAddr;
+        address daiJoin;
+        TokenJoinInterface tokenJoinContract;
+        VatLike vatContract;
+        TokenInterface tokenContract;
+    }
+    /**
+     * @dev Deposit ETH/ERC20_Token Collateral and Borrow DAI.
+     * @param vault Vault ID.
+     * @param depositAmt token deposit amount to Withdraw.
+     * @param borrowAmt token borrow amount to Withdraw.
+     * @param getIdDeposit Get deposit token amount at this ID from `InstaMemory` Contract.
+     * @param getIdBorrow Get borrow token amount at this ID from `InstaMemory` Contract.
+     * @param setIdDeposit Set deposit token amount at this ID in `InstaMemory` Contract.
+     * @param setIdBorrow Set borrow token amount at this ID in `InstaMemory` Contract.
+    */
+    function depositAndBorrow(
+        uint vault,
+        uint depositAmt,
+        uint borrowAmt,
+        uint getIdDeposit,
+        uint getIdBorrow,
+        uint setIdDeposit,
+        uint setIdBorrow
+    ) external payable
+    {
+        ManagerLike managerContract = ManagerLike(getMcdManager());
+        MakerData memory makerData;
+        uint _amtDeposit = getUint(getIdDeposit, depositAmt);
+        uint _amtBorrow = getUint(getIdBorrow, borrowAmt);
+
+        makerData._vault = getVault(managerContract, vault);
+        (bytes32 ilk, address urn) = getVaultData(managerContract, makerData._vault);
+
+        makerData.colAddr = InstaMapping(getMappingAddr()).gemJoinMapping(ilk);
+        makerData.tokenJoinContract = TokenJoinInterface(makerData.colAddr);
+        makerData.vatContract = VatLike(managerContract.vat());
+        makerData.daiJoin = getMcdDaiJoin();
+
+        makerData.tokenContract = makerData.tokenJoinContract.gem();
+
+        if (isEth(address(makerData.tokenContract))) {
+            _amtDeposit = _amtDeposit == uint(-1) ? address(this).balance : _amtDeposit;
+            makerData.tokenContract.deposit.value(_amtDeposit)();
+        } else {
+            _amtDeposit = _amtDeposit == uint(-1) ?  makerData.tokenContract.balanceOf(address(this)) : _amtDeposit;
+        }
+
+        makerData.tokenContract.approve(address(makerData.colAddr), _amtDeposit);
+        makerData.tokenJoinContract.join(urn, _amtDeposit);
+
+        managerContract.frob(
+            makerData._vault,
+            toInt(convertTo18(makerData.tokenJoinContract.dec(), _amtDeposit)),
+            _getBorrowAmt(
+                address(makerData.vatContract),
+                urn,
+                ilk,
+                _amtBorrow
+            )
+        );
+
+        managerContract.move(
+            makerData._vault,
+            address(this),
+            toRad(_amtBorrow)
+        );
+
+        if (makerData.vatContract.can(address(this), address(makerData.daiJoin)) == 0) {
+            makerData.vatContract.hope(makerData.daiJoin);
+        }
+
+        DaiJoinInterface(makerData.daiJoin).exit(address(this), _amtBorrow);
+
+        setUint(setIdDeposit, _amtDeposit);
+        setUint(setIdBorrow, _amtBorrow);
+
+        emitLogDeposit(makerData._vault, ilk, _amtDeposit, getIdDeposit, setIdDeposit);
+
+        emitLogBorrow(makerData._vault, ilk, _amtBorrow, getIdBorrow, setIdBorrow);
     }
 
     /**
@@ -800,5 +894,5 @@ contract DsrResolver is BasicExtraResolver {
 }
 
 contract ConnectMaker is DsrResolver {
-    string public constant name = "MakerDao-v1.2";
+    string public constant name = "MakerDao-v1.3";
 }
