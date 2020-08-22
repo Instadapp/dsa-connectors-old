@@ -40,6 +40,7 @@ contract BytesHelper {
     return (string(bytesArray));
   }
 }
+
 contract Helpers is BytesHelper {
   address public constant connectors = 0xD6A602C01a023B98Ecfb29Df02FBA380d3B21E0c;
   address public constant instaIndex = 0x2971AdFa57b20E5a416aE5a708A8655A9c74f723;
@@ -112,7 +113,6 @@ contract Helpers is BytesHelper {
     delete stakingMapping[stakeType];
   }
 }
-
 
 contract InstaStakingMapping is Helpers {
   string constant public name = "Staking-Mapping-v1";
