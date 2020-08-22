@@ -32,8 +32,7 @@ interface ICurveGaugeMapping {
 
 contract GaugeHelper is DSMath, Stores{
   function getCurveGaugeMappingAddr() internal virtual view returns (address){
-    // Change this to the deployed address
-    return 0x0000000000000000000000000000000000000000;
+    return 0x1C800eF1bBfE3b458969226A96c56B92a069Cc92;
   }
 
   function getCurveMintorAddr() internal virtual view returns (address){
