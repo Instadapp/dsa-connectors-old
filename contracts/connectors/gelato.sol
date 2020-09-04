@@ -356,15 +356,13 @@ contract GelatoResolver is GelatoHelpers {
     {
         uint256 withdrawAmount = getUint(_getId, _withdrawAmount);
         uint256 balanceBefore = address(this).balance;
-        uint256 actualWithdrawAmount;
         IGelatoInterface(getGelatoCoreAddr()).multiUnprovide(
             withdrawAmount,
             _taskSpecs,
             _modules
         );
-
-        actualWithdrawAmount = sub(address(this).balance, balanceBefore);
-            setUint(_setId, actualWithdrawAmount);
+        uint256 actualWithdrawAmount = sub(address(this).balance, balanceBefore);
+        setUint(_setId, actualWithdrawAmount);
 
         emit LogMultiUnprovide(_taskSpecs, _modules, actualWithdrawAmount, _getId, _setId);
         bytes32 _eventCode = keccak256(
