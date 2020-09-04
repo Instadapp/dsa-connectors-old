@@ -57,7 +57,7 @@ interface IGelatoInterface {
 
     /**
      * @dev API to submit a single Task.
-     */
+    */
     function submitTask(
         Provider calldata _provider,
         Task calldata _task,
@@ -70,7 +70,7 @@ interface IGelatoInterface {
      * @dev A Gelato Task Cycle consists of 1 or more Tasks that automatically submit
      * the next one, after they have been executed, where the total number of tasks can
      * be only be an even number
-     */
+    */
     function submitTaskCycle(
         Provider calldata _provider,
         Task[] calldata _tasks,
@@ -84,7 +84,7 @@ interface IGelatoInterface {
      * @dev A Gelato Task Chain consists of 1 or more Tasks that automatically submit
      * the next one, after they have been executed, where the total number of tasks can
      * be an odd number
-     */
+    */
     function submitTaskChain(
         Provider calldata _provider,
         Task[] calldata _tasks,
@@ -95,12 +95,12 @@ interface IGelatoInterface {
 
     /**
      * @dev Cancel multiple tasks at once
-     */
+    */
     function multiCancelTasks(TaskReceipt[] calldata _taskReceipts) external;
 
     /**
      * @dev Whitelist new executor, TaskSpec(s) and Module(s) in one tx
-     */
+    */
     function multiProvide(
         address _executor,
         TaskSpec[] calldata _taskSpecs,
@@ -112,7 +112,7 @@ interface IGelatoInterface {
 
     /**
      * @dev De-Whitelist TaskSpec(s), Module(s) and withdraw funds from gelato in one tx
-     */
+    */
     function multiUnprovide(
         uint256 _withdrawAmount,
         TaskSpec[] calldata _taskSpecs,
@@ -130,7 +130,7 @@ contract Helpers {
 
     /**
      * @dev Return Memory Variable Address
-     */
+    */
     function getMemoryAddr() internal pure returns (address) {
         return 0x8a5419CfC711B2343c17a6ABf4B2bAFaBb06957F; // InstaMemory Address
     }
@@ -154,14 +154,14 @@ contract GelatoHelpers is Helpers, DSMath {
 
     /**
      * @dev Return Gelato Core Address
-     */
+    */
     function getGelatoCoreAddr() internal pure returns (address) {
         return 0x1d681d76ce96E4d70a88A00EBbcfc1E47808d0b8; // Gelato Core address
     }
 
     /**
      * @dev Return Instapp DSA Provider Module Address
-     */
+    */
     function getInstadappProviderModuleAddr() internal pure returns (address) {
         return 0x0C25452d20cdFeEd2983fa9b9b9Cf4E81D6f2fE2; // ProviderModuleDSA Address
     }
