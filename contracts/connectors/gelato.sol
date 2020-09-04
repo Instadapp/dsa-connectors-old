@@ -68,7 +68,8 @@ interface IGelatoInterface {
 
     /**
      * @dev A Gelato Task Cycle consists of 1 or more Tasks that automatically submit
-     * the next one, after they have been executed.
+     * the next one, after they have been executed, where the total number of tasks can
+     * be only be an even number
      */
     function submitTaskCycle(
         Provider calldata _provider,
@@ -80,8 +81,9 @@ interface IGelatoInterface {
 
 
     /**
-     * @dev A Gelato Task Cycle consists of 1 or more Tasks that automatically submit
-     * the next one, after they have been executed.
+     * @dev A Gelato Task Chain consists of 1 or more Tasks that automatically submit
+     * the next one, after they have been executed, where the total number of tasks can
+     * be an odd number
      */
     function submitTaskChain(
         Provider calldata _provider,
