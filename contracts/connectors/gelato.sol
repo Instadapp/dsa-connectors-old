@@ -7,7 +7,7 @@ import { DSMath } from '../common/math.sol';
 // Gelato Data Types
 struct Provider {
     address addr;  //  if msg.sender == provider => self-Provider
-    address module;  //  can be address(0) for self-Providers
+    address module;  //  e.g. DSA Provider Module
 }
 
 struct Condition {
