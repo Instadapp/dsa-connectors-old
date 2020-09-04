@@ -225,23 +225,20 @@ contract GelatoResolver is GelatoHelpers {
         payable
     {
         uint256 ethToDeposit = getUint(_getId, _ethToDeposit);
-        try IGelatoInterface(getGelatoCoreAddr()).multiProvide{value: ethToDeposit}(
+        IGelatoInterface(getGelatoCoreAddr()).multiProvide{value: ethToDeposit}(
             _executor,
             _taskSpecs,
             _modules
-        ) {
-        } catch Error(string memory error) {
-            revert(string(abi.encodePacked("ConnectGelato.multiProvide:", error)));
-        } catch {
-            revert("ConnectGelato.multiProvide: unknown error");
-        }
+        );
 
         setUint(_setId, ethToDeposit);
 
         emit LogMultiProvide(_executor, _taskSpecs, _modules, ethToDeposit, _getId, _setId);
-        bytes32 _eventCode = keccak256("LogMultiProvide(address,(address[],(address,bytes,uint8,uint8,uint256,bool)[],uint256)[],address[],uint256,uint256,uint256)");
+        bytes32 _eventCode = keccak256(
+            "LogMultiProvide(address,(address[],(address,bytes,uint8,uint8,uint256,bool)[],uint256)[],address[],uint256,uint256,uint256)"
+        );
         bytes memory _eventParam = abi.encode(_executor, _taskSpecs, _modules, ethToDeposit, _getId, _setId);
-        (uint _type, uint _id) = connectorID();
+        (uint256 _type, uint256 _id) = connectorID();
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
@@ -260,17 +257,14 @@ contract GelatoResolver is GelatoHelpers {
         external
         payable
     {
-        try IGelatoInterface(getGelatoCoreAddr()).submitTask(_provider, _task, _expiryDate) {
-        } catch Error(string memory error) {
-            revert(string(abi.encodePacked("ConnectGelato.submitTask:", error)));
-        } catch {
-            revert("ConnectGelato.submitTask: unknown error");
-        }
+        IGelatoInterface(getGelatoCoreAddr()).submitTask(_provider, _task, _expiryDate);
 
         emit LogSubmitTask(_provider, _task, _expiryDate, 0, 0);
-        bytes32 _eventCode = keccak256("LogSubmitTask((address,address),((address,bytes)[],(address,bytes,uint8,uint8,uint256,bool)[],uint256,uint256),uint256,uint256,uint256)");
+        bytes32 _eventCode = keccak256(
+            "LogSubmitTask((address,address),((address,bytes)[],(address,bytes,uint8,uint8,uint256,bool)[],uint256,uint256),uint256,uint256,uint256)"
+        );
         bytes memory _eventParam = abi.encode(_provider, _task, _expiryDate, 0, 0);
-        (uint _type, uint _id) = connectorID();
+        (uint256 _type, uint256 _id) = connectorID();
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
@@ -291,22 +285,19 @@ contract GelatoResolver is GelatoHelpers {
         external
         payable
     {
-        try IGelatoInterface(getGelatoCoreAddr()).submitTaskCycle(
+        IGelatoInterface(getGelatoCoreAddr()).submitTaskCycle(
             _provider,
             _tasks,
             _expiryDate,
             _cycles
-        ) {
-        } catch Error(string memory error) {
-            revert(string(abi.encodePacked("ConnectGelato.submitTaskCycle:", error)));
-        } catch {
-            revert("ConnectGelato.submitTaskCycle: unknown error");
-        }
+        );
 
         emit LogSubmitTaskCycle(_provider, _tasks, _expiryDate, 0, 0);
-        bytes32 _eventCode = keccak256("LogSubmitTaskCycle((address,address),((address,bytes)[],(address,bytes,uint8,uint8,uint256,bool)[],uint256,uint256)[],uint256,uint256,uint256)");
+        bytes32 _eventCode = keccak256(
+            "LogSubmitTaskCycle((address,address),((address,bytes)[],(address,bytes,uint8,uint8,uint256,bool)[],uint256,uint256)[],uint256,uint256,uint256)"
+        );
         bytes memory _eventParam = abi.encode(_provider, _tasks, _expiryDate, 0, 0);
-        (uint _type, uint _id) = connectorID();
+        (uint256 _type, uint256 _id) = connectorID();
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
@@ -328,22 +319,19 @@ contract GelatoResolver is GelatoHelpers {
         external
         payable
     {
-        try IGelatoInterface(getGelatoCoreAddr()).submitTaskChain(
+        IGelatoInterface(getGelatoCoreAddr()).submitTaskChain(
             _provider,
             _tasks,
             _expiryDate,
             _sumOfRequestedTaskSubmits
-        ) {
-        } catch Error(string memory error) {
-            revert(string(abi.encodePacked("ConnectGelato.submitTaskChain:", error)));
-        } catch {
-            revert("ConnectGelato.submitTaskChain: unknown error");
-        }
+        );
 
         emit LogSubmitTaskChain(_provider, _tasks, _expiryDate, 0, 0);
-        bytes32 _eventCode = keccak256("LogSubmitTaskChain((address,address),((address,bytes)[],(address,bytes,uint8,uint8,uint256,bool)[],uint256,uint256)[],uint256,uint256,uint256)");
+        bytes32 _eventCode = keccak256(
+            "LogSubmitTaskChain((address,address),((address,bytes)[],(address,bytes,uint8,uint8,uint256,bool)[],uint256,uint256)[],uint256,uint256,uint256)"
+        );
         bytes memory _eventParam = abi.encode(_provider, _tasks, _expiryDate, 0, 0);
-        (uint _type, uint _id) = connectorID();
+        (uint256 _type, uint256 _id) = connectorID();
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
@@ -369,23 +357,21 @@ contract GelatoResolver is GelatoHelpers {
         uint256 withdrawAmount = getUint(_getId, _withdrawAmount);
         uint256 balanceBefore = address(this).balance;
         uint256 actualWithdrawAmount;
-        try IGelatoInterface(getGelatoCoreAddr()).multiUnprovide(
+        IGelatoInterface(getGelatoCoreAddr()).multiUnprovide(
             withdrawAmount,
             _taskSpecs,
             _modules
-        ) {
-            actualWithdrawAmount = sub(address(this).balance, balanceBefore);
+        );
+
+        actualWithdrawAmount = sub(address(this).balance, balanceBefore);
             setUint(_setId, actualWithdrawAmount);
-        } catch Error(string memory error) {
-            revert(string(abi.encodePacked("ConnectGelato.multiUnprovide:", error)));
-        } catch {
-            revert("ConnectGelato.multiUnprovide: unknown error");
-        }
 
         emit LogMultiUnprovide(_taskSpecs, _modules, actualWithdrawAmount, _getId, _setId);
-        bytes32 _eventCode = keccak256("LogMultiUnprovide(address,(address[],(address,bytes,uint8,uint8,uint256,bool)[],uint256)[],address[],uint256,uint256,uint256)");
+        bytes32 _eventCode = keccak256(
+            "LogMultiUnprovide(address,(address[],(address,bytes,uint8,uint8,uint256,bool)[],uint256)[],address[],uint256,uint256,uint256)"
+        );
         bytes memory _eventParam = abi.encode(_taskSpecs, _modules, actualWithdrawAmount, _getId, _setId);
-        (uint _type, uint _id) = connectorID();
+        (uint256 _type, uint256 _id) = connectorID();
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
@@ -397,17 +383,14 @@ contract GelatoResolver is GelatoHelpers {
         external
         payable
     {
-        try IGelatoInterface(getGelatoCoreAddr()).multiCancelTasks(_taskReceipts) {
-        } catch Error(string memory error) {
-            revert(string(abi.encodePacked("ConnectGelato.multiCancelTasks:", error)));
-        } catch {
-            revert("ConnectGelato.multiCancelTasks: unknown error");
-        }
+        IGelatoInterface(getGelatoCoreAddr()).multiCancelTasks(_taskReceipts);
 
         emit LogMultiCancelTasks(_taskReceipts, 0, 0);
-        bytes32 _eventCode = keccak256("LogMultiCancelTasks((uint256,address,(address,address),uint256,((address,bytes)[],(address,bytes,uint8,uint8,uint256,bool)[],uint256,uint256)[],uint256,uint256,uint256)[])");
+        bytes32 _eventCode = keccak256(
+            "LogMultiCancelTasks((uint256,address,(address,address),uint256,((address,bytes)[],(address,bytes,uint8,uint8,uint256,bool)[],uint256,uint256)[],uint256,uint256,uint256)[])"
+        );
         bytes memory _eventParam = abi.encode(_taskReceipts, 0, 0);
-        (uint _type, uint _id) = connectorID();
+        (uint256 _type, uint256 _id) = connectorID();
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 }
