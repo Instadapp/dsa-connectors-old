@@ -3,7 +3,6 @@ pragma experimental ABIEncoderV2;
 
 import { DSMath } from '../common/math.sol';
 
-
 // Gelato Data Types
 struct Provider {
     address addr;  //  if msg.sender == provider => self-Provider
@@ -127,10 +126,6 @@ interface MemoryInterface {
     function getUint(uint _id) external returns (uint);
 }
 
-interface EventInterface {
-    function emitEvent(uint connectorType, uint connectorID, bytes32 eventCode, bytes calldata eventData) external;
-}
-
 contract Helpers {
 
     /**
@@ -138,13 +133,6 @@ contract Helpers {
     */
     function getMemoryAddr() internal pure returns (address) {
         return 0x8a5419CfC711B2343c17a6ABf4B2bAFaBb06957F; // InstaMemory Address
-    }
-
-    /**
-     * @dev Return InstaEvent Address.
-    */
-    function getEventAddr() internal pure returns (address) {
-        return 0x2af7ea6Cb911035f3eb1ED895Cb6692C39ecbA97; // InstaEvent Address
     }
 
     /**
@@ -165,7 +153,7 @@ contract Helpers {
      * @dev Connector Details
     */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 420);
+        (_type, _id) = (1, 42);
     }
 }
 
@@ -225,6 +213,8 @@ contract GelatoResolver is GelatoHelpers {
         payable
     {
         uint256 ethToDeposit = getUint(_getId, _ethToDeposit);
+        ethToDeposit = ethToDeposit == uint(-1) ? address(this).balance : ethToDeposit;
+
         IGelatoInterface(getGelatoCoreAddr()).multiProvide{value: ethToDeposit}(
             _executor,
             _taskSpecs,
@@ -234,12 +224,6 @@ contract GelatoResolver is GelatoHelpers {
         setUint(_setId, ethToDeposit);
 
         emit LogMultiProvide(_executor, _taskSpecs, _modules, ethToDeposit, _getId, _setId);
-        bytes32 _eventCode = keccak256(
-            "LogMultiProvide(address,(address[],(address,bytes,uint8,uint8,uint256,bool)[],uint256)[],address[],uint256,uint256,uint256)"
-        );
-        bytes memory _eventParam = abi.encode(_executor, _taskSpecs, _modules, ethToDeposit, _getId, _setId);
-        (uint256 _type, uint256 _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
     /**
@@ -260,12 +244,6 @@ contract GelatoResolver is GelatoHelpers {
         IGelatoInterface(getGelatoCoreAddr()).submitTask(_provider, _task, _expiryDate);
 
         emit LogSubmitTask(_provider, _task, _expiryDate, 0, 0);
-        bytes32 _eventCode = keccak256(
-            "LogSubmitTask((address,address),((address,bytes)[],(address,bytes,uint8,uint8,uint256,bool)[],uint256,uint256),uint256,uint256,uint256)"
-        );
-        bytes memory _eventParam = abi.encode(_provider, _task, _expiryDate, 0, 0);
-        (uint256 _type, uint256 _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
     /**
@@ -293,12 +271,6 @@ contract GelatoResolver is GelatoHelpers {
         );
 
         emit LogSubmitTaskCycle(_provider, _tasks, _expiryDate, 0, 0);
-        bytes32 _eventCode = keccak256(
-            "LogSubmitTaskCycle((address,address),((address,bytes)[],(address,bytes,uint8,uint8,uint256,bool)[],uint256,uint256)[],uint256,uint256,uint256)"
-        );
-        bytes memory _eventParam = abi.encode(_provider, _tasks, _expiryDate, 0, 0);
-        (uint256 _type, uint256 _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
     /**
@@ -327,12 +299,6 @@ contract GelatoResolver is GelatoHelpers {
         );
 
         emit LogSubmitTaskChain(_provider, _tasks, _expiryDate, 0, 0);
-        bytes32 _eventCode = keccak256(
-            "LogSubmitTaskChain((address,address),((address,bytes)[],(address,bytes,uint8,uint8,uint256,bool)[],uint256,uint256)[],uint256,uint256,uint256)"
-        );
-        bytes memory _eventParam = abi.encode(_provider, _tasks, _expiryDate, 0, 0);
-        (uint256 _type, uint256 _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
     // ===== Gelato EXIT APIs ======
@@ -356,21 +322,18 @@ contract GelatoResolver is GelatoHelpers {
     {
         uint256 withdrawAmount = getUint(_getId, _withdrawAmount);
         uint256 balanceBefore = address(this).balance;
+
         IGelatoInterface(getGelatoCoreAddr()).multiUnprovide(
             withdrawAmount,
             _taskSpecs,
             _modules
         );
+
         uint256 actualWithdrawAmount = sub(address(this).balance, balanceBefore);
+
         setUint(_setId, actualWithdrawAmount);
 
         emit LogMultiUnprovide(_taskSpecs, _modules, actualWithdrawAmount, _getId, _setId);
-        bytes32 _eventCode = keccak256(
-            "LogMultiUnprovide(address,(address[],(address,bytes,uint8,uint8,uint256,bool)[],uint256)[],address[],uint256,uint256,uint256)"
-        );
-        bytes memory _eventParam = abi.encode(_taskSpecs, _modules, actualWithdrawAmount, _getId, _setId);
-        (uint256 _type, uint256 _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
     /**
@@ -384,12 +347,6 @@ contract GelatoResolver is GelatoHelpers {
         IGelatoInterface(getGelatoCoreAddr()).multiCancelTasks(_taskReceipts);
 
         emit LogMultiCancelTasks(_taskReceipts, 0, 0);
-        bytes32 _eventCode = keccak256(
-            "LogMultiCancelTasks((uint256,address,(address,address),uint256,((address,bytes)[],(address,bytes,uint8,uint8,uint256,bool)[],uint256,uint256)[],uint256,uint256,uint256)[])"
-        );
-        bytes memory _eventParam = abi.encode(_taskReceipts, 0, 0);
-        (uint256 _type, uint256 _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 }
 
