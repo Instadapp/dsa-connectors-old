@@ -30,6 +30,7 @@ contract DydxFlashloaner is ICallee, DydxFlashloanBase {
         Account.Info memory account,
         bytes memory data
     ) public {
+        require(sender == address(this), "not-same-sender");
         CastData memory cd = abi.decode(data, (CastData));
 
         IERC20 tokenContract;
@@ -73,6 +74,8 @@ contract DydxFlashloaner is ICallee, DydxFlashloanBase {
         solo.operate(accountInfos, operations);
 
         uint finBal = _tokenContract.balanceOf(address(this));
-        require(sub(iniBal, finBal) < 10, "amount-paid-less");
+        require(sub(iniBal, finBal) < 5, "amount-paid-less");
     }
+
+    receive() external payable {}
 }
