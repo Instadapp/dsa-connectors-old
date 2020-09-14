@@ -1,18 +1,8 @@
 pragma solidity ^0.6.0;
 
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 // import files from common directory
 import { TokenInterface , MemoryInterface, EventInterface} from "../common/interfaces.sol";
 import { Stores } from "../common/stores.sol";
-import { DSMath } from "../common/math.sol";
-
-
-/**
- * @title ConnectBasic.
- * @dev Connector to deposit/withdraw assets.
- */
 
 interface AccountInterface {
     function enable(address) external;
@@ -23,9 +13,8 @@ interface DydxFlashInterface {
     function initiateFlashLoan(address _token, uint256 _amount, bytes calldata data) external;
 }
 
-contract BasicResolver is Stores {
-
-    using SafeERC20 for IERC20;
+contract FlashLoanResolver is Stores {
+    event LogDydxFlashLoan(address indexed token, uint256 tokenAmt);
 
     /**
         * @dev Return ethereum address
@@ -39,7 +28,7 @@ contract BasicResolver is Stores {
     }
 
     /**
-     * @dev Deposit Assets To Smart Account.
+     * @dev Borrow Flashloan and Cast spells.
      * @param token Token Address.
      * @param tokenAmt Token Amount.
      * @param data targets & data for cast.
@@ -52,11 +41,17 @@ contract BasicResolver is Stores {
         DydxFlashInterface(getDydxLoanAddr()).initiateFlashLoan(_token, tokenAmt, data);
 
         AccountInterface(address(this)).disable(getDydxLoanAddr());
+
+        emit LogDydxFlashLoan(token, tokenAmt);
+        bytes32 _eventCode = keccak256("LogDydxFlashLoan(address,uint256)");
+        bytes memory _eventParam = abi.encode(token, tokenAmt);
+        (uint _type, uint _id) = connectorID();
+        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
 }
 
 
-contract ConnectBasic is BasicResolver {
+contract ConnectDydxFlashLoan is FlashLoanResolver {
     string public constant name = "dydx-flashloan-v1";
 }
