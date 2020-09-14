@@ -31,12 +31,16 @@ contract DydxFlashloaner is ICallee, DydxFlashloanBase {
         bytes memory data
     ) public {
         require(sender == address(this), "not-same-sender");
-        CastData memory cd = abi.decode(data, (CastData));
+        CastData memory cd;
+        (cd.dsa, cd.token, cd.amount, cd.targets, cd.data) = abi.decode(
+            data,
+            (address, address, uint256, address[], bytes[])
+        );
 
         IERC20 tokenContract;
         if (cd.token == ethAddr) {
             tokenContract = IERC20(wethAddr);
-            tokenContract.approve(getAddressWETH(), cd.amount);
+            tokenContract.approve(wethAddr, cd.amount);
             tokenContract.withdraw(cd.amount);
             payable(cd.dsa).transfer(cd.amount);
         } else {
@@ -76,6 +80,10 @@ contract DydxFlashloaner is ICallee, DydxFlashloanBase {
         uint finBal = _tokenContract.balanceOf(address(this));
         require(sub(iniBal, finBal) < 5, "amount-paid-less");
     }
+
+}
+
+contract InstaDydxFlashLoan is DydxFlashloaner {
 
     receive() external payable {}
 }
