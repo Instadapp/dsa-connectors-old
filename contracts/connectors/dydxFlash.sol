@@ -51,12 +51,6 @@ contract BasicResolver is Stores {
 
         DydxFlashInterface(getDydxLoanAddr()).initiateFlashLoan(_token, tokenAmt, data);
 
-        if (token == getEthAddr()) {
-            payable(getDydxLoanAddr()).transfer(tokenAmt);
-        } else {
-            IERC20(token).transfer(getDydxLoanAddr(), tokenAmt);
-        }
-
         AccountInterface(address(this)).disable(getDydxLoanAddr());
     }
 

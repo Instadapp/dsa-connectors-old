@@ -13,8 +13,13 @@ interface DSAInterface {
 contract DydxFlashloaner is ICallee, DydxFlashloanBase {
 
     address public constant soloAddr = 0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e;
+    address public constant wethAddr = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address public constant ethAddr = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     struct CastData {
+        address dsa;
+        address token;
+        uint amount;
         address[] targets;
         bytes[] data;
     }
@@ -27,17 +32,28 @@ contract DydxFlashloaner is ICallee, DydxFlashloanBase {
     ) public {
         CastData memory cd = abi.decode(data, (CastData));
 
-        // check9898 - change to DSA address & origin address too
-        DSAInterface(address(0)).cast(cd.targets, cd.data, address(0));
+        IERC20 tokenContract;
+        if (cd.token == ethAddr) {
+            tokenContract = IERC20(wethAddr);
+            tokenContract.approve(getAddressWETH(), cd.amount);
+            tokenContract.withdraw(cd.amount);
+            payable(cd.dsa).transfer(cd.amount);
+        } else {
+            tokenContract = IERC20(cd.token);
+            tokenContract.transfer(cd.dsa, cd.amount);
+        }
+
+        DSAInterface(cd.dsa).cast(cd.targets, cd.data, 0xB7fA44c2E964B6EB24893f7082Ecc08c8d0c0F87);
+
+        if (cd.token == ethAddr) {
+            tokenContract.deposit.value(cd.amount)();
+        }
+
     }
 
-    // check9898 - if ETH then change 0xeeeee into WETH address and change the token into ETH before sending
-    function initiateFlashLoan(address _token, uint256 _amount, bytes calldata data)
-        external
-    {
+    function initiateFlashLoan(address _token, uint256 _amount, bytes calldata data) external {
         ISoloMargin solo = ISoloMargin(soloAddr);
 
-        // Get marketId from token address
         uint256 marketId = _getMarketIdFromTokenAddress(soloAddr, _token);
 
         IERC20(_token).approve(soloAddr, _amount + 2);
@@ -46,7 +62,7 @@ contract DydxFlashloaner is ICallee, DydxFlashloanBase {
 
         operations[0] = _getWithdrawAction(marketId, _amount);
         operations[1] = _getCallAction(data);
-        operations[2] = _getDepositAction(marketId, repayAmount);
+        operations[2] = _getDepositAction(marketId, _amount + 2);
 
         Account.Info[] memory accountInfos = new Account.Info[](1);
         accountInfos[0] = _getAccountInfo();
