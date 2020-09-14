@@ -86,7 +86,7 @@ contract DydxFlashloaner is ICallee, DydxFlashloanBase, DSMath, Helper {
         Actions.ActionArgs[] memory operations = new Actions.ActionArgs[](3);
 
         operations[0] = _getWithdrawAction(marketId, _amount);
-        operations[1] = _getCallAction(encodeDsaAddr(data));
+        operations[1] = _getCallAction(encodeDsaAddr(msg.sender, data));
         operations[2] = _getDepositAction(marketId, _amount + 2);
 
         Account.Info[] memory accountInfos = new Account.Info[](1);
