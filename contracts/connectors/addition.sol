@@ -51,6 +51,7 @@ contract BasicResolver is Helpers {
 
     /**
      * @dev Add getIds
+     * @param getIds Array of get token amount at this IDs from `InstaMemory` Contract.
      * @param setId Set ctoken amount at this ID in `InstaMemory` Contract.
     */
     function addIds(uint[] calldata getIds, uint setId) external payable {
@@ -63,11 +64,13 @@ contract BasicResolver is Helpers {
     }
 
     /**
-     * @dev Sub getIds
+     * @dev Sub two getId.
+     * @param getIdOne Get token amount at this ID from `InstaMemory` Contract.
+     * @param getIdTwo Get token amount at this ID from `InstaMemory` Contract.
      * @param setId Set ctoken amount at this ID in `InstaMemory` Contract.
     */
     function subIds(uint getIdOne, uint getIdTwo, uint setId) external payable {
-        uint amt = add(getUint(getIdOne, 0), getUint(getIdTwo, 0));
+        uint amt = sub(getUint(getIdOne, 0), getUint(getIdTwo, 0));
 
         setUint(setId, amt);
     }
