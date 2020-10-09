@@ -113,7 +113,7 @@ contract UniswapHelpers is Stores, DSMath {
             sellAmt,
             paths
         );
-        buyAmt = amts[1];
+        buyAmt = amts[amts.length - 1];
     }
 
     function getExpectedSellAmt(
@@ -134,6 +134,17 @@ contract UniswapHelpers is Stores, DSMath {
     ) internal view {
         address pair = IUniswapV2Factory(router.factory()).getPair(paths[0], paths[1]);
         require(pair != address(0), "No-exchange-address");
+    }
+
+    function checkPaths(
+        IUniswapV2Router02 router,
+        address[] memory paths
+    ) internal view {
+        for (uint i; i < paths.length - 1; i++) {
+            require(paths[i] != paths[i + 1], "Wrong-path");
+            address pair = IUniswapV2Factory(router.factory()).getPair(paths[i], paths[i + 1]);
+            require(pair != address(0), "No-exchange-address");
+        }
     }
 
     function getPaths(
@@ -416,6 +427,58 @@ contract UniswapResolver is UniswapLiquidity {
         uint256 setId
     );
 
+    event LogBuyPath(
+        address indexed buyToken,
+        address indexed sellToken,
+        uint256 buyAmt,
+        uint256 sellAmt,
+        address[] path,
+        uint256 getId,
+        uint256 setId
+    );
+
+    event LogSellPath(
+        address indexed buyToken,
+        address indexed sellToken,
+        uint256 buyAmt,
+        uint256 sellAmt,
+        address[] path,
+        uint256 getId,
+        uint256 setId
+    );
+
+    function emitLogBuyPath(
+        address buyToken,
+        address sellToken,
+        uint256 buyAmt,
+        uint256 sellAmt,
+        address[] memory path,
+        uint256 getId,
+        uint256 setId
+    ) internal {
+        emit LogBuyPath(buyToken, sellToken, buyAmt, sellAmt, path, getId, setId);
+        bytes32 _eventCode = keccak256("LogBuyPath(address,address,uint256,uint256,address[],uint256,uint256)");
+        bytes memory _eventParam = abi.encode(buyToken, sellToken, buyAmt, sellAmt, path, getId, setId);
+        (uint _type, uint _id) = connectorID();
+        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+    }
+
+    function emitLogSellPath(
+        address buyToken,
+        address sellToken,
+        uint256 buyAmt,
+        uint256 sellAmt,
+        address[] memory path,
+        uint256 getId,
+        uint256 setId
+    ) internal {
+        emit LogSellPath(buyToken, sellToken, buyAmt, sellAmt, path, getId, setId);
+        bytes32 _eventCode = keccak256("LogSellPath(address,address,uint256,uint256,address[],uint256,uint256)");
+        bytes memory _eventParam = abi.encode(buyToken, sellToken, buyAmt, sellAmt, path, getId, setId);
+        (uint _type, uint _id) = connectorID();
+        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+    }
+
     /**
      * @dev Buy ETH/ERC20_Token.
      * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
@@ -522,6 +585,94 @@ contract UniswapResolver is UniswapLiquidity {
         bytes memory _eventParam = abi.encode(buyAddr, sellAddr, _buyAmt, _sellAmt, getId, setId);
         (uint _type, uint _id) = connectorID();
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
+    }
+
+    function buyViaPath(
+        address buyAddr,
+        address sellAddr,
+        uint buyAmt,
+        uint unitAmt,
+        address[] calldata paths,
+        uint getId,
+        uint setId
+    ) external payable {
+
+        uint _buyAmt = getUint(getId, buyAmt);
+
+        (TokenInterface _buyAddr, TokenInterface _sellAddr) = changeEthAddress(buyAddr, sellAddr);
+
+        IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
+
+        uint _slippageAmt = convert18ToDec(_sellAddr.decimals(),
+            wmul(unitAmt, convertTo18(_buyAddr.decimals(), _buyAmt)));
+
+        checkPaths(router, paths);
+
+        uint _expectedAmt = getExpectedSellAmt(router, paths, _buyAmt);
+        require(_slippageAmt >= _expectedAmt, "Too much slippage");
+
+        convertEthToWeth(_sellAddr, _expectedAmt);
+        _sellAddr.approve(address(router), _expectedAmt);
+
+        uint _sellAmt = router.swapTokensForExactTokens(
+            buyAmt,
+            _expectedAmt,
+            paths,
+            address(this),
+            now + 1
+        )[0];
+
+        convertWethToEth(_buyAddr, buyAmt);
+
+        setUint(setId, _sellAmt);
+
+        emitLogBuyPath(buyAddr, sellAddr, _buyAmt, _sellAmt, paths, getId, setId);
+    }
+
+    function sellViaPath(
+        address buyAddr,
+        address sellAddr,
+        uint sellAmt,
+        uint unitAmt,
+        address[] calldata paths,
+        uint getId,
+        uint setId
+    ) external payable {
+
+        uint _sellAmt = getUint(getId, sellAmt);
+
+        (TokenInterface _buyAddr, TokenInterface _sellAddr) = changeEthAddress(buyAddr, sellAddr);
+
+        if (_sellAmt == uint(-1)) {
+            _sellAmt = sellAddr == getEthAddr() ? address(this).balance : _sellAddr.balanceOf(address(this));
+        }
+
+        uint _slippageAmt = convert18ToDec(_buyAddr.decimals(),
+            wmul(unitAmt, convertTo18(_sellAddr.decimals(), _sellAmt)));
+
+        IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
+
+        checkPaths(router, paths);
+
+        uint _expectedAmt = getExpectedBuyAmt(router, paths, _sellAmt);
+        require(_slippageAmt <= _expectedAmt, "Too much slippage");
+
+        convertEthToWeth(_sellAddr, _sellAmt);
+        _sellAddr.approve(address(router), _sellAmt);
+
+        uint _buyAmt = router.swapExactTokensForTokens(
+            _sellAmt,
+            _expectedAmt,
+            paths,
+            address(this),
+            now + 1
+        )[1];
+
+        convertWethToEth(_buyAddr, _buyAmt);
+
+        setUint(setId, _buyAmt);
+
+        emitLogSellPath(buyAddr, sellAddr, _buyAmt, _sellAmt, paths, getId, setId);
     }
 }
 
