@@ -120,22 +120,25 @@ contract BasicResolver is AaveHelpers {
         uint _amt = amt;
         AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
         AaveDataProviderInterface aaveData = getAaveDataProvider();
+        address _token = token == getEthAddr() ? getWethAddr() : token;
+
+        TokenInterface tokenContract;
 
         if (token == getEthAddr()) {
             _amt = _amt == uint(-1) ? address(this).balance : _amt;
-            TokenInterface tokenContract = TokenInterface(getWethAddr());
+            tokenContract = TokenInterface(getWethAddr());
             convertEthToWeth(tokenContract, _amt);
             _token = getWethAddr();
         } else {
-            TokenInterface tokenContract = TokenInterface(token);
+            tokenContract = TokenInterface(token);
             _amt = _amt == uint(-1) ? tokenContract.balanceOf(address(this)) : _amt;
         }
 
-        tokenContract.approve(getAaveProvider().getLendingPoolCore(), _amt);
+        tokenContract.approve(getAaveProvider().getLendingPool(), _amt);
 
         aave.deposit(_token, _amt, address(this), getReferralCode());
 
-        if (!getIsColl(aaveData, _token, address(0))) {
+        if (!getIsColl(aaveData, _token, address(this))) {
             aave.setUserUseReserveAsCollateral(_token, true);
         }
 
@@ -190,18 +193,20 @@ contract BasicResolver is AaveHelpers {
         // uint _amt = getUint(getId, amt);
         uint _amt = amt;
         AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
+        address _token = token == getEthAddr() ? getWethAddr() : token;
+        TokenInterface tokenContract;
 
         if (token == getEthAddr()) {
             _amt = _amt == uint(-1) ? address(this).balance : _amt;
-            TokenInterface tokenContract = TokenInterface(getWethAddr());
+            tokenContract = TokenInterface(getWethAddr());
             convertEthToWeth(tokenContract, _amt);
             _token = getWethAddr();
         } else {
-            TokenInterface tokenContract = TokenInterface(token);
+            tokenContract = TokenInterface(token);
             _amt = _amt == uint(-1) ? tokenContract.balanceOf(address(this)) : _amt;
         }
 
-        tokenContract.approve(getAaveProvider().getLendingPoolCore(), _amt);
+        tokenContract.approve(getAaveProvider().getLendingPool(), _amt);
 
         aave.repay(_token, _amt, rateMode, address(this));
 
