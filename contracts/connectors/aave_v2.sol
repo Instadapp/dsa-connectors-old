@@ -116,7 +116,7 @@ contract BasicResolver is AaveHelpers {
     event LogPayback(address indexed token, uint256 tokenAmt, uint256 rateMode, uint256 getId, uint256 setId);
 
     function deposit(address token, uint amt, uint getId, uint setId) external payable {
-        // uint _amt = getUint(getId, amt);
+        uint _amt = getUint(getId, amt);
         uint _amt = amt;
         AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
         AaveDataProviderInterface aaveData = getAaveDataProvider();
@@ -142,7 +142,7 @@ contract BasicResolver is AaveHelpers {
             aave.setUserUseReserveAsCollateral(_token, true);
         }
 
-        // setUint(setId, _amt);
+        setUint(setId, _amt);
 
         emit LogDeposit(token, _amt, getId, setId);
         bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256)");
@@ -151,7 +151,7 @@ contract BasicResolver is AaveHelpers {
     }
 
     function withdraw(address token, uint amt, uint getId, uint setId) external {
-        // uint _amt = getUint(getId, amt);
+        uint _amt = getUint(getId, amt);
         uint _amt = amt;
         AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
         address _token = token == getEthAddr() ? getWethAddr() : token;
@@ -164,7 +164,7 @@ contract BasicResolver is AaveHelpers {
         uint finalBal = token == getEthAddr() ? address(this).balance : tokenContract.balanceOf(address(this));
 
         _amt = sub(finalBal, initialBal);
-        // setUint(setId, _amt);
+        setUint(setId, _amt);
 
         emit LogWithdraw(token, _amt, getId, setId);
         bytes32 _eventCode = keccak256("LogWithdraw(address,uint256,uint256,uint256)");
@@ -173,7 +173,7 @@ contract BasicResolver is AaveHelpers {
     }
 
     function borrow(address token, uint amt, uint rateMode, uint getId, uint setId) external {
-        // uint _amt = getUint(getId, amt);
+        uint _amt = getUint(getId, amt);
         uint _amt = amt;
         AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
         address _token = token == getEthAddr() ? getWethAddr() : token;
@@ -182,7 +182,7 @@ contract BasicResolver is AaveHelpers {
         aave.borrow(_token, _amt, rateMode, getReferralCode(), address(this));
         convertWethToEth(tokenContract, _amt);
 
-        // setUint(setId, _amt);
+        setUint(setId, _amt);
         emit LogBorrow(token, _amt, rateMode, getId, setId);
         bytes32 _eventCode = keccak256("LogBorrow(address,uint256,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(token, _amt, rateMode, getId, setId);
@@ -190,7 +190,7 @@ contract BasicResolver is AaveHelpers {
     }
 
     function payback(address token, uint amt, uint rateMode, uint getId, uint setId) external payable {
-        // uint _amt = getUint(getId, amt);
+        uint _amt = getUint(getId, amt);
         uint _amt = amt;
         AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
         address _token = token == getEthAddr() ? getWethAddr() : token;
@@ -210,7 +210,7 @@ contract BasicResolver is AaveHelpers {
 
         aave.repay(_token, _amt, rateMode, address(this));
 
-        // setUint(setId, _amt);
+        setUint(setId, _amt);
 
         emit LogPayback(token, _amt, rateMode, getId, setId);
         bytes32 _eventCode = keccak256("LogPayback(address,uint256,uint256,uint256,uint256)");
