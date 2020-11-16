@@ -82,21 +82,14 @@ contract OneHelpers is Stores, DSMath {
      * @dev Return  1Inch Address
      */
     function getOneInchAddress() internal pure returns (address) {
-        return 0x11111254369792b2Ca5d084aB5eEA397cA8fa48B;
-    }
-
-    /**
-     * @dev Return 1inch Token Taker Address
-     */
-    function getOneInchTokenTaker() internal pure returns (address payable) {
-        return 0xE4C9194962532fEB467DCe8b3d42419641c6eD2E;
+        return 0x111111125434b319222CdBf8C261674aDB56F3ae;
     }
 
     /**
      * @dev Return 1inch swap function sig
      */
     function getOneInchSig() internal pure returns (bytes4) {
-        return 0xf88309d7;
+        return 0x90411a32;
     }
 
     function convert18ToDec(uint _dec, uint256 _amt) internal pure returns (uint256 amt) {
@@ -498,7 +491,7 @@ contract OneInchResolverHelpers is OneProtoResolverHelpers {
         if (address(_sellAddr) == getEthAddr()) {
             ethAmt = oneInchData._sellAmt;
         } else {
-            TokenInterface(_sellAddr).approve(getOneInchTokenTaker(), oneInchData._sellAmt);
+            TokenInterface(_sellAddr).approve(getOneInchAddress(), oneInchData._sellAmt);
         }
 
         require(checkOneInchSig(oneInchData.callData), "Not-swap-function");
