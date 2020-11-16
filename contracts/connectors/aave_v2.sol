@@ -80,7 +80,7 @@ contract AaveHelpers is DSMath, Stores {
     }
 
     /**
-     * @dev Return ethereum address
+     * @dev Return Weth address
     */
     function getWethAddr() internal pure returns (address) {
         return 0xd0A1E359811322d97991E03f863a0C30C2cF029C; // Kovan WETH Address
