@@ -107,6 +107,16 @@ contract AaveHelpers is DSMath, Stores {
             token.withdraw(amount);
         }
     }
+
+    function getPaybackBalance(AaveDataProviderInterface aaveData, address token, uint rateMode) internal view returns (uint) {
+        uint stableDebt;
+        uint variableDebt;
+        (, stableDebt, variableDebt, , , , , , ) = aaveData.getUserReserveData(token, address(this));
+        if (rateMode == 1) {
+            return stableDebt;
+        }
+        return variableDebt;
+    }
 }
 
 contract BasicResolver is AaveHelpers {
@@ -196,17 +206,20 @@ contract BasicResolver is AaveHelpers {
         uint _amt = getUint(getId, amt);
 
         AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
+        AaveDataProviderInterface aaveData = getAaveDataProvider();
 
         bool isEth = token == getEthAddr();
         address _token = isEth ? getWethAddr() : token;
 
         TokenInterface tokenContract = TokenInterface(_token);
 
+        uint debtPayback = getPaybackBalance(aaveData, _token, rateMode);
+
         if (isEth) {
-            _amt = _amt == uint(-1) ? address(this).balance : _amt;
+            _amt = _amt == uint(-1) ? debtPayback : _amt;
             convertEthToWeth(isEth, tokenContract, _amt);
         } else {
-            _amt = _amt == uint(-1) ? tokenContract.balanceOf(address(this)) : _amt;
+            _amt = _amt == uint(-1) ? debtPayback : _amt;
         }
 
         tokenContract.approve(address(aave), _amt);
