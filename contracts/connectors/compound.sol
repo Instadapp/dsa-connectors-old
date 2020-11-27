@@ -114,7 +114,7 @@ contract Helpers is DSMath {
      * @dev Connector Details
     */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 24);
+        (_type, _id) = (1, 57);
     }
 }
 
