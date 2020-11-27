@@ -190,7 +190,7 @@ contract BasicResolver is CompoundHelpers {
             TokenInterface tokenContract = TokenInterface(token);
             _amt = _amt == uint(-1) ? tokenContract.balanceOf(address(this)) : _amt;
             tokenContract.approve(cToken, _amt);
-            require(CTokenInterface(cToken).mint(_amt) == 0, "borrow-failed");
+            require(CTokenInterface(cToken).mint(_amt) == 0, "deposit-failed");
         }
         setUint(setId, _amt);
 
@@ -286,7 +286,7 @@ contract BasicResolver is CompoundHelpers {
 contract ExtraResolver is BasicResolver {
     event LogClaimedComp(uint256 compAmt, uint256 setId);
     event LogDepositCToken(address indexed token, address cToken, uint256 tokenAmt, uint256 cTokenAmt,uint256 getId, uint256 setId);
-    event LogWithdrawCToken(address indexed token, address cToken, uint256 cTokenAmt, uint256 getId, uint256 setId);
+    event LogWithdrawCToken(address indexed token, address cToken, uint256 tokenAmt, uint256 cTokenAmt, uint256 getId, uint256 setId);
     event LogLiquidate(
         address indexed borrower,
         address indexed tokenToPay,
@@ -295,26 +295,6 @@ contract ExtraResolver is BasicResolver {
         uint256 getId,
         uint256 setId
     );
-
-    /**
-     * @dev Claim Accrued COMP Token.
-     * @param setId Set ctoken amount at this ID in `InstaMemory` Contract.
-    */
-    function ClaimComp(uint setId) external payable {
-        TokenInterface compToken = TokenInterface(getCompTokenAddress());
-        uint intialBal = compToken.balanceOf(address(this));
-        ComptrollerInterface(getComptrollerAddress()).claimComp(address(this));
-        uint finalBal = compToken.balanceOf(address(this));
-        uint amt = sub(finalBal, intialBal);
-
-        setUint(setId, amt);
-
-        emit LogClaimedComp(amt, setId);
-        bytes32 _eventCode = keccak256("LogClaimedComp(uint256,uint256)");
-        bytes memory _eventParam = abi.encode(amt, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
-    }
 
     /**
      * @dev Deposit ETH/ERC20_Token.
@@ -357,19 +337,25 @@ contract ExtraResolver is BasicResolver {
      * @param token token address to withdraw CToken.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param cTokenAmt ctoken amount to withdrawCToken.
      * @param getId Get ctoken amount at this ID from `InstaMemory` Contract.
-     * @param setId Set ctoken amount at this ID in `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
     */
     function withdrawCToken(address token, uint cTokenAmt, uint getId, uint setId) external payable {
-        uint _amt = getUint(getId, cTokenAmt);
+        uint _cAmt = getUint(getId, cTokenAmt);
         address cToken = InstaMapping(getMappingAddr()).cTokenMapping(token);
         CTokenInterface cTokenContract = CTokenInterface(cToken);
-        _amt = _amt == uint(-1) ? cTokenContract.balanceOf(address(this)) : _amt;
-        require(cTokenContract.redeem(_amt) == 0, "redeem-failed");
-        setUint(setId, _amt);
+        TokenInterface tokenContract = TokenInterface(token);
+        _cAmt = _cAmt == uint(-1) ? cTokenContract.balanceOf(address(this)) : _cAmt;
+        
+        uint initialBal = token != getAddressETH() ? tokenContract.balanceOf(address(this)) : address(this).balance;
+        require(cTokenContract.redeem(_cAmt) == 0, "redeem-failed");
+        uint finalBal = token != getAddressETH() ? tokenContract.balanceOf(address(this)) : address(this).balance;
 
-        emit LogWithdrawCToken(token, cToken, _amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogWithdrawCToken(address,address,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(token, cToken, _amt, getId, setId);
+        uint withdrawAmt = sub(finalBal, initialBal);
+        setUint(setId, withdrawAmt);
+
+        emit LogWithdrawCToken(token, cToken, withdrawAmt, _cAmt, getId, setId);
+        bytes32 _eventCode = keccak256("LogWithdrawCToken(address,address,uint256,uint256,uint256,uint256)");
+        bytes memory _eventParam = abi.encode(token, cToken, withdrawAmt, _cAmt, getId, setId);
         (uint _type, uint _id) = connectorID();
         EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
 
@@ -438,5 +424,5 @@ contract ExtraResolver is BasicResolver {
 
 
 contract ConnectCompound is ExtraResolver {
-    string public name = "Compound-v1.2";
+    string public name = "Compound-v1.3";
 }
