@@ -182,7 +182,7 @@ contract Helpers is DSMath {
      * @dev Connector Details
     */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 40);
+        (_type, _id) = (1, 61);
     }
 }
 
@@ -604,7 +604,7 @@ contract BasicExtraResolver is BasicResolver {
         uint _amt18;
         if (_amt == uint(-1)) {
             _amt18 = VatLike(managerContract.vat()).gem(ilk, urn);
-            _amt = convert18ToDec(tokenJoinContract.dec(), _amt);
+            _amt = convert18ToDec(tokenJoinContract.dec(), _amt18);
         } else {
             _amt18 = convertTo18(tokenJoinContract.dec(), _amt);
         }
