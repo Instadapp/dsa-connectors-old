@@ -82,6 +82,7 @@ contract BasicResolver is AaveHelpers {
     event LogWithdraw(address indexed token, uint256 tokenAmt, uint256 getId, uint256 setId);
     event LogBorrow(address indexed token, uint256 tokenAmt, uint256 getId, uint256 setId);
     event LogPayback(address indexed token, uint256 tokenAmt, uint256 getId, uint256 setId);
+    event LogEnableCollateral(address[] tokens);
 
     /**
      * @dev Deposit ETH/ERC20_Token.
@@ -192,6 +193,26 @@ contract BasicResolver is AaveHelpers {
         bytes32 _eventCode = keccak256("LogPayback(address,uint256,uint256,uint256)");
         bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
         emitEvent(_eventCode, _eventParam);
+    }
+
+    /**
+     * @dev Enable collateral
+     * @param tokens Array of tokens to enable collateral
+    */
+    function enableCollateral(address[] calldata tokens) external {
+        uint _length = tokens.length;
+        require(_length > 0, "0-tokens-not-allowed");
+
+        AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
+
+        for (uint i = 0; i < _length; i++) {
+            address token = tokens[i];
+            if (getWithdrawBalance(token) > 0 && !getIsColl(aave, token)) {
+                aave.setUserUseReserveAsCollateral(token, true);
+            }
+        }
+
+        emit LogEnableCollateral(tokens);
     }
 }
 
