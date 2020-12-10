@@ -199,7 +199,7 @@ contract BasicResolver is AaveHelpers {
      * @dev Enable collateral
      * @param tokens Array of tokens to enable collateral
     */
-    function enableCollateral(address[] calldata tokens) external {
+    function enableCollateral(address[] calldata tokens) external payable {
         uint _length = tokens.length;
         require(_length > 0, "0-tokens-not-allowed");
 
