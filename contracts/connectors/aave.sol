@@ -112,9 +112,6 @@ contract BasicResolver is AaveHelpers {
         setUint(setId, _amt);
 
         emit LogDeposit(token, _amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogDeposit(address,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
-        emitEvent(_eventCode, _eventParam);
     }
 
     /**
@@ -138,9 +135,6 @@ contract BasicResolver is AaveHelpers {
         setUint(setId, _amt);
 
         emit LogWithdraw(token, _amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogWithdraw(address,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
-        emitEvent(_eventCode, _eventParam);
     }
 
     /**
@@ -157,9 +151,6 @@ contract BasicResolver is AaveHelpers {
         setUint(setId, _amt);
 
         emit LogBorrow(token, _amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogBorrow(address,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
-        emitEvent(_eventCode, _eventParam);
     }
 
     /**
@@ -190,9 +181,6 @@ contract BasicResolver is AaveHelpers {
         setUint(setId, _amt);
 
         emit LogPayback(token, _amt, getId, setId);
-        bytes32 _eventCode = keccak256("LogPayback(address,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(token, _amt, getId, setId);
-        emitEvent(_eventCode, _eventParam);
     }
 
     /**
@@ -217,5 +205,5 @@ contract BasicResolver is AaveHelpers {
 }
 
 contract ConnectAave is BasicResolver {
-    string public name = "Aave-v1";
+    string public name = "Aave-v1.1";
 }
