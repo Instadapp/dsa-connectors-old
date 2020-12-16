@@ -60,8 +60,7 @@ contract FeeResolver is Setup {
     /**
      * @dev Calculate fee
      */
-    function calculateFee(uint amount, uint fee, uint getId, uint setId) external payable {
-        require(fee <= 5 * 10 ** 16, "Fee-more-than-5%"); // TODO: change
+    function calculateFee(uint amount, uint fee, uint getId, uint setId, uint setIdFee) external payable {
         uint _amt = getUint(getId, amount);
 
         uint feeAmt = wmul(_amt, fee);
@@ -69,6 +68,7 @@ contract FeeResolver is Setup {
         uint totalAmt = add(_amt, feeAmt);
 
         setUint(setId, totalAmt);
+        setUint(setIdFee, feeAmt);
     }
 }
 
