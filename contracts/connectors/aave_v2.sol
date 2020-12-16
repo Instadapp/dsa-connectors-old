@@ -262,5 +262,5 @@ contract BasicResolver is AaveHelpers {
 }
 
 contract ConnectAaveV2 is BasicResolver {
-    string public name = "AaveV2-v1.0";
+    string public name = "AaveV2-v1.1";
 }
