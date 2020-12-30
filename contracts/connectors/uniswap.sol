@@ -176,8 +176,10 @@ contract UniswapHelpers is Stores, DSMath {
          return
             Babylonian
                 .sqrt(
-                reserveIn.mul(userIn.mul(3988000).add(reserveIn.mul(3988009)))
-            ).sub(reserveIn.mul(1997)) / 1994;
+                    reserveIn.mul(
+                        userIn.mul(3988000).add(reserveIn.mul(3988009))
+                    )
+                ).sub(reserveIn.mul(1997)) / 1994;
     }
 }
 
@@ -240,7 +242,7 @@ contract LiquidityHelpers is UniswapHelpers {
         }
     }
 
-    function _addLiquiditySingle(
+    function _addSingleLiquidity(
         address tokenA,
         address tokenB,
         uint amountA,
@@ -450,7 +452,7 @@ contract UniswapLiquidity is LiquidityHelpers {
     ) external payable {
         uint _amt = getUint(getId, amountA);
 
-        (uint _amtA, uint _amtB, uint _uniAmt) = _addLiquiditySingle(
+        (uint _amtA, uint _amtB, uint _uniAmt) = _addSingleLiquidity(
                                             tokenA,
                                             tokenB,
                                             _amt,
