@@ -47,7 +47,6 @@ interface IUniswapV2Router02 {
         uint deadline
     ) external returns (uint[] memory amounts);
 
-    function getReserves(address factory, address tokenA, address tokenB) external view returns (uint reserveA, uint reserveB);
     function quote(uint amountA, uint reserveA, uint reserveB) external pure returns (uint amountB);
     function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut);
     function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) external pure returns (uint amountIn);
@@ -88,7 +87,8 @@ contract UniswapHelpers is Stores, DSMath {
      * @dev Return WETH address
      */
     function getAddressWETH() internal pure returns (address) {
-        return 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+        return 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // mainnet
+        // return 0xd0A1E359811322d97991E03f863a0C30C2cF029C; // kovan
     }
 
     /**
@@ -251,7 +251,7 @@ contract LiquidityHelpers is UniswapHelpers {
         IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
         (TokenInterface _tokenA, TokenInterface _tokenB) = changeEthAddress(tokenA, tokenB);
         
-        uint256 _amountA;
+        uint256 _amountA = amountA;
         
         if (amountA == uint(-1)) {
             _amountA = tokenA == getEthAddr() ? address(this).balance : _tokenA.balanceOf(address(this));
@@ -306,17 +306,17 @@ contract LiquidityHelpers is UniswapHelpers {
         uint256 reserveIn = lpToken.token0() == address(tokenA) ? reserveA : reserveB;
         uint256 swapAmtA = calculateSwapInAmount(reserveIn, _amountA);
 
-        address[] memory paths = getPaths(address(tokenA), address(tokenB));
+        address[] memory paths = getPaths(address(tokenB), address(tokenA));
 
         tokenA.approve(address(router), swapAmtA);
 
-        amountB = router.swapTokensForExactTokens(
-            1, // TODO @thrilok209: check this
+        amountB = router.swapExactTokensForTokens(
             swapAmtA,
+            1, // TODO @thrilok209: check this
             paths,
             address(this),
             now + 1
-        )[0];
+        )[1];
 
         amountA = sub(_amountA, swapAmtA);
     }
@@ -583,10 +583,6 @@ contract UniswapResolver is UniswapLiquidity {
         setUint(setId, _sellAmt);
 
         emit LogBuy(buyAddr, sellAddr, _buyAmt, _sellAmt, getId, setId);
-        bytes32 _eventCode = keccak256("LogBuy(address,address,uint256,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(buyAddr, sellAddr, _buyAmt, _sellAmt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
     /**
@@ -639,10 +635,6 @@ contract UniswapResolver is UniswapLiquidity {
         setUint(setId, _buyAmt);
 
         emit LogSell(buyAddr, sellAddr, _buyAmt, _sellAmt, getId, setId);
-        bytes32 _eventCode = keccak256("LogSell(address,address,uint256,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(buyAddr, sellAddr, _buyAmt, _sellAmt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 }
 
