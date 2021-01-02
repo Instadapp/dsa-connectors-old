@@ -167,6 +167,13 @@ contract UniswapHelpers is Stores, DSMath {
         paths[1] = address(buyAddr);
     }
 
+    function changeEthToWeth(
+        address[] memory tokens
+    ) internal pure returns(TokenInterface[] memory _tokens) {
+        _tokens = new TokenInterface[](2);
+        _tokens[0] = tokens[0] == getEthAddr() ? TokenInterface(getAddressWETH()) : TokenInterface(tokens[0]);
+        _tokens[1] = tokens[1] == getEthAddr() ? TokenInterface(getAddressWETH()) : TokenInterface(tokens[1]);
+    }
 
     function calculateSwapInAmount(uint256 reserveIn, uint256 userIn)
         internal
@@ -184,32 +191,13 @@ contract UniswapHelpers is Stores, DSMath {
 }
 
 contract LiquidityHelpers is UniswapHelpers {
-
-    function getMinAmount(
-        TokenInterface token,
-        uint amt,
-        uint slippage
-    ) internal view returns(uint minAmt) {
-        uint _amt18 = convertTo18(token.decimals(), amt);
-        minAmt = wmul(_amt18, sub(WAD, slippage));
-        minAmt = convert18ToDec(token.decimals(), minAmt);
-    }
-
-    function changeEthToWeth(
-        address[] memory tokens
-    ) internal pure returns(TokenInterface[] memory _tokens) {
-        _tokens = new TokenInterface[](2);
-        _tokens[0] = tokens[0] == getEthAddr() ? TokenInterface(getAddressWETH()) : TokenInterface(tokens[0]);
-        _tokens[1] = tokens[1] == getEthAddr() ? TokenInterface(getAddressWETH()) : TokenInterface(tokens[1]);
-    }
-
     function _addLiquidity(
         address tokenA,
         address tokenB,
         uint amountADesired,
         uint amountBDesired,
-        uint amountAMin,
-        uint amountBMin
+        uint slippageA,
+        uint slippageB
     ) internal returns (uint _amtA, uint _amtB, uint _liquidity) {
         IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
         (TokenInterface _tokenA, TokenInterface _tokenB) = changeEthAddress(tokenA, tokenB);
@@ -227,8 +215,8 @@ contract LiquidityHelpers is UniswapHelpers {
             address(_tokenB),
             amountADesired,
             amountBDesired,
-            amountAMin,
-            amountBMin,
+            wmul(sub(WAD, slippageA), amountADesired),
+            wmul(sub(WAD, slippageB), amountBDesired),
             address(this),
             now + 1
         );
@@ -397,11 +385,11 @@ contract UniswapLiquidity is LiquidityHelpers {
      * @param tokenA tokenA address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param tokenB tokenB address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param amountADesired tokenA amount.
-     * @param amountBDesired unit amount of amtB/amtA with slippage.
-     * @param amountAMin slippage amount.
-     * @param amountBMin slippage amount.
-     * @param getIdA Get token amount at this ID from `InstaMemory` Contract.
-     * @param getIdB Get tokens amount at this ID from `InstaMemory` Contract.
+     * @param amountBDesired tokenB amount.
+     * @param slippageA slippage amountA.(For 1%: 1e16, 10%: 1e17)
+     * @param slippageB slippage amountB.(For 1%: 1e16, 10%: 1e17)
+     * @param getIdA Get tokenA amount at this ID from `InstaMemory` Contract.
+     * @param getIdB Get tokenB amount at this ID from `InstaMemory` Contract.
      * @param setId Set token amount at this ID in `InstaMemory` Contract.
     */
     function deposit(
@@ -409,8 +397,8 @@ contract UniswapLiquidity is LiquidityHelpers {
         address tokenB,
         uint amountADesired,
         uint amountBDesired,
-        uint amountAMin,
-        uint amountBMin,
+        uint slippageA,
+        uint slippageB,
         uint getIdA,
         uint getIdB,
         uint setId
@@ -423,8 +411,8 @@ contract UniswapLiquidity is LiquidityHelpers {
                                             tokenB,
                                             _amtADesired,
                                             _amtBDesired,
-                                            amountAMin,
-                                            amountBMin
+                                            slippageA,
+                                            slippageB
                                         );
         setUint(setId, _uniAmt);
 
@@ -442,6 +430,15 @@ contract UniswapLiquidity is LiquidityHelpers {
     }
 
 
+     /**
+     * @dev Deposit Liquidity using Single token.
+     * @param tokenA tokenA address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param tokenB tokenB address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param amountA tokenA amount.
+     * @param minUniAmount min uni token amount.
+     * @param getId Get tokenA amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
     function singleDeposit(
         address tokenA,
         address tokenB,
