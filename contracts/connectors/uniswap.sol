@@ -196,8 +196,7 @@ contract LiquidityHelpers is UniswapHelpers {
         address tokenB,
         uint amountADesired,
         uint amountBDesired,
-        uint slippageA,
-        uint slippageB
+        uint slippage
     ) internal returns (uint _amtA, uint _amtB, uint _liquidity) {
         IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
         (TokenInterface _tokenA, TokenInterface _tokenB) = changeEthAddress(tokenA, tokenB);
@@ -215,8 +214,8 @@ contract LiquidityHelpers is UniswapHelpers {
             address(_tokenB),
             amountADesired,
             amountBDesired,
-            wmul(sub(WAD, slippageA), amountADesired),
-            wmul(sub(WAD, slippageB), amountBDesired),
+            wmul(sub(WAD, slippage), amountADesired),
+            wmul(sub(WAD, slippage), amountBDesired),
             address(this),
             now + 1
         );
@@ -386,8 +385,7 @@ contract UniswapLiquidity is LiquidityHelpers {
      * @param tokenB tokenB address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param amountADesired tokenA amount.
      * @param amountBDesired tokenB amount.
-     * @param slippageA slippage amountA.(For 1%: 1e16, 10%: 1e17)
-     * @param slippageB slippage amountB.(For 1%: 1e16, 10%: 1e17)
+     * @param slippage slippage for tokenA & tokenB.(For 1%: 1e16, 10%: 1e17)
      * @param getIdA Get tokenA amount at this ID from `InstaMemory` Contract.
      * @param getIdB Get tokenB amount at this ID from `InstaMemory` Contract.
      * @param setId Set token amount at this ID in `InstaMemory` Contract.
@@ -397,8 +395,7 @@ contract UniswapLiquidity is LiquidityHelpers {
         address tokenB,
         uint amountADesired,
         uint amountBDesired,
-        uint slippageA,
-        uint slippageB,
+        uint slippage,
         uint getIdA,
         uint getIdB,
         uint setId
@@ -411,8 +408,7 @@ contract UniswapLiquidity is LiquidityHelpers {
                                             tokenB,
                                             _amtADesired,
                                             _amtBDesired,
-                                            slippageA,
-                                            slippageB
+                                            slippage
                                         );
         setUint(setId, _uniAmt);
 
