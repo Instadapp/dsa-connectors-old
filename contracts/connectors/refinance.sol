@@ -296,11 +296,11 @@ contract Helpers is DSMath {
         amt = add(bal, fee);
     }
 
-    function getWithdrawBalanceV2(AaveDataProviderInterface aaveData, address token) internal view returns (uint bal) {
+    function getWithdrawBalanceV2(AaveV2DataProviderInterface aaveData, address token) internal view returns (uint bal) {
         (bal, , , , , , , , ) = aaveData.getUserReserveData(token, address(this));
     }
 
-    function getPaybackBalanceV2(AaveDataProviderInterface aaveData, address token, uint rateMode) internal view returns (uint bal) {
+    function getPaybackBalanceV2(AaveV2DataProviderInterface aaveData, address token, uint rateMode) internal view returns (uint bal) {
         if (rateMode == 1) {
             (, bal, , , , , , , ) = aaveData.getUserReserveData(token, address(this));
         } else {
@@ -308,8 +308,8 @@ contract Helpers is DSMath {
         }
     }
 
-    function getIsColl(AaveDataProviderInterface aaveData, address token) internal view returns (bool isCol) {
-        (, , , , , , , , isCol) = aaveData.getUserReserveData(token, address(this));
+    function getIsColl(AaveV1Interface aave, address token) internal view returns (bool isCol) {
+        (, , , , , , , , , isCol) = aave.getUserReserveData(token, address(this));
     }
 
     function getIsCollV2(AaveV2DataProviderInterface aaveData, address token) internal view returns (bool isCol) {
@@ -344,7 +344,7 @@ contract Helpers is DSMath {
 
 contract CompoundHelpers is Helpers {
 
-    function _compEnterMarkets(uint length, address[] memory tokens) {
+    function _compEnterMarkets(uint length, address[] memory tokens) internal {
         ComptrollerInterface troller = ComptrollerInterface(getComptrollerAddress());
         address[] memory cTokens = new address[](length);
 
@@ -360,9 +360,10 @@ contract CompoundHelpers is Helpers {
         uint[] memory amts
     ) internal {
         for (uint i = 0; i < length; i++) {
-            if (amts[i] > 0)
+            if (amts[i] > 0) {
                 address cToken = InstaMapping(getMappingAddr()).cTokenMapping(tokens[i]);
                 require(CTokenInterface(cToken).borrow(amts[i]) == 0, "borrow-failed-collateral?");
+            }
         }
     }
 
@@ -465,7 +466,7 @@ contract AaveV1Helpers is CompoundHelpers {
                 aave.deposit.value(ethAmt)(tokens[i], amts[i], getReferralCode());
 
                 if (!getIsColl(aave, tokens[i]))
-                    aave.setUserUseReserveAsCollateral(token, true);
+                    aave.setUserUseReserveAsCollateral(tokens[i], true);
             }
         }
     }
@@ -522,7 +523,7 @@ contract AaveV2Helpers is AaveV1Helpers {
                 address _token = isEth ? getWethAddr() : tokens[i];
 
                 aave.borrow(_token, amts[i], rateModes[i], getReferralCode(), address(this));
-                convertWethToEth(isEth, TokenInterface(_token), amt);
+                convertWethToEth(isEth, TokenInterface(_token), amts[i]);
             }
         }
     }
@@ -553,7 +554,7 @@ contract AaveV2Helpers is AaveV1Helpers {
 
     function _aaveV2Withdraw(
         AaveV2Interface aave,
-        AaveV2DataProviderInterface aaveDataV2,
+        AaveV2DataProviderInterface aaveData,
         uint length,
         address[] memory tokens,
         uint[] memory amts
@@ -578,7 +579,8 @@ contract AaveV2Helpers is AaveV1Helpers {
         AaveV2DataProviderInterface aaveData,
         uint length,
         address[] memory tokens,
-        uint[] memory amts
+        uint[] memory amts,
+        uint[] memory rateModes
     ) internal {
         for (uint i = 0; i < length; i++) {
             if (amts[i] > 0) {
@@ -586,11 +588,11 @@ contract AaveV2Helpers is AaveV1Helpers {
                 address _token = isEth ? getWethAddr() : tokens[i];
                 TokenInterface tokenContract = TokenInterface(_token);
 
-                uint _amt = amts[i] == uint(-1) ? getPaybackBalanceV2(aaveData, _token, rateMode[i]) : amts[i];
+                uint _amt = amts[i] == uint(-1) ? getPaybackBalanceV2(aaveData, _token, rateModes[i]) : amts[i];
 
                 convertEthToWeth(isEth, tokenContract, amts[i]);
 
-                aave.repay(_token, _amt, rateMode[i], address(this));
+                aave.repay(_token, _amt, rateModes[i], address(this));
             }
         }
     }
