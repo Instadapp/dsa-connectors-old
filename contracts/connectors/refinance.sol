@@ -56,6 +56,125 @@ interface ComptrollerInterface {
 }
 // End Compound Helpers
 
+// Aave v1 Helpers
+interface AaveV1Interface {
+    function deposit(address _reserve, uint256 _amount, uint16 _referralCode) external payable;
+    function redeemUnderlying(
+        address _reserve,
+        address payable _user,
+        uint256 _amount,
+        uint256 _aTokenBalanceAfterRedeem
+    ) external;
+    
+    function setUserUseReserveAsCollateral(address _reserve, bool _useAsCollateral) external;
+    function getUserReserveData(address _reserve, address _user) external view returns (
+        uint256 currentATokenBalance,
+        uint256 currentBorrowBalance,
+        uint256 principalBorrowBalance,
+        uint256 borrowRateMode,
+        uint256 borrowRate,
+        uint256 liquidityRate,
+        uint256 originationFee,
+        uint256 variableBorrowIndex,
+        uint256 lastUpdateTimestamp,
+        bool usageAsCollateralEnabled
+    );
+    function borrow(address _reserve, uint256 _amount, uint256 _interestRateMode, uint16 _referralCode) external;
+    function repay(address _reserve, uint256 _amount, address payable _onBehalfOf) external payable;
+}
+
+interface AaveV1ProviderInterface {
+    function getLendingPool() external view returns (address);
+    function getLendingPoolCore() external view returns (address);
+}
+
+interface AaveV1CoreInterface {
+    function getReserveATokenAddress(address _reserve) external view returns (address);
+}
+
+interface ATokenV1Interface {
+    function redeem(uint256 _amount) external;
+    function balanceOf(address _user) external view returns(uint256);
+    function principalBalanceOf(address _user) external view returns(uint256);
+
+    function allowance(address, address) external view returns (uint);
+    function approve(address, uint) external;
+    function transfer(address, uint) external returns (bool);
+    function transferFrom(address, address, uint) external returns (bool);
+}
+// End Aave v1 Helpers
+
+// Aave v2 Helpers
+interface AaveV2Interface {
+    function deposit(address _asset, uint256 _amount, address _onBehalfOf, uint16 _referralCode) external;
+    function withdraw(address _asset, uint256 _amount, address _to) external;
+    function borrow(
+        address _asset,
+        uint256 _amount,
+        uint256 _interestRateMode,
+        uint16 _referralCode,
+        address _onBehalfOf
+    ) external;
+    function repay(address _asset, uint256 _amount, uint256 _rateMode, address _onBehalfOf) external;
+    function setUserUseReserveAsCollateral(address _asset, bool _useAsCollateral) external;
+    function getUserAccountData(address user) external view returns (
+        uint256 totalCollateralETH,
+        uint256 totalDebtETH,
+        uint256 availableBorrowsETH,
+        uint256 currentLiquidationThreshold,
+        uint256 ltv,
+        uint256 healthFactor
+    );
+}
+
+interface AaveV2LendingPoolProviderInterface {
+    function getLendingPool() external view returns (address);
+}
+
+// Aave Protocol Data Provider
+interface AaveV2DataProviderInterface {
+    function getReserveTokensAddresses(address _asset) external view returns (
+        address aTokenAddress,
+        address stableDebtTokenAddress,
+        address variableDebtTokenAddress
+    );
+    function getUserReserveData(address _asset, address _user) external view returns (
+        uint256 currentATokenBalance,
+        uint256 currentStableDebt,
+        uint256 currentVariableDebt,
+        uint256 principalStableDebt,
+        uint256 scaledVariableDebt,
+        uint256 stableBorrowRate,
+        uint256 liquidityRate,
+        uint40 stableRateLastUpdated,
+        bool usageAsCollateralEnabled
+    );
+    function getReserveConfigurationData(address asset) external view returns (
+        uint256 decimals,
+        uint256 ltv,
+        uint256 liquidationThreshold,
+        uint256 liquidationBonus,
+        uint256 reserveFactor,
+        bool usageAsCollateralEnabled,
+        bool borrowingEnabled,
+        bool stableBorrowRateEnabled,
+        bool isActive,
+        bool isFrozen
+    );
+}
+
+interface AaveV2AddressProviderRegistryInterface {
+    function getAddressesProvidersList() external view returns (address[] memory);
+}
+
+interface ATokenV2Interface {
+    function scaledBalanceOf(address _user) external view returns (uint256);
+    function isTransferAllowed(address _user, uint256 _amount) external view returns (bool);
+    function balanceOf(address _user) external view returns(uint256);
+    function transferFrom(address, address, uint) external returns (bool);
+}
+// End Aave v2 Helpers
+
 contract DSMath {
 
     function add(uint x, uint y) internal pure returns (uint z) {
@@ -122,11 +241,78 @@ contract Helpers is DSMath {
         return 0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B;
     }
 
+    /**
+     * @dev get Aave Provider
+    */
+    function getAaveProvider() internal pure returns (AaveV1ProviderInterface) {
+        return AaveV1ProviderInterface(0x24a42fD28C976A61Df5D00D0599C34c4f90748c8); //mainnet
+        // return AaveV1ProviderInterface(0x506B0B2CF20FAA8f38a4E2B524EE43e1f4458Cc5); //kovan
+    }
+
+    /**
+     * @dev get Aave Lending Pool Provider
+    */
+    function getAaveV2Provider() internal pure returns (AaveV2LendingPoolProviderInterface) {
+        return AaveV2LendingPoolProviderInterface(0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5); //mainnet
+        // return AaveV2LendingPoolProviderInterface(0x652B2937Efd0B5beA1c8d54293FC1289672AFC6b); //kovan
+    }
+
+    /**
+     * @dev get Aave Protocol Data Provider
+    */
+    function getAaveV2DataProvider() internal pure returns (AaveV2DataProviderInterface) {
+        return AaveV2DataProviderInterface(0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d); //mainnet
+        // return AaveV2DataProviderInterface(0x744C1aaA95232EeF8A9994C4E0b3a89659D9AB79); //kovan
+    }
+
+    /**
+     * @dev get Referral Code
+    */
+    function getReferralCode() internal pure returns (uint16) {
+        return 3228;
+    }
+
    /**
      * @dev enter compound market
      */
     function enterMarkets(address[] memory cErc20) internal {
         ComptrollerInterface(getComptrollerAddress()).enterMarkets(cErc20);
+    }
+
+    function getBorrowRateMode(AaveV1Interface aave, address token) internal view returns (uint rateMode) {
+        (, , , rateMode, , , , , , ) = aave.getUserReserveData(token, address(this));
+    }
+
+    function getWithdrawBalance(AaveV1Interface aave, address token) internal view returns (uint bal) {
+        (bal, , , , , , , , , ) = aave.getUserReserveData(token, address(this));
+    }
+
+    function getPaybackBalance(AaveV1Interface aave, address account, address token) internal view returns (uint bal, uint fee) {
+        (, bal, , , , , fee, , , ) = aave.getUserReserveData(token, account);
+    }
+
+    function getTotalBorrowBalance(AaveV1Interface aave, address account, address token) internal view returns (uint amt) {
+        (, uint bal, , , , , uint fee, , , ) = aave.getUserReserveData(token, account);
+        amt = add(bal, fee);
+    }
+
+    function getIsColl(AaveDataProviderInterface aaveData, address token) internal view returns (bool isCol) {
+        (, , , , , , , , isCol) = aaveData.getUserReserveData(token, address(this));
+    }
+
+    function getIsCollV2(AaveV2DataProviderInterface aaveData, address token) internal view returns (bool isCol) {
+        (, , , , , , , , isCol) = aaveData.getUserReserveData(token, address(this));
+    }
+
+    function convertEthToWeth(bool isEth, TokenInterface token, uint amount) internal {
+        if(isEth) token.deposit.value(amount)();
+    }
+
+    function convertWethToEth(bool isEth, TokenInterface token, uint amount) internal {
+       if(isEth) {
+            token.approve(address(token), amount);
+            token.withdraw(amount);
+        }
     }
 
     /**
@@ -216,6 +402,84 @@ contract CompoundHelpers is Helpers {
                 } else {
                     CETHInterface(cToken).repayBorrow.value(amts[i])();
                 }
+            }
+        }
+    }
+}
+
+contract AaveV1Helpers is CompoundHelpers {
+
+    function _aaveV1Borrow(
+        AaveV1Interface aave,
+        uint length,
+        address[] memory tokens,
+        uint[] memory amts,
+        uint[] memory rateModes
+    ) internal {
+        for (uint i = 0; i < length; i++) {
+            if (amts[i] > 0) {
+                aave.borrow(tokens[i], amts[i], rateModes[i], getReferralCode());
+            }
+        }
+    }
+
+    function _aaveV1Deposit(
+        AaveV1Interface aave,
+        uint length,
+        address[] memory tokens,
+        uint[] memory amts
+    ) internal {
+        for (uint i = 0; i < length; i++) {
+            if (amts[i] > 0) {
+                uint ethAmt;
+                bool isEth = tokens[i] == getEthAddr();
+                if (isEth) {
+                    ethAmt = amts[i];
+                } else {
+                    TokenInterface tokenContract = TokenInterface(tokens[i]);
+                    tokenContract.approve(address(aave), amts[i]);
+                }
+
+                aave.deposit.value(ethAmt)(tokens[i], amts[i], getReferralCode());
+
+                if (!getIsColl(aave, tokens[i]))
+                    aave.setUserUseReserveAsCollateral(token, true);
+            }
+        }
+    }
+
+    function _aaveV1Withdraw(
+        AaveV1CoreInterface aaveCore,
+        uint length,
+        address[] memory tokens,
+        uint[] memory amts
+    ) internal {
+        for (uint i = 0; i < length; i++) {
+            if (amts[i] > 0) {
+                ATokenV1Interface atoken = ATokenV1Interface(aaveCore.getReserveATokenAddress(tokens[i]));
+                atoken.redeem(amts[i]);
+            }
+        }
+    }
+
+    function _aaveV1Payback(
+        AaveV1Interface aave,
+        uint length,
+        address[] memory tokens,
+        uint[] memory amts
+    ) internal {
+        for (uint i = 0; i < length; i++) {
+            if (amts[i] > 0) {
+                uint ethAmt;
+                bool isEth = tokens[i] == getEthAddr();
+                if (isEth) {
+                    ethAmt = amts[i];
+                } else {
+                    TokenInterface tokenContract = TokenInterface(tokens[i]);
+                    tokenContract.approve(address(aave), amts[i]);
+                }
+
+                aave.repay.value(ethAmt)(tokens[i], amts[i], payable(address(this)));
             }
         }
     }
