@@ -296,6 +296,18 @@ contract Helpers is DSMath {
         amt = add(bal, fee);
     }
 
+    function getWithdrawBalanceV2(AaveDataProviderInterface aaveData, address token) internal view returns (uint bal) {
+        (bal, , , , , , , , ) = aaveData.getUserReserveData(token, address(this));
+    }
+
+    function getPaybackBalanceV2(AaveDataProviderInterface aaveData, address token, uint rateMode) internal view returns (uint bal) {
+        if (rateMode == 1) {
+            (, bal, , , , , , , ) = aaveData.getUserReserveData(token, address(this));
+        } else {
+            (, , bal, , , , , , ) = aaveData.getUserReserveData(token, address(this));
+        }
+    }
+
     function getIsColl(AaveDataProviderInterface aaveData, address token) internal view returns (bool isCol) {
         (, , , , , , , , isCol) = aaveData.getUserReserveData(token, address(this));
     }
@@ -490,6 +502,95 @@ contract AaveV1Helpers is CompoundHelpers {
                 }
 
                 aave.repay.value(ethAmt)(tokens[i], amts[i], payable(address(this)));
+            }
+        }
+    }
+}
+
+contract AaveV2Helpers is AaveV1Helpers {
+
+    function _aaveV2Borrow(
+        AaveV2Interface aave,
+        uint length,
+        address[] memory tokens,
+        uint[] memory amts,
+        uint[] memory rateModes
+    ) internal {
+        for (uint i = 0; i < length; i++) {
+            if (amts[i] > 0) {
+                bool isEth = tokens[i] == getEthAddr();
+                address _token = isEth ? getWethAddr() : tokens[i];
+
+                aave.borrow(_token, amts[i], rateModes[i], getReferralCode(), address(this));
+                convertWethToEth(isEth, TokenInterface(_token), amt);
+            }
+        }
+    }
+
+    function _aaveV2Deposit(
+        AaveV2Interface aave,
+        AaveV2DataProviderInterface aaveData,
+        uint length,
+        address[] memory tokens,
+        uint[] memory amts
+    ) internal {
+        for (uint i = 0; i < length; i++) {
+            if (amts[i] > 0) {
+                bool isEth = tokens[i] == getEthAddr();
+                address _token = isEth ? getWethAddr() : tokens[i];
+                TokenInterface tokenContract = TokenInterface(_token);
+
+                convertEthToWeth(isEth, tokenContract, amts[i]);
+
+                tokenContract.approve(address(aave), amts[i]);
+
+                if (!getIsCollV2(aaveData, _token)) {
+                    aave.setUserUseReserveAsCollateral(_token, true);
+                }
+            }
+        }
+    }
+
+    function _aaveV2Withdraw(
+        AaveV2Interface aave,
+        AaveV2DataProviderInterface aaveDataV2,
+        uint length,
+        address[] memory tokens,
+        uint[] memory amts
+    ) internal {
+        for (uint i = 0; i < length; i++) {
+            if (amts[i] > 0) {
+                bool isEth = tokens[i] == getEthAddr();
+                address _token = isEth ? getWethAddr() : tokens[i];
+                TokenInterface tokenContract = TokenInterface(_token);
+
+                aave.withdraw(_token, amts[i], address(this));
+
+                uint _amt = amts[i] == uint(-1) ? getWithdrawBalanceV2(aaveData, _token) : amts[i];
+
+                convertWethToEth(isEth, tokenContract, _amt);
+            }
+        }
+    }
+
+    function _aaveV2Payback(
+        AaveV2Interface aave,
+        AaveV2DataProviderInterface aaveData,
+        uint length,
+        address[] memory tokens,
+        uint[] memory amts
+    ) internal {
+        for (uint i = 0; i < length; i++) {
+            if (amts[i] > 0) {
+                bool isEth = tokens[i] == getEthAddr();
+                address _token = isEth ? getWethAddr() : tokens[i];
+                TokenInterface tokenContract = TokenInterface(_token);
+
+                uint _amt = amts[i] == uint(-1) ? getPaybackBalanceV2(aaveData, _token, rateMode[i]) : amts[i];
+
+                convertEthToWeth(isEth, tokenContract, amts[i]);
+
+                aave.repay(_token, _amt, rateMode[i], address(this));
             }
         }
     }
