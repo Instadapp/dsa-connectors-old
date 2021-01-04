@@ -13,6 +13,11 @@ contract DSMath {
         require((z = x + y) >= x, "math-not-safe");
     }
 
+    function sub(uint x, uint y) internal pure returns (uint z) {
+        require((z = x - y) <= x, "sub-overflow");
+    }
+
+
     function mul(uint x, uint y) internal pure returns (uint z) {
         require(y == 0 || (z = x * y) / y == x, "math-not-safe");
     }
@@ -49,7 +54,7 @@ contract Setup is DSMath {
      * @dev Connector ID and Type
      */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 67);
+        (_type, _id) = (1, 70);
     }
 
 }
@@ -65,7 +70,13 @@ contract FeeResolver is Setup {
      * @param setId Set total amount at this ID in `InstaMemory` Contract.
      * @param setIdFee Set only fee amount at this ID in `InstaMemory` Contract.
      */
-    function calculateFee(uint amount, uint fee, uint getId, uint setId, uint setIdFee) external payable {
+    function calculateFee(
+        uint amount,
+        uint fee,
+        uint getId,
+        uint setId,
+        uint setIdFee
+    ) external payable {
         uint _amt = getUint(getId, amount);
 
         uint feeAmt = wmul(_amt, fee);
@@ -75,9 +86,33 @@ contract FeeResolver is Setup {
         setUint(setId, totalAmt);
         setUint(setIdFee, feeAmt);
     }
+
+    /**
+     * @dev Calculate amount minus fee
+     * @param amount token amount to caculate fee.
+     * @param fee fee percentage. Eg: 1% => 1e17, 100% => 1e18.
+     * @param getId Get token amount at this ID from `InstaMemory` Contract.
+     * @param setIdAmtMinusFee Set amount minus fee amount at this ID in `InstaMemory` Contract.
+     * @param setIdFee Set only fee amount at this ID in `InstaMemory` Contract.
+     */
+    function calculateAmtMinusFee(
+        uint amount,
+        uint fee,
+        uint getId,
+        uint setIdAmtMinusFee,
+        uint setIdFee
+    ) external payable {
+        uint _amt = getUint(getId, amount);
+
+        uint feeAmt = wmul(_amt, fee);
+        uint amountMinusFee = sub(_amt, feeAmt);
+
+        setUint(setIdAmtMinusFee, amountMinusFee);
+        setUint(setIdFee, feeAmt);
+    }
 }
 
 
 contract ConnectFee is FeeResolver {
-    string public constant name = "Fee-v1";
+    string public constant name = "Fee-v1.1";
 }
