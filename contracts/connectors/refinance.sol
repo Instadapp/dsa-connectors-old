@@ -382,6 +382,10 @@ contract CompoundHelpers is Helpers {
             if (amts[i] > 0) {
                 address cToken = InstaMapping(getMappingAddr()).cTokenMapping(tokens[i]);
                 CTokenInterface cTokenContract = CTokenInterface(cToken);
+                uint _amt = amts[i];
+                if (_amt == uint(-1)) {
+                    _amt = cTokenContract.balanceOf(address(this));
+                }
                 require(cTokenContract.redeemUnderlying(amts[i]) == 0, "withdraw-failed");
             }
         }
@@ -395,12 +399,18 @@ contract CompoundHelpers is Helpers {
         for (uint i = 0; i < length; i++) {
             if (amts[i] > 0) {
                 address cToken = InstaMapping(getMappingAddr()).cTokenMapping(tokens[i]);
+                CTokenInterface cTokenContract = CTokenInterface(cToken);
+
+                uint _amt = amts[i];
+                if (_amt == uint(-1)) {
+                    _amt = cTokenContract.borrowBalanceCurrent(address(this));
+                }
                 if (tokens[i] != getEthAddr()) {
                     TokenInterface tokenContract = TokenInterface(tokens[i]);
-                    tokenContract.approve(cToken, amts[i]);
-                    require(cTokenContract.repayBorrow(amts[i]) == 0, "repay-failed.");
+                    tokenContract.approve(cToken, _amt);
+                    require(cTokenContract.repayBorrow(_amt) == 0, "repay-failed.");
                 } else {
-                    CETHInterface(cToken).repayBorrow.value(amts[i])();
+                    CETHInterface(cToken).repayBorrow.value(_amt)();
                 }
             }
         }
