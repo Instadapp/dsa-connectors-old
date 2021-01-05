@@ -436,6 +436,40 @@ contract Helpers is DSMath {
     }
 
     /**
+     * @dev Get Vault Debt Amount.
+    */
+    function _getVaultDebt(
+        address vat,
+        bytes32 ilk,
+        address urn
+    ) internal view returns (uint wad) {
+        (, uint rate,,,) = VatLike(vat).ilks(ilk);
+        (, uint art) = VatLike(vat).urns(ilk, urn);
+        uint dai = VatLike(vat).dai(urn);
+
+        uint rad = sub(mul(art, rate), dai);
+        wad = rad / RAY;
+
+        wad = mul(wad, RAY) < rad ? wad + 1 : wad;
+    }
+
+    /**
+     * @dev Get Payback Amount.
+    */
+    function _getWipeAmt(
+        address vat,
+        uint amt,
+        address urn,
+        bytes32 ilk
+    ) internal view returns (int dart)
+    {
+        (, uint rate,,,) = VatLike(vat).ilks(ilk);
+        (, uint art) = VatLike(vat).urns(ilk, urn);
+        dart = toInt(amt / rate);
+        dart = uint(dart) <= art ? - dart : - toInt(art);
+    }
+
+    /**
      * @dev Convert String to bytes32.
     */
     function stringToBytes32(string memory str) internal pure returns (bytes32 result) {
@@ -761,10 +795,10 @@ contract AaveV2Helpers is AaveV1Helpers {
 
 contract MakerHelpers is AaveV2Helpers {
 
-    function _makerOpen(string memory colType) internal returns (uint vault) {
+    function _makerOpen(string memory colType) internal {
         bytes32 ilk = stringToBytes32(colType);
         require(InstaMapping(getMappingAddr()).gemJoinMapping(ilk) != address(0), "wrong-col-type");
-        vault = ManagerLike(getMcdManager()).open(ilk, address(this));
+        ManagerLike(getMcdManager()).open(ilk, address(this));
     }
 
     function _makerBorrow(uint vault, uint amt) internal {
@@ -825,6 +859,75 @@ contract MakerHelpers is AaveV2Helpers {
             address(this),
             toInt(convertTo18(tokenJoinContract.dec(), amt)),
             0
+        );
+    }
+
+    function _makerWithdraw(uint vault, uint amt) internal {
+        ManagerLike managerContract = ManagerLike(getMcdManager());
+
+        uint _vault = getVault(managerContract, vault);
+        (bytes32 ilk, address urn) = getVaultData(managerContract, _vault);
+
+        address colAddr = InstaMapping(getMappingAddr()).gemJoinMapping(ilk);
+        TokenJoinInterface tokenJoinContract = TokenJoinInterface(colAddr);
+
+        uint _amt18;
+        if (amt == uint(-1)) {
+            (_amt18,) = VatLike(managerContract.vat()).urns(ilk, urn);
+            amt = convert18ToDec(tokenJoinContract.dec(), _amt18);
+        } else {
+            _amt18 = convertTo18(tokenJoinContract.dec(), amt);
+        }
+
+        managerContract.frob(
+            _vault,
+            -toInt(_amt18),
+            0
+        );
+
+        managerContract.flux(
+            _vault,
+            address(this),
+            _amt18
+        );
+
+        TokenInterface tokenContract = tokenJoinContract.gem();
+
+        if (address(tokenContract) == getWethAddr()) {
+            tokenJoinContract.exit(address(this), amt);
+            tokenContract.withdraw(amt);
+        } else {
+            tokenJoinContract.exit(address(this), amt);
+        }
+    }
+
+    function _makerPayback(uint vault, uint amt) internal {
+        ManagerLike managerContract = ManagerLike(getMcdManager());
+
+        uint _vault = getVault(managerContract, vault);
+        (bytes32 ilk, address urn) = getVaultData(managerContract, _vault);
+
+        address vat = managerContract.vat();
+
+        uint _maxDebt = _getVaultDebt(vat, ilk, urn);
+
+        uint _amt = amt == uint(-1) ? _maxDebt : amt;
+
+        require(_maxDebt >= _amt, "paying-excess-debt");
+
+        DaiJoinInterface daiJoinContract = DaiJoinInterface(getMcdDaiJoin());
+        daiJoinContract.dai().approve(getMcdDaiJoin(), _amt);
+        daiJoinContract.join(urn, _amt);
+
+        managerContract.frob(
+            _vault,
+            0,
+            _getWipeAmt(
+                vat,
+                VatLike(vat).dai(urn),
+                urn,
+                ilk
+            )
         );
     }
 }
