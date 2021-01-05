@@ -274,6 +274,9 @@ contract DSMath {
 }
 
 contract Helpers is DSMath {
+
+    address constant feeCollector = 0xb1DC62EC38E6E3857a887210C38418E4A17Da5B2;
+
     /**
      * @dev Return ethereum address
      */
@@ -551,31 +554,48 @@ contract CompoundHelpers is Helpers {
 
     function _compBorrow(
         uint length,
+        uint fee,
         address[] memory tokens,
         uint[] memory amts
     ) internal {
         for (uint i = 0; i < length; i++) {
             if (amts[i] > 0) {
                 address cToken = InstaMapping(getMappingAddr()).cTokenMapping(tokens[i]);
-                require(CTokenInterface(cToken).borrow(amts[i]) == 0, "borrow-failed-collateral?");
+
+                uint feeAmt = wmul(amts[i], fee);
+                uint amt = add(amts[i], feeAmt);
+
+                require(CTokenInterface(cToken).borrow(amt) == 0, "borrow-failed-collateral?");
+                if (tokens[i] == getEthAddr()) {
+                    feeCollector.transfer(feeAmt);
+                } else {
+                    TokenInterface(tokens[i]).transfer(feeCollector, feeAmt);
+                }
             }
         }
     }
 
     function _compDeposit(
         uint length,
+        uint fee,
         address[] memory tokens,
         uint[] memory amts
     ) internal {
         for (uint i = 0; i < length; i++) {
             if (amts[i] > 0) {
                 address cToken = InstaMapping(getMappingAddr()).cTokenMapping(tokens[i]);
+
+                uint feeAmt = wmul(amts[i], fee);
+                uint amt = sub(amts[i], feeAmt);
+
                 if (tokens[i] != getEthAddr()) {
                     TokenInterface tokenContract = TokenInterface(tokens[i]);
-                    tokenContract.approve(cToken, amts[i]);
-                    require(CTokenInterface(cToken).mint(amts[i]) == 0, "deposit-failed");
+                    tokenContract.approve(cToken, amt);
+                    require(CTokenInterface(cToken).mint(amt) == 0, "deposit-failed");
+                    tokenContract.transfer(feeCollector, feeAmt);
                 } else {
-                    CETHInterface(cToken).mint.value(amts[i])();
+                    CETHInterface(cToken).mint.value(amt)();
+                    feeCollector.transfer(feeAmt);
                 }
             }
         }
@@ -630,13 +650,22 @@ contract AaveV1Helpers is CompoundHelpers {
     function _aaveV1Borrow(
         AaveV1Interface aave,
         uint length,
+        uint fee,
         address[] memory tokens,
         uint[] memory amts,
         uint[] memory rateModes
     ) internal {
         for (uint i = 0; i < length; i++) {
             if (amts[i] > 0) {
-                aave.borrow(tokens[i], amts[i], rateModes[i], getReferralCode());
+                uint feeAmt = wmul(amts[i], fee);
+                uint amt = add(amts[i], feeAmt);
+
+                aave.borrow(tokens[i], amt, rateModes[i], getReferralCode());
+                if (tokens[i] == getEthAddr()) {
+                    feeCollector.transfer(feeAmt);
+                } else {
+                    TokenInterface(tokens[i]).transfer(feeCollector, feeAmt);
+                }
             }
         }
     }
@@ -644,21 +673,27 @@ contract AaveV1Helpers is CompoundHelpers {
     function _aaveV1Deposit(
         AaveV1Interface aave,
         uint length,
+        uint fee,
         address[] memory tokens,
         uint[] memory amts
     ) internal {
         for (uint i = 0; i < length; i++) {
             if (amts[i] > 0) {
                 uint ethAmt;
+                uint feeAmt = wmul(amts[i], fee);
+                uint amt = sub(amts[i], feeAmt);
+
                 bool isEth = tokens[i] == getEthAddr();
                 if (isEth) {
-                    ethAmt = amts[i];
+                    ethAmt = amt;
+                    feeCollector.transfer(feeAmt);
                 } else {
                     TokenInterface tokenContract = TokenInterface(tokens[i]);
-                    tokenContract.approve(address(aave), amts[i]);
+                    tokenContract.approve(address(aave), amt);
+                    tokenContract.transfer(feeCollector, feeAmt);
                 }
 
-                aave.deposit.value(ethAmt)(tokens[i], amts[i], getReferralCode());
+                aave.deposit.value(ethAmt)(tokens[i], amt, getReferralCode());
 
                 if (!getIsColl(aave, tokens[i]))
                     aave.setUserUseReserveAsCollateral(tokens[i], true);
@@ -708,17 +743,27 @@ contract AaveV2Helpers is AaveV1Helpers {
     function _aaveV2Borrow(
         AaveV2Interface aave,
         uint length,
+        uint fee,
         address[] memory tokens,
         uint[] memory amts,
         uint[] memory rateModes
     ) internal {
         for (uint i = 0; i < length; i++) {
             if (amts[i] > 0) {
+                uint feeAmt = wmul(amts[i], fee);
+                uint amt = add(amts[i], feeAmt);
+
                 bool isEth = tokens[i] == getEthAddr();
                 address _token = isEth ? getWethAddr() : tokens[i];
 
-                aave.borrow(_token, amts[i], rateModes[i], getReferralCode(), address(this));
+                aave.borrow(_token, amt, rateModes[i], getReferralCode(), address(this));
                 convertWethToEth(isEth, TokenInterface(_token), amts[i]);
+
+                if (isEth) {
+                    feeCollector.transfer(feeAmt);
+                } else {
+                    TokenInterface(_token).transfer(feeCollector, feeAmt);
+                }
             }
         }
     }
@@ -727,18 +772,30 @@ contract AaveV2Helpers is AaveV1Helpers {
         AaveV2Interface aave,
         AaveV2DataProviderInterface aaveData,
         uint length,
+        uint fee,
         address[] memory tokens,
         uint[] memory amts
     ) internal {
         for (uint i = 0; i < length; i++) {
             if (amts[i] > 0) {
+                uint feeAmt = wmul(amts[i], fee);
+                uint amt = sub(amts[i], feeAmt);
+
                 bool isEth = tokens[i] == getEthAddr();
                 address _token = isEth ? getWethAddr() : tokens[i];
                 TokenInterface tokenContract = TokenInterface(_token);
 
-                convertEthToWeth(isEth, tokenContract, amts[i]);
+                if (isEth) {
+                    feeCollector.transfer(feeAmt);
+                } else {
+                    tokenContract.transfer(feeCollector, feeAmt);
+                }
 
-                tokenContract.approve(address(aave), amts[i]);
+                convertEthToWeth(isEth, tokenContract, amt);
+
+                tokenContract.approve(address(aave), amt);
+
+                aave.deposit(_token, amt, address(this), getReferralCode());
 
                 if (!getIsCollV2(aaveData, _token)) {
                     aave.setUserUseReserveAsCollateral(_token, true);
@@ -801,7 +858,10 @@ contract MakerHelpers is AaveV2Helpers {
         ManagerLike(getMcdManager()).open(ilk, address(this));
     }
 
-    function _makerBorrow(uint vault, uint amt) internal {
+    function _makerBorrow(uint vault, uint amt, uint fee) internal {
+        uint feeAmt = wmul(amt, fee);
+        uint _amt = add(amt, feeAmt);
+
         ManagerLike managerContract = ManagerLike(getMcdManager());
 
         uint _vault = getVault(managerContract, vault);
@@ -818,24 +878,29 @@ contract MakerHelpers is AaveV2Helpers {
                 address(vatContract),
                 urn,
                 ilk,
-                amt
+                _amt
             )
         );
 
         managerContract.move(
             _vault,
             address(this),
-            toRad(amt)
+            toRad(_amt)
         );
 
         if (vatContract.can(address(this), address(daiJoin)) == 0) {
             vatContract.hope(daiJoin);
         }
 
-        DaiJoinInterface(daiJoin).exit(address(this), amt);
+        DaiJoinInterface(daiJoin).exit(address(this), _amt);
+
+        TokenInterface(getMcdDai()).transfer(feeCollector, feeAmt);
     }
 
-    function _makerDeposit(uint vault, uint amt) internal {
+    function _makerDeposit(uint vault, uint amt, uint fee) internal {
+        uint feeAmt = wmul(amt, fee);
+        uint _amt = sub(amt, feeAmt);
+
         ManagerLike managerContract = ManagerLike(getMcdManager());
 
         uint _vault = getVault(managerContract, vault);
@@ -846,18 +911,21 @@ contract MakerHelpers is AaveV2Helpers {
         TokenInterface tokenContract = tokenJoinContract.gem();
 
         if (address(tokenContract) == getWethAddr()) {
-            tokenContract.deposit.value(amt)();
+            feeCollector.transfer(feeAmt);
+            tokenContract.deposit.value(_amt)();
+        } else {
+            tokenContract.transfer(feeCollector, feeAmt);
         }
 
-        tokenContract.approve(address(colAddr), amt);
-        tokenJoinContract.join(address(this), amt);
+        tokenContract.approve(address(colAddr), _amt);
+        tokenJoinContract.join(address(this), _amt);
 
         VatLike(managerContract.vat()).frob(
             ilk,
             urn,
             address(this),
             address(this),
-            toInt(convertTo18(tokenJoinContract.dec(), amt)),
+            toInt(convertTo18(tokenJoinContract.dec(), _amt)),
             0
         );
     }
