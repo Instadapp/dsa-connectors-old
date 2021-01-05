@@ -46,6 +46,7 @@ interface CETHInterface {
 
 interface InstaMapping {
     function cTokenMapping(address) external view returns (address);
+    function gemJoinMapping(bytes32) external view returns (address);
 }
 
 interface ComptrollerInterface {
@@ -175,17 +176,75 @@ interface ATokenV2Interface {
 }
 // End Aave v2 Helpers
 
+// MakerDAO Helpers
+interface ManagerLike {
+    function cdpCan(address, uint, address) external view returns (uint);
+    function ilks(uint) external view returns (bytes32);
+    function last(address) external view returns (uint);
+    function count(address) external view returns (uint);
+    function owns(uint) external view returns (address);
+    function urns(uint) external view returns (address);
+    function vat() external view returns (address);
+    function open(bytes32, address) external returns (uint);
+    function give(uint, address) external;
+    function frob(uint, int, int) external;
+    function flux(uint, address, uint) external;
+    function move(uint, address, uint) external;
+}
+
+interface VatLike {
+    function can(address, address) external view returns (uint);
+    function ilks(bytes32) external view returns (uint, uint, uint, uint, uint);
+    function dai(address) external view returns (uint);
+    function urns(bytes32, address) external view returns (uint, uint);
+    function frob(
+        bytes32,
+        address,
+        address,
+        address,
+        int,
+        int
+    ) external;
+    function hope(address) external;
+    function move(address, address, uint) external;
+    function gem(bytes32, address) external view returns (uint);
+}
+
+interface TokenJoinInterface {
+    function dec() external returns (uint);
+    function gem() external returns (TokenInterface);
+    function join(address, uint) external payable;
+    function exit(address, uint) external;
+}
+
+interface DaiJoinInterface {
+    function vat() external returns (VatLike);
+    function dai() external returns (TokenInterface);
+    function join(address, uint) external payable;
+    function exit(address, uint) external;
+}
+
+interface JugLike {
+    function drip(bytes32) external returns (uint);
+}
+// End MakerDAO Helpers
+
 contract DSMath {
+
+    uint constant WAD = 10 ** 18;
+    uint constant RAY = 10 ** 27;
 
     function add(uint x, uint y) internal pure returns (uint z) {
         require((z = x + y) >= x, "math-not-safe");
     }
 
+    function sub(uint x, uint y) internal pure returns (uint z) {
+        require((z = x - y) <= x, "sub-overflow");
+    }
+
     function mul(uint x, uint y) internal pure returns (uint z) {
         require(y == 0 || (z = x * y) / y == x, "math-not-safe");
     }
-
-    uint constant WAD = 10 ** 18;
 
     function wmul(uint x, uint y) internal pure returns (uint z) {
         z = add(mul(x, y), WAD / 2) / WAD;
@@ -193,6 +252,23 @@ contract DSMath {
 
     function wdiv(uint x, uint y) internal pure returns (uint z) {
         z = add(mul(x, WAD), y / 2) / y;
+    }
+
+    function toRad(uint wad) internal pure returns (uint rad) {
+        rad = mul(wad, 10 ** 27);
+    }
+
+    function toInt(uint x) internal pure returns (int y) {
+        y = int(x);
+        require(y >= 0, "int-overflow");
+    }
+
+    function convertTo18(uint _dec, uint256 _amt) internal pure returns (uint256 amt) {
+        amt = mul(_amt, 10 ** (18 - _dec));
+    }
+
+    function convert18ToDec(uint _dec, uint256 _amt) internal pure returns (uint256 amt) {
+        amt = (_amt / 10 ** (18 - _dec));
     }
 
 }
@@ -239,6 +315,41 @@ contract Helpers is DSMath {
      */
     function getComptrollerAddress() internal pure returns (address) {
         return 0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B;
+    }
+
+    /**
+     * @dev Return Maker MCD DAI_Join Address.
+    */
+    function getMcdDaiJoin() internal pure returns (address) {
+        return 0x9759A6Ac90977b93B58547b4A71c78317f391A28;
+    }
+
+    /**
+     * @dev Return Maker MCD Manager Address.
+    */
+    function getMcdManager() internal pure returns (address) {
+        return 0x5ef30b9986345249bc32d8928B7ee64DE9435E39;
+    }
+
+    /**
+     * @dev Return Maker MCD DAI Address.
+    */
+    function getMcdDai() internal pure returns (address) {
+        return 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    }
+
+    /**
+     * @dev Return Maker MCD Jug Address.
+    */
+    function getMcdJug() internal pure returns (address) {
+        return 0x19c0976f590D67707E62397C87829d896Dc0f1F1;
+    }
+
+    /**
+     * @dev Return Maker MCD Pot Address.
+    */
+    function getMcdPot() internal pure returns (address) {
+        return 0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7;
     }
 
     /**
@@ -314,6 +425,56 @@ contract Helpers is DSMath {
 
     function getIsCollV2(AaveV2DataProviderInterface aaveData, address token) internal view returns (bool isCol) {
         (, , , , , , , , isCol) = aaveData.getUserReserveData(token, address(this));
+    }
+
+    /**
+     * @dev Get Vault's ilk.
+    */
+    function getVaultData(ManagerLike managerContract, uint vault) internal view returns (bytes32 ilk, address urn) {
+        ilk = managerContract.ilks(vault);
+        urn = managerContract.urns(vault);
+    }
+
+    /**
+     * @dev Convert String to bytes32.
+    */
+    function stringToBytes32(string memory str) internal pure returns (bytes32 result) {
+        require(bytes(str).length != 0, "string-empty");
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+            result := mload(add(str, 32))
+        }
+    }
+
+    /**
+     * @dev Get vault ID. If `vault` is 0, get last opened vault.
+    */
+    function getVault(ManagerLike managerContract, uint vault) internal view returns (uint _vault) {
+        if (vault == 0) {
+            require(managerContract.count(address(this)) > 0, "no-vault-opened");
+            _vault = managerContract.last(address(this));
+        } else {
+            _vault = vault;
+        }
+    }
+
+    /**
+     * @dev Get Borrow Amount [MakerDAO]
+    */
+    function _getBorrowAmt(
+        address vat,
+        address urn,
+        bytes32 ilk,
+        uint amt
+    ) internal returns (int dart)
+    {
+        address jug = getMcdJug();
+        uint rate = JugLike(jug).drip(ilk);
+        uint dai = VatLike(vat).dai(urn);
+        if (dai < mul(amt, RAY)) {
+            dart = toInt(sub(mul(amt, RAY), dai) / rate);
+            dart = mul(uint(dart), rate) < mul(amt, RAY) ? dart + 1 : dart;
+        }
     }
 
     function convertEthToWeth(bool isEth, TokenInterface token, uint amount) internal {
@@ -595,5 +756,75 @@ contract AaveV2Helpers is AaveV1Helpers {
                 aave.repay(_token, _amt, rateModes[i], address(this));
             }
         }
+    }
+}
+
+contract MakerHelpers is AaveV2Helpers {
+
+    function _makerOpen(string memory colType) internal returns (uint vault) {
+        bytes32 ilk = stringToBytes32(colType);
+        require(InstaMapping(getMappingAddr()).gemJoinMapping(ilk) != address(0), "wrong-col-type");
+        vault = ManagerLike(getMcdManager()).open(ilk, address(this));
+    }
+
+    function _makerBorrow(uint vault, uint amt) internal {
+        ManagerLike managerContract = ManagerLike(getMcdManager());
+
+        uint _vault = getVault(managerContract, vault);
+        (bytes32 ilk, address urn) = getVaultData(managerContract, _vault);
+
+        address daiJoin = getMcdDaiJoin();
+
+        VatLike vatContract = VatLike(managerContract.vat());
+
+        managerContract.frob(
+            _vault,
+            0,
+            _getBorrowAmt(
+                address(vatContract),
+                urn,
+                ilk,
+                amt
+            )
+        );
+
+        managerContract.move(
+            _vault,
+            address(this),
+            toRad(amt)
+        );
+
+        if (vatContract.can(address(this), address(daiJoin)) == 0) {
+            vatContract.hope(daiJoin);
+        }
+
+        DaiJoinInterface(daiJoin).exit(address(this), amt);
+    }
+
+    function _makerDeposit(uint vault, uint amt) internal {
+        ManagerLike managerContract = ManagerLike(getMcdManager());
+
+        uint _vault = getVault(managerContract, vault);
+        (bytes32 ilk, address urn) = getVaultData(managerContract, _vault);
+
+        address colAddr = InstaMapping(getMappingAddr()).gemJoinMapping(ilk);
+        TokenJoinInterface tokenJoinContract = TokenJoinInterface(colAddr);
+        TokenInterface tokenContract = tokenJoinContract.gem();
+
+        if (address(tokenContract) == getWethAddr()) {
+            tokenContract.deposit.value(amt)();
+        }
+
+        tokenContract.approve(address(colAddr), amt);
+        tokenJoinContract.join(address(this), amt);
+
+        VatLike(managerContract.vat()).frob(
+            ilk,
+            urn,
+            address(this),
+            address(this),
+            toInt(convertTo18(tokenJoinContract.dec(), amt)),
+            0
+        );
     }
 }
