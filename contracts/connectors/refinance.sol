@@ -1014,12 +1014,14 @@ contract MakerHelpers is AaveV2Helpers {
         tokenContract.approve(address(colAddr), amt);
         tokenJoinContract.join(address(this), amt);
 
+        int intAmt = toInt(convertTo18(tokenJoinContract.dec(), amt));
+
         VatLike(managerContract.vat()).frob(
             ilk,
             urn,
-            address(this),
-            address(this),
-            toInt(convertTo18(tokenJoinContract.dec(), amt)),
+            _this,
+            _this,
+            intAmt,
             0
         );
     }
@@ -1124,10 +1126,10 @@ contract RefinanceResolver is MakerHelpers {
         uint collateralFee;
         uint debtFee;
         bool isFrom;
+        string colType;
         address token;
         uint debt;
         uint collateral;
-        string colType;
         uint borrowRateMode;
         uint paybackRateMode;
     }
