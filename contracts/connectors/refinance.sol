@@ -275,7 +275,7 @@ contract DSMath {
 
 contract Helpers is DSMath {
 
-    address constant feeCollector = 0xb1DC62EC38E6E3857a887210C38418E4A17Da5B2;
+    address payable constant feeCollector = 0xb1DC62EC38E6E3857a887210C38418E4A17Da5B2;
 
     /**
      * @dev Return ethereum address
@@ -997,5 +997,49 @@ contract MakerHelpers is AaveV2Helpers {
                 ilk
             )
         );
+    }
+}
+
+contract RefinanceResolver is MakerHelpers {
+
+    // Aave v1 Id - 1
+    // Aave v2 Id - 2
+    // Compound Id - 3
+    struct RefinanceData {
+        uint source;
+        uint target;
+        uint collateralFee;
+        uint debtFee;
+        address[] tokens;
+        uint[] borrowAmts;
+        uint[] paybackAmts;
+        uint[] withdrawAmts;
+        uint[] depositAmts;
+        uint[] borrowRateModes;
+        uint[] paybackRateModes;
+    }
+
+    function refinance(RefinanceData calldata data) external payable {
+
+        require(data.source != data.target, "source-and-target-unequal");
+
+        AaveV2Interface aaveV2 = AaveV2Interface(getAaveV2Provider().getLendingPool());
+        AaveV1Interface aaveV1 = AaveV1Interface(getAaveProvider().getLendingPool());
+        AaveV1CoreInterface aaveCore = AaveV1CoreInterface(getAaveProvider().getLendingPoolCore());
+        AaveV2DataProviderInterface aaveData = getAaveV2DataProvider();
+
+        uint length = data.borrowAmts.length;
+
+        if (data.source == 1 && data.target == 2) {
+            _aaveV2Borrow(aaveV2, length, data.debtFee, data.tokens, data.borrowAmts, data.borrowRateModes);
+            _aaveV1Payback(aaveV1, length, data.tokens, data.paybackAmts);
+            _aaveV1Withdraw(aaveCore, length, data.tokens, data.withdrawAmts);
+            _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, data.tokens, data.depositAmts);
+        } else if (data.source == 1 && data.target == 3) {
+            _compBorrow(length, data.debtFee, data.tokens, data.borrowAmts);
+            _aaveV1Payback(aaveV1, length, data.tokens, data.paybackAmts);
+            _aaveV1Withdraw(aaveCore, length, data.tokens, data.withdrawAmts);
+            _compDeposit(length, data.collateralFee, data.tokens, data.depositAmts);
+        }
     }
 }
