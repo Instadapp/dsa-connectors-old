@@ -1023,12 +1023,19 @@ contract RefinanceResolver is MakerHelpers {
 
         require(data.source != data.target, "source-and-target-unequal");
 
+        uint length = data.tokens.length;
+
+        require(data.borrowAmts.length == length, "length-mismatch");
+        require(data.paybackAmts.length == length, "length-mismatch");
+        require(data.withdrawAmts.length == length, "length-mismatch");
+        require(data.depositAmts.length == length, "length-mismatch");
+        require(data.borrowRateModes.length == length, "length-mismatch");
+        require(data.paybackRateModes.length == length, "length-mismatch");
+
         AaveV2Interface aaveV2 = AaveV2Interface(getAaveV2Provider().getLendingPool());
         AaveV1Interface aaveV1 = AaveV1Interface(getAaveProvider().getLendingPool());
         AaveV1CoreInterface aaveCore = AaveV1CoreInterface(getAaveProvider().getLendingPoolCore());
         AaveV2DataProviderInterface aaveData = getAaveV2DataProvider();
-
-        uint length = data.borrowAmts.length;
 
         if (data.source == 1 && data.target == 2) {
             _aaveV2Borrow(aaveV2, length, data.debtFee, data.tokens, data.borrowAmts, data.borrowRateModes);
@@ -1040,6 +1047,28 @@ contract RefinanceResolver is MakerHelpers {
             _aaveV1Payback(aaveV1, length, data.tokens, data.paybackAmts);
             _aaveV1Withdraw(aaveCore, length, data.tokens, data.withdrawAmts);
             _compDeposit(length, data.collateralFee, data.tokens, data.depositAmts);
+        } else if (data.source == 2 && data.target == 1) {
+            _aaveV1Borrow(aaveV1, length, data.debtFee, data.tokens, data.borrowAmts, data.borrowRateModes);
+            _aaveV2Payback(aaveV2, aaveData, length, data.tokens, data.paybackAmts, data.paybackRateModes);
+            _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
+            _aaveV1Deposit(aaveV1, length, data.collateralFee, data.tokens, data.depositAmts);
+        } else if (data.source == 2 && data.target == 3) {
+            _compBorrow(length, data.debtFee, data.tokens, data.borrowAmts);
+            _aaveV2Payback(aaveV2, aaveData, length, data.tokens, data.paybackAmts, data.paybackRateModes);
+            _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
+            _compDeposit(length, data.collateralFee, data.tokens, data.depositAmts);
+        } else if (data.source == 3 && data.target == 1) {
+            _aaveV1Borrow(aaveV1, length, data.debtFee, data.tokens, data.borrowAmts, data.borrowRateModes);
+            _compPayback(length, data.tokens, data.paybackAmts);
+            _compWithdraw(length, data.tokens, data.withdrawAmts);
+            _aaveV1Deposit(aaveV1, length, data.collateralFee, data.tokens, data.depositAmts);
+        } else if (data.source == 3 && data.target == 2) {
+            _aaveV2Borrow(aaveV2, length, data.debtFee, data.tokens, data.borrowAmts, data.borrowRateModes);
+            _compPayback(length, data.tokens, data.paybackAmts);
+            _compWithdraw(length, data.tokens, data.withdrawAmts);
+            _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, data.tokens, data.depositAmts);
+        } else {
+            revert("invalid-options");
         }
     }
 }
