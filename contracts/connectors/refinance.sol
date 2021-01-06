@@ -1019,6 +1019,25 @@ contract RefinanceResolver is MakerHelpers {
         uint[] paybackRateModes;
     }
 
+    // Aave v1 Id - 1
+    // Aave v2 Id - 2
+    // Compound Id - 3
+    struct RefinanceMakerData {
+        uint fromVaultId;
+        uint toVaultId;
+        uint source;
+        uint target;
+        uint collateralFee;
+        uint debtFee;
+        bool isFrom;
+        address token;
+        uint debt;
+        uint collateral;
+        string colType;
+        uint borrowRateMode;
+        uint paybackRateMode;
+    }
+
     function refinance(RefinanceData calldata data) external payable {
 
         require(data.source != data.target, "source-and-target-unequal");
@@ -1069,6 +1088,61 @@ contract RefinanceResolver is MakerHelpers {
             _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, data.tokens, data.depositAmts);
         } else {
             revert("invalid-options");
+        }
+    }
+
+    function refinanceMaker(RefinanceMakerData calldata data) external payable {
+
+        AaveV2Interface aaveV2 = AaveV2Interface(getAaveV2Provider().getLendingPool());
+        AaveV1Interface aaveV1 = AaveV1Interface(getAaveProvider().getLendingPool());
+        AaveV1CoreInterface aaveCore = AaveV1CoreInterface(getAaveProvider().getLendingPoolCore());
+        AaveV2DataProviderInterface aaveData = getAaveV2DataProvider();
+
+        address[1] memory daiArray = [getMcdDai()];
+        address[1] memory tokens = [data.token];
+        uint[1] memory debtAmts = [data.debt];
+        uint[1] memory collateralAmts = [data.collateral];
+
+        if (data.isFrom) {
+            _makerPayback(data.fromVaultId, data.debt);
+            _makerWithdraw(data.fromVaultId, data.collateral);
+
+            uint[1] memory borrowRateModes = [data.borrowRateMode];
+
+            if (data.target == 1) {
+                _aaveV1Deposit(aaveV1, 1, data.collateralFee, tokens, collateralAmts);
+                _aaveV1Borrow(aaveV1, 1, data.debtFee, daiArray, debtAmts, borrowRateModes);
+            } else if (data.target == 2) {
+                _aaveV2Deposit(aaveV2, aaveData, 1, data.collateralFee, tokens, collateralAmts);
+                _aaveV2Borrow(aaveV2, 1, data.debtFee, daiArray, debtAmts, borrowRateModes);
+            } else if (data.target == 3) {
+                _compDeposit(1, data.collateralFee, tokens, collateralAmts);
+                _compBorrow(1, data.debtFee, daiArray, debtAmts);
+            } else {
+                revert("invalid-option");
+            }
+        } else {
+            if (data.toVaultId == 0) {
+                _makerOpen(data.colType);
+            }
+
+            uint[1] memory paybackRateModes = [data.paybackRateMode];
+
+            if (data.source == 1) {
+                _aaveV1Payback(aaveV1, 1, daiArray, debtAmts);
+                _aaveV1Withdraw(aaveCore, 1, tokens, collateralAmts);
+            } else if (data.source == 2) {
+                _aaveV2Payback(aaveV2, aaveData, 1, daiArray, debtAmts, paybackRateModes);
+                _aaveV2Withdraw(aaveV2, aaveData, 1, tokens, collateralAmts);
+            } else if (data.source == 3) {
+                _compPayback(1, daiArray, debtAmts);
+                _compWithdraw(1, tokens, collateralAmts);
+            } else {
+                revert("invalid-option");
+            }
+
+            _makerDeposit(data.toVaultId, data.collateral, data.collateralFee);
+            _makerBorrow(data.toVaultId, data.debt, data.debtFee);
         }
     }
 }
