@@ -5,6 +5,10 @@ import { TokenInterface , MemoryInterface, EventInterface} from "../common/inter
 import { Stores } from "../common/stores.sol";
 import { DSMath } from "../common/math.sol";
 
+import '@uniswap/lib/contracts/libraries/Babylonian.sol';
+import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+
+
 interface IUniswapV2Router02 {
     function factory() external pure returns (address);
     function WETH() external pure returns (address);
@@ -61,12 +65,30 @@ interface IUniswapV2Factory {
   function createPair(address tokenA, address tokenB) external returns (address pair);
 }
 
+interface IUniswapV2Pair {
+  function balanceOf(address owner) external view returns (uint);
+
+  function approve(address spender, uint value) external returns (bool);
+  function transfer(address to, uint value) external returns (bool);
+  function transferFrom(address from, address to, uint value) external returns (bool);
+
+  function factory() external view returns (address);
+  function token0() external view returns (address);
+  function token1() external view returns (address);
+  function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+  function price0CumulativeLast() external view returns (uint);
+  function price1CumulativeLast() external view returns (uint);
+}
+
 contract UniswapHelpers is Stores, DSMath {
+    using SafeMath for uint256;
+
     /**
      * @dev Return WETH address
      */
     function getAddressWETH() internal pure returns (address) {
-        return 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+        return 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // mainnet
+        // return 0xd0A1E359811322d97991E03f863a0C30C2cF029C; // kovan
     }
 
     /**
@@ -144,19 +166,6 @@ contract UniswapHelpers is Stores, DSMath {
         paths[0] = address(sellAddr);
         paths[1] = address(buyAddr);
     }
-}
-
-contract LiquidityHelpers is UniswapHelpers {
-
-    function getMinAmount(
-        TokenInterface token,
-        uint amt,
-        uint slippage
-    ) internal view returns(uint minAmt) {
-        uint _amt18 = convertTo18(token.decimals(), amt);
-        minAmt = wmul(_amt18, sub(WAD, slippage));
-        minAmt = convert18ToDec(token.decimals(), minAmt);
-    }
 
     function changeEthToWeth(
         address[] memory tokens
@@ -166,36 +175,140 @@ contract LiquidityHelpers is UniswapHelpers {
         _tokens[1] = tokens[1] == getEthAddr() ? TokenInterface(getAddressWETH()) : TokenInterface(tokens[1]);
     }
 
+    function calculateSwapInAmount(uint256 reserveIn, uint256 userIn)
+        internal
+        pure
+        returns (uint256)
+    {
+         return
+            Babylonian
+                .sqrt(
+                    reserveIn.mul(
+                        userIn.mul(3988000).add(reserveIn.mul(3988009))
+                    )
+                ).sub(reserveIn.mul(1997)) / 1994;
+    }
+}
+
+contract LiquidityHelpers is UniswapHelpers {
     function _addLiquidity(
         address tokenA,
         address tokenB,
-        uint _amt,
-        uint unitAmt,
+        uint amountADesired,
+        uint amountBDesired,
         uint slippage
     ) internal returns (uint _amtA, uint _amtB, uint _liquidity) {
         IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
         (TokenInterface _tokenA, TokenInterface _tokenB) = changeEthAddress(tokenA, tokenB);
 
-        _amtA = _amt == uint(-1) ? getTokenBalace(tokenA) : _amt;
-        _amtB = convert18ToDec(_tokenB.decimals(), wmul(unitAmt, convertTo18(_tokenA.decimals(), _amtA)));
+        convertEthToWeth(_tokenA, amountADesired);
+        convertEthToWeth(_tokenB, amountBDesired);
+        _tokenA.approve(address(router), 0);
+        _tokenA.approve(address(router), amountADesired);
 
-        convertEthToWeth(_tokenA, _amtA);
-        convertEthToWeth(_tokenB, _amtB);
-        _tokenA.approve(address(router), _amtA);
-        _tokenB.approve(address(router), _amtB);
+        _tokenB.approve(address(router), 0);
+        _tokenB.approve(address(router), amountBDesired);
 
-       uint minAmtA = getMinAmount(_tokenA, _amtA, slippage);
-        uint minAmtB = getMinAmount(_tokenB, _amtB, slippage);
+        uint minAmtA = wmul(sub(WAD, slippage), amountADesired);
+        uint minAmtB = wmul(sub(WAD, slippage), amountBDesired);
+
        (_amtA, _amtB, _liquidity) = router.addLiquidity(
             address(_tokenA),
             address(_tokenB),
-            _amtA,
-            _amtB,
+            amountADesired,
+            amountBDesired,
             minAmtA,
             minAmtB,
             address(this),
             now + 1
         );
+
+        if (_amtA < amountADesired) {
+            convertWethToEth(_tokenA, _tokenA.balanceOf(address(this)));
+        }
+
+        if (_amtB < amountBDesired) {
+            convertWethToEth(_tokenB, _tokenB.balanceOf(address(this)));
+        }
+    }
+
+    function _addSingleLiquidity(
+        address tokenA,
+        address tokenB,
+        uint amountA,
+        uint minUniAmount
+    ) internal returns (uint _amtA, uint _amtB, uint _liquidity) {
+        IUniswapV2Router02 router = IUniswapV2Router02(getUniswapAddr());
+        (TokenInterface _tokenA, TokenInterface _tokenB) = changeEthAddress(tokenA, tokenB);
+        
+        uint256 _amountA = amountA;
+        
+        if (amountA == uint(-1)) {
+            _amountA = tokenA == getEthAddr() ? address(this).balance : _tokenA.balanceOf(address(this));
+        }
+
+        convertEthToWeth(_tokenA, _amountA);
+
+
+        uint256 _amountB; 
+        
+        (_amountA, _amountB)= _swapSingleToken(router, _tokenA, _tokenB, _amountA);
+
+        _tokenA.approve(address(router), 0);
+        _tokenA.approve(address(router), _amountA);
+
+        _tokenB.approve(address(router), 0);
+        _tokenB.approve(address(router), _amountB);
+
+       (_amtA, _amtB, _liquidity) = router.addLiquidity(
+            address(_tokenA),
+            address(_tokenB),
+            _amountA,
+            _amountB,
+            1, // TODO @thrilok209: check this
+            1, // TODO @thrilok209: check this
+            address(this),
+            now + 1
+        );
+
+        require(_liquidity >= minUniAmount, "too much slippage");
+
+        if (_amountA > _amtA) {
+            convertWethToEth(_tokenA, _tokenA.balanceOf(address(this)));
+        }
+
+        if (_amountB > _amtB) {
+            convertWethToEth(_tokenB, _tokenB.balanceOf(address(this)));
+        }
+    }
+
+    function _swapSingleToken(
+        IUniswapV2Router02 router,
+        TokenInterface tokenA,
+        TokenInterface tokenB,
+        uint _amountA
+    ) internal returns(uint256 amountA, uint256 amountB){
+        IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
+        IUniswapV2Pair lpToken = IUniswapV2Pair(factory.getPair(address(tokenA), address(tokenB)));
+        require(address(lpToken) != address(0), "No-exchange-address");
+        
+        (uint256 reserveA, uint256 reserveB, ) = lpToken.getReserves();
+        uint256 reserveIn = lpToken.token0() == address(tokenA) ? reserveA : reserveB;
+        uint256 swapAmtA = calculateSwapInAmount(reserveIn, _amountA);
+
+        address[] memory paths = getPaths(address(tokenB), address(tokenA));
+
+        tokenA.approve(address(router), swapAmtA);
+
+        amountB = router.swapExactTokensForTokens(
+            swapAmtA,
+            1, // TODO @thrilok209: check this
+            paths,
+            address(this),
+            now + 1
+        )[1];
+
+        amountA = sub(_amountA, swapAmtA);
     }
 
     function _removeLiquidity(
@@ -253,7 +366,8 @@ contract UniswapLiquidity is LiquidityHelpers {
         uint amtA,
         uint amtB,
         uint uniAmount,
-        uint getId,
+        uint getIdA,
+        uint getIdB,
         uint setId
     );
 
@@ -267,15 +381,81 @@ contract UniswapLiquidity is LiquidityHelpers {
         uint[] setId
     );
 
-    function emitDeposit(
+
+    /**
+     * @dev Deposit Liquidity.
+     * @param tokenA tokenA address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param tokenB tokenB address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param amountADesired tokenA amount.
+     * @param amountBDesired tokenB amount.
+     * @param slippage slippage for tokenA & tokenB.(For 1%: 1e16, 10%: 1e17)
+     * @param getIdA Get tokenA amount at this ID from `InstaMemory` Contract.
+     * @param getIdB Get tokenB amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
+    function deposit(
         address tokenA,
         address tokenB,
-        uint _amtA,
-        uint _amtB,
-        uint _uniAmt,
+        uint amountADesired,
+        uint amountBDesired,
+        uint slippage,
+        uint getIdA,
+        uint getIdB,
+        uint setId
+    ) external payable {
+        uint _amtADesired = getUint(getIdA, amountADesired);
+        uint _amtBDesired = getUint(getIdB, amountBDesired);
+
+        (uint _amtA, uint _amtB, uint _uniAmt) = _addLiquidity(
+                                            tokenA,
+                                            tokenB,
+                                            _amtADesired,
+                                            _amtBDesired,
+                                            slippage
+                                        );
+        setUint(setId, _uniAmt);
+
+        emit LogDepositLiquidity(
+            tokenA,
+            tokenB,
+            _amtA,
+            _amtB,
+            _uniAmt,
+            getIdA,
+            getIdB,
+            setId
+        );
+
+    }
+
+
+     /**
+     * @dev Deposit Liquidity using Single token.
+     * @param tokenA tokenA address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param tokenB tokenB address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param amountA tokenA amount.
+     * @param minUniAmount min uni token amount.
+     * @param getId Get tokenA amount at this ID from `InstaMemory` Contract.
+     * @param setId Set token amount at this ID in `InstaMemory` Contract.
+    */
+    function singleDeposit(
+        address tokenA,
+        address tokenB,
+        uint amountA,
+        uint minUniAmount,
         uint getId,
         uint setId
-    ) internal {
+    ) external payable {
+        uint _amt = getUint(getId, amountA);
+
+        (uint _amtA, uint _amtB, uint _uniAmt) = _addSingleLiquidity(
+                                            tokenA,
+                                            tokenB,
+                                            _amt,
+                                            minUniAmount
+                                        );
+        setUint(setId, _uniAmt);
+
         emit LogDepositLiquidity(
             tokenA,
             tokenB,
@@ -283,84 +463,12 @@ contract UniswapLiquidity is LiquidityHelpers {
             _amtB,
             _uniAmt,
             getId,
+            0,
             setId
         );
-
-        bytes32 _eventCode = keccak256("LogDepositLiquidity(address,address,uint256,uint256,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(
-            tokenA,
-            tokenB,
-            _amtA,
-            _amtB,
-            _uniAmt,
-            getId,
-            setId
-        );
-        emitEvent(_eventCode, _eventParam);
     }
 
-    function emitWithdraw(
-        address tokenA,
-        address tokenB,
-        uint _amtA,
-        uint _amtB,
-        uint _uniAmt,
-        uint getId,
-        uint[] memory setIds
-    ) internal {
-        emit LogWithdrawLiquidity(
-            tokenA,
-            tokenB,
-            _amtA,
-            _amtB,
-            _uniAmt,
-            getId,
-            setIds
-        );
-        bytes32 _eventCode = keccak256("LogWithdrawLiquidity(address,address,uint256,uint256,uint256,uint256,uint256[])");
-        bytes memory _eventParam = abi.encode(
-            tokenA,
-            tokenB,
-            _amtA,
-            _amtB,
-            _uniAmt,
-            getId,
-            setIds
-        );
-        emitEvent(_eventCode, _eventParam);
-    }
-
-    /**
-     * @dev Deposit Liquidity.
-     * @param tokenA tokenA address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
-     * @param tokenB tokenB address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
-     * @param amtA tokenA amount.
-     * @param unitAmt unit amount of amtB/amtA with slippage.
-     * @param slippage slippage amount.
-     * @param getId Get token amount at this ID from `InstaMemory` Contract.
-     * @param setId Set token amount at this ID in `InstaMemory` Contract.
-    */
-    function deposit(
-        address tokenA,
-        address tokenB,
-        uint amtA,
-        uint unitAmt,
-        uint slippage,
-        uint getId,
-        uint setId
-    ) external payable {
-        uint _amt = getUint(getId, amtA);
-
-        (uint _amtA, uint _amtB, uint _uniAmt) = _addLiquidity(
-                                            tokenA,
-                                            tokenB,
-                                            _amt,
-                                            unitAmt,
-                                            slippage
-                                            );
-        setUint(setId, _uniAmt);
-        emitDeposit(tokenA, tokenB, _amtA, _amtB, _uniAmt, getId, setId);
-    }
+       
 
     /**
      * @dev Withdraw Liquidity.
@@ -393,7 +501,16 @@ contract UniswapLiquidity is LiquidityHelpers {
 
         setUint(setIds[0], _amtA);
         setUint(setIds[1], _amtB);
-        emitWithdraw(tokenA, tokenB, _amtA, _amtB, _uniAmt, getId, setIds);
+
+         emit LogWithdrawLiquidity(
+            tokenA,
+            tokenB,
+            _amtA,
+            _amtB,
+            _uniAmt,
+            getId,
+            setIds
+        );
     }
 }
 
@@ -462,10 +579,6 @@ contract UniswapResolver is UniswapLiquidity {
         setUint(setId, _sellAmt);
 
         emit LogBuy(buyAddr, sellAddr, _buyAmt, _sellAmt, getId, setId);
-        bytes32 _eventCode = keccak256("LogBuy(address,address,uint256,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(buyAddr, sellAddr, _buyAmt, _sellAmt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 
     /**
@@ -518,14 +631,10 @@ contract UniswapResolver is UniswapLiquidity {
         setUint(setId, _buyAmt);
 
         emit LogSell(buyAddr, sellAddr, _buyAmt, _sellAmt, getId, setId);
-        bytes32 _eventCode = keccak256("LogSell(address,address,uint256,uint256,uint256,uint256)");
-        bytes memory _eventParam = abi.encode(buyAddr, sellAddr, _buyAmt, _sellAmt, getId, setId);
-        (uint _type, uint _id) = connectorID();
-        EventInterface(getEventAddr()).emitEvent(_type, _id, _eventCode, _eventParam);
     }
 }
 
 
 contract ConnectUniswapV2 is UniswapResolver {
-    string public name = "UniswapV2-v1";
+    string public name = "UniswapV2-v1.1";
 }
