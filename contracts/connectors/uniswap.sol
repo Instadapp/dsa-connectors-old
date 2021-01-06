@@ -209,13 +209,16 @@ contract LiquidityHelpers is UniswapHelpers {
         _tokenB.approve(address(router), 0);
         _tokenB.approve(address(router), amountBDesired);
 
+        uint minAmtA = wmul(sub(WAD, slippage), amountADesired);
+        uint minAmtB = wmul(sub(WAD, slippage), amountBDesired);
+
        (_amtA, _amtB, _liquidity) = router.addLiquidity(
             address(_tokenA),
             address(_tokenB),
             amountADesired,
             amountBDesired,
-            wmul(sub(WAD, slippage), amountADesired),
-            wmul(sub(WAD, slippage), amountBDesired),
+            minAmtA,
+            minAmtB,
             address(this),
             now + 1
         );
