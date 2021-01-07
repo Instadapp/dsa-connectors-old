@@ -1,11 +1,6 @@
 pragma solidity ^0.6.0;
 pragma experimental ABIEncoderV2;
 
-interface MemoryInterface {
-    function getUint(uint _id) external returns (uint _num);
-    function setUint(uint _id, uint _val) external;
-}
-
 interface TokenInterface {
     function approve(address, uint256) external;
     function transfer(address, uint) external;
@@ -14,10 +9,6 @@ interface TokenInterface {
     function withdraw(uint) external;
     function balanceOf(address) external view returns (uint);
     function decimals() external view returns (uint);
-}
-
-interface DSAInterface {
-    function isAuth(address) external view returns(bool);
 }
 
 // Compound Helpers
@@ -163,17 +154,6 @@ interface AaveV2DataProviderInterface {
         bool isFrozen
     );
 }
-
-interface AaveV2AddressProviderRegistryInterface {
-    function getAddressesProvidersList() external view returns (address[] memory);
-}
-
-interface ATokenV2Interface {
-    function scaledBalanceOf(address _user) external view returns (uint256);
-    function isTransferAllowed(address _user, uint256 _amount) external view returns (bool);
-    function balanceOf(address _user) external view returns(uint256);
-    function transferFrom(address, address, uint) external returns (bool);
-}
 // End Aave v2 Helpers
 
 // MakerDAO Helpers
@@ -293,24 +273,10 @@ contract Helpers is DSMath {
     }
 
     /**
-     * @dev Return Memory Variable Address
-     */
-    function getMemoryAddr() internal pure returns (address) {
-        return 0x8a5419CfC711B2343c17a6ABf4B2bAFaBb06957F; // InstaMemory Address
-    }
-
-    /**
      * @dev Return InstaDApp Mapping Address
      */
     function getMappingAddr() internal pure returns (address) {
         return 0xe81F70Cc7C0D46e12d70efc60607F16bbD617E88; // InstaMapping Address
-    }
-
-    /**
-     * @dev Return CETH Address
-     */
-    function getCETHAddr() internal pure returns (address) {
-        return 0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5;
     }
 
     /**
@@ -349,13 +315,6 @@ contract Helpers is DSMath {
     }
 
     /**
-     * @dev Return Maker MCD Pot Address.
-    */
-    function getMcdPot() internal pure returns (address) {
-        return 0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7;
-    }
-
-    /**
      * @dev get Aave Provider
     */
     function getAaveProvider() internal pure returns (AaveV1ProviderInterface) {
@@ -384,17 +343,6 @@ contract Helpers is DSMath {
     */
     function getReferralCode() internal pure returns (uint16) {
         return 3228;
-    }
-
-   /**
-     * @dev enter compound market
-     */
-    function enterMarkets(address[] memory cErc20) internal {
-        ComptrollerInterface(getComptrollerAddress()).enterMarkets(cErc20);
-    }
-
-    function getBorrowRateMode(AaveV1Interface aave, address token) internal view returns (uint rateMode) {
-        (, , , rateMode, , , , , , ) = aave.getUserReserveData(token, address(this));
     }
 
     function getWithdrawBalance(AaveV1Interface aave, address token) internal view returns (uint bal) {
@@ -525,20 +473,6 @@ contract Helpers is DSMath {
         }
     }
 
-    /**
-     * @dev Get Uint value from InstaMemory Contract.
-    */
-    function getUint(uint getId, uint val) internal returns (uint returnVal) {
-        returnVal = getId == 0 ? val : MemoryInterface(getMemoryAddr()).getUint(getId);
-    }
-
-    /**
-     * @dev Set Uint value in InstaMemory Contract.
-    */
-    function setUint(uint setId, uint val) internal {
-        if (setId != 0) MemoryInterface(getMemoryAddr()).setUint(setId, val);
-    }
-
     function getMaxBorrow(uint target, address token, uint rateMode) internal returns (uint amt) {
         AaveV1Interface aaveV1 = AaveV1Interface(getAaveProvider().getLendingPool());
         AaveV2DataProviderInterface aaveData = getAaveV2DataProvider();
@@ -556,13 +490,6 @@ contract Helpers is DSMath {
 }
 
 contract CompoundHelpers is Helpers {
-
-    function _compEnterMarketOne(address token) internal {
-        ComptrollerInterface troller = ComptrollerInterface(getComptrollerAddress());
-        address[] memory cTokens = new address[](1);
-        cTokens[0] = InstaMapping(getMappingAddr()).cTokenMapping(token);
-        troller.enterMarkets(cTokens);
-    }
 
     function _compEnterMarkets(uint length, address[] memory tokens) internal {
         ComptrollerInterface troller = ComptrollerInterface(getComptrollerAddress());
@@ -1382,4 +1309,8 @@ contract RefinanceResolver is MakerHelpers {
             }
         }
     }
+}
+
+contract ConnectRefinace is RefinanceResolver {
+    string public name = "Refinance-v1";
 }
