@@ -401,12 +401,12 @@ contract Helpers is DSMath {
         (bal, , , , , , , , , ) = aave.getUserReserveData(token, address(this));
     }
 
-    function getPaybackBalance(AaveV1Interface aave, address account, address token) internal view returns (uint bal, uint fee) {
-        (, bal, , , , , fee, , , ) = aave.getUserReserveData(token, account);
+    function getPaybackBalance(AaveV1Interface aave, address token) internal view returns (uint bal, uint fee) {
+        (, bal, , , , , fee, , , ) = aave.getUserReserveData(token, address(this));
     }
 
-    function getTotalBorrowBalance(AaveV1Interface aave, address account, address token) internal view returns (uint amt) {
-        (, uint bal, , , , , uint fee, , , ) = aave.getUserReserveData(token, account);
+    function getTotalBorrowBalance(AaveV1Interface aave, address token) internal view returns (uint amt) {
+        (, uint bal, , , , , uint fee, , , ) = aave.getUserReserveData(token, address(this));
         amt = add(bal, fee);
     }
 
@@ -538,6 +538,21 @@ contract Helpers is DSMath {
     function setUint(uint setId, uint val) internal {
         if (setId != 0) MemoryInterface(getMemoryAddr()).setUint(setId, val);
     }
+
+    function getMaxBorrow(uint target, address token, uint rateMode) internal returns (uint amt) {
+        AaveV1Interface aaveV1 = AaveV1Interface(getAaveProvider().getLendingPool());
+        AaveV2DataProviderInterface aaveData = getAaveV2DataProvider();
+
+        if (target == 1) {
+            (uint _amt, uint _fee) = getPaybackBalance(aaveV1, token);
+            amt = _amt + _fee;
+        } else if (target == 2) {
+            amt = getPaybackBalanceV2(aaveData, token, rateMode);
+        } else if (target == 3) {
+            address cToken = InstaMapping(getMappingAddr()).cTokenMapping(token);
+            amt = CTokenInterface(cToken).borrowBalanceCurrent(address(this));
+        }
+    }
 }
 
 contract CompoundHelpers is Helpers {
@@ -559,8 +574,13 @@ contract CompoundHelpers is Helpers {
         troller.enterMarkets(cTokens);
     }
 
-    function _compBorrowOne(uint fee, address token, uint amt) internal {
+    function _compBorrowOne(uint fee, address token, uint amt, uint target, uint rateMode) internal returns (uint) {
         if (amt > 0) {
+
+            if (amt == uint(-1)) {
+                amt = getMaxBorrow(target, token, rateMode);
+            }
+
             address cToken = InstaMapping(getMappingAddr()).cTokenMapping(token);
             uint feeAmt = wmul(amt, fee);
             uint _amt = add(amt, feeAmt);
@@ -572,17 +592,22 @@ contract CompoundHelpers is Helpers {
                 TokenInterface(token).transfer(feeCollector, feeAmt);
             }
         }
+        return amt;
     }
 
     function _compBorrow(
         uint length,
         uint fee,
+        uint target,
         address[] memory tokens,
-        uint[] memory amts
-    ) internal {
+        uint[] memory amts,
+        uint[] memory rateModes
+    ) internal returns (uint[] memory) {
+        uint[] memory finalAmts = new uint[](length);
         for (uint i = 0; i < length; i++) {
-            _compBorrowOne(fee, tokens[i], amts[i]);
+            finalAmts[i] = _compBorrowOne(fee, tokens[i], amts[i], target, rateModes[i]);
         }
+        return finalAmts;
     }
 
     function _compDepositOne(uint fee, address token, uint amt) internal {
@@ -615,7 +640,7 @@ contract CompoundHelpers is Helpers {
         }
     }
 
-    function _compWithdrawOne(address token, uint amt) internal {
+    function _compWithdrawOne(address token, uint amt) internal returns (uint) {
         if (amt > 0) {
             address cToken = InstaMapping(getMappingAddr()).cTokenMapping(token);
             CTokenInterface cTokenContract = CTokenInterface(cToken);
@@ -624,19 +649,22 @@ contract CompoundHelpers is Helpers {
             }
             require(cTokenContract.redeemUnderlying(amt) == 0, "withdraw-failed");
         }
+        return amt;
     }
 
     function _compWithdraw(
         uint length,
         address[] memory tokens,
         uint[] memory amts
-    ) internal {
+    ) internal returns(uint[] memory) {
+        uint[] memory finalAmts = new uint[](length);
         for (uint i = 0; i < length; i++) {
-            _compWithdrawOne(tokens[i], amts[i]);
+            finalAmts[i] = _compWithdrawOne(tokens[i], amts[i]);
         }
+        return finalAmts;
     }
 
-    function _compPaybackOne(address token, uint amt) internal {
+    function _compPaybackOne(address token, uint amt) internal returns (uint) {
         if (amt > 0) {
             address cToken = InstaMapping(getMappingAddr()).cTokenMapping(token);
             CTokenInterface cTokenContract = CTokenInterface(cToken);
@@ -652,6 +680,7 @@ contract CompoundHelpers is Helpers {
                 CETHInterface(cToken).repayBorrow.value(amt)();
             }
         }
+        return amt;
     }
 
     function _compPayback(
@@ -670,34 +699,54 @@ contract AaveV1Helpers is CompoundHelpers {
     function _aaveV1BorrowOne(
         AaveV1Interface aave,
         uint fee,
+        uint target,
         address token,
         uint amt,
-        uint rateMode
-    ) internal {
+        uint borrowRateMode,
+        uint paybackRateMode
+    ) internal returns (uint) {
         if (amt > 0) {
+
+            if (amt == uint(-1)) {
+                amt = getMaxBorrow(target, token, paybackRateMode);
+            }
+
             uint feeAmt = wmul(amt, fee);
             uint _amt = add(amt, feeAmt);
 
-            aave.borrow(token, _amt, rateMode, getReferralCode());
+            aave.borrow(token, _amt, borrowRateMode, getReferralCode());
             if (token == getEthAddr()) {
                 feeCollector.transfer(feeAmt);
             } else {
                 TokenInterface(token).transfer(feeCollector, feeAmt);
             }
         }
+        return amt;
     }
 
     function _aaveV1Borrow(
         AaveV1Interface aave,
         uint length,
         uint fee,
+        uint target,
         address[] memory tokens,
         uint[] memory amts,
-        uint[] memory rateModes
-    ) internal {
+        uint[] memory borrowRateModes,
+        uint[] memory paybackRateModes
+    ) internal returns (uint[] memory) {
+        uint[] memory finalAmts = new uint[](length);
         for (uint i = 0; i < length; i++) {
-            _aaveV1BorrowOne(aave, fee, tokens[i], amts[i], rateModes[i]);
+            finalAmts[i] = _aaveV1BorrowOne(
+                aave,
+                fee,
+                target,
+                tokens[i],
+                amts[i],
+                borrowRateModes[i],
+                paybackRateModes[i]
+            );
         }
+        return finalAmts;
     }
 
     function _aaveV1DepositOne(
@@ -741,34 +790,48 @@ contract AaveV1Helpers is CompoundHelpers {
     }
 
     function _aaveV1WithdrawOne(
+        AaveV1Interface aave,
         AaveV1CoreInterface aaveCore,
         address token,
         uint amt
-    ) internal {
+    ) internal returns (uint) {
         if (amt > 0) {
             ATokenV1Interface atoken = ATokenV1Interface(aaveCore.getReserveATokenAddress(token));
             atoken.redeem(amt);
+            if (amt == uint(-1)) {
+                amt = getWithdrawBalance(aave, token);
+            }
         }
+        return amt;
     }
 
     function _aaveV1Withdraw(
+        AaveV1Interface aave,
         AaveV1CoreInterface aaveCore,
         uint length,
         address[] memory tokens,
         uint[] memory amts
-    ) internal {
+    ) internal returns (uint[] memory) {
+        uint[] memory finalAmts = new uint[](length);
         for (uint i = 0; i < length; i++) {
-            _aaveV1WithdrawOne(aaveCore, tokens[i], amts[i]);
+            finalAmts[i] = _aaveV1WithdrawOne(aave, aaveCore, tokens[i], amts[i]);
         }
+        return finalAmts;
     }
 
     function _aaveV1PaybackOne(
         AaveV1Interface aave,
         address token,
         uint amt
-    ) internal {
+    ) internal returns (uint) {
         if (amt > 0) {
             uint ethAmt;
+
+            if (amt == uint(-1)) {
+                (uint _amt, uint _fee) = getPaybackBalance(aave, token);
+                amt = _amt + _fee;
+            }
+
             bool isEth = token == getEthAddr();
             if (isEth) {
                 ethAmt = amt;
@@ -779,6 +842,7 @@ contract AaveV1Helpers is CompoundHelpers {
 
             aave.repay.value(ethAmt)(token, amt, payable(address(this)));
         }
+        return amt;
     }
 
     function _aaveV1Payback(
@@ -798,11 +862,16 @@ contract AaveV2Helpers is AaveV1Helpers {
     function _aaveV2BorrowOne(
         AaveV2Interface aave,
         uint fee,
+        uint target,
         address token,
         uint amt,
         uint rateMode
-    ) internal {
+    ) internal returns (uint) {
         if (amt > 0) {
+            if (amt == uint(-1)) {
+                amt = getMaxBorrow(target, token, rateMode);
+            }
+
             uint feeAmt = wmul(amt, fee);
             uint _amt = add(amt, feeAmt);
 
@@ -818,19 +887,23 @@ contract AaveV2Helpers is AaveV1Helpers {
                 TokenInterface(_token).transfer(feeCollector, feeAmt);
             }
         }
+        return amt;
     }
 
     function _aaveV2Borrow(
         AaveV2Interface aave,
         uint length,
         uint fee,
+        uint target,
         address[] memory tokens,
         uint[] memory amts,
         uint[] memory rateModes
-    ) internal {
+    ) internal returns (uint[] memory) {
+        uint[] memory finalAmts = new uint[](length);
         for (uint i = 0; i < length; i++) {
-            _aaveV2BorrowOne(aave, fee, tokens[i], amts[i], rateModes[i]);
+            finalAmts[i] = _aaveV2BorrowOne(aave, fee, target, tokens[i], amts[i], rateModes[i]);
         }
+        return finalAmts;
     }
 
     function _aaveV2DepositOne(
@@ -884,7 +957,7 @@ contract AaveV2Helpers is AaveV1Helpers {
         AaveV2DataProviderInterface aaveData,
         address token,
         uint amt
-    ) internal {
+    ) internal returns (uint _amt) {
         if (amt > 0) {
             bool isEth = token == getEthAddr();
             address _token = isEth ? getWethAddr() : token;
@@ -892,7 +965,7 @@ contract AaveV2Helpers is AaveV1Helpers {
 
             aave.withdraw(_token, amt, address(this));
 
-            uint _amt = amt == uint(-1) ? getWithdrawBalanceV2(aaveData, _token) : amt;
+            _amt = amt == uint(-1) ? getWithdrawBalanceV2(aaveData, _token) : amt;
 
             convertWethToEth(isEth, tokenContract, _amt);
         }
@@ -904,10 +977,12 @@ contract AaveV2Helpers is AaveV1Helpers {
         uint length,
         address[] memory tokens,
         uint[] memory amts
-    ) internal {
+    ) internal returns (uint[] memory) {
+        uint[] memory finalAmts = new uint[](length);
         for (uint i = 0; i < length; i++) {
-            _aaveV2WithdrawOne(aave, aaveData, tokens[i], amts[i]);
+            finalAmts[i] = _aaveV2WithdrawOne(aave, aaveData, tokens[i], amts[i]);
         }
+        return finalAmts;
     }
 
     function _aaveV2PaybackOne(
@@ -916,13 +991,13 @@ contract AaveV2Helpers is AaveV1Helpers {
         address token,
         uint amt,
         uint rateMode
-    ) internal {
+    ) internal returns (uint _amt) {
         if (amt > 0) {
             bool isEth = token == getEthAddr();
             address _token = isEth ? getWethAddr() : token;
             TokenInterface tokenContract = TokenInterface(_token);
 
-            uint _amt = amt == uint(-1) ? getPaybackBalanceV2(aaveData, _token, rateMode) : amt;
+            _amt = amt == uint(-1) ? getPaybackBalanceV2(aaveData, _token, rateMode) : amt;
 
             convertEthToWeth(isEth, tokenContract, amt);
 
@@ -1026,7 +1101,7 @@ contract MakerHelpers is AaveV2Helpers {
         );
     }
 
-    function _makerWithdraw(uint vault, uint amt) internal {
+    function _makerWithdraw(uint vault, uint amt) internal returns (uint) {
         ManagerLike managerContract = ManagerLike(getMcdManager());
 
         uint _vault = getVault(managerContract, vault);
@@ -1063,9 +1138,11 @@ contract MakerHelpers is AaveV2Helpers {
         } else {
             tokenJoinContract.exit(address(this), amt);
         }
+
+        return amt;
     }
 
-    function _makerPayback(uint vault, uint amt) internal {
+    function _makerPayback(uint vault, uint amt) internal returns (uint) {
         ManagerLike managerContract = ManagerLike(getMcdManager());
 
         uint _vault = getVault(managerContract, vault);
@@ -1093,6 +1170,8 @@ contract MakerHelpers is AaveV2Helpers {
                 ilk
             )
         );
+
+        return _amt;
     }
 }
 
@@ -1108,9 +1187,7 @@ contract RefinanceResolver is MakerHelpers {
         uint debtFee;
         address[] tokens;
         uint[] borrowAmts;
-        uint[] paybackAmts;
         uint[] withdrawAmts;
-        uint[] depositAmts;
         uint[] borrowRateModes;
         uint[] paybackRateModes;
     }
@@ -1141,9 +1218,7 @@ contract RefinanceResolver is MakerHelpers {
         uint length = data.tokens.length;
 
         require(data.borrowAmts.length == length, "length-mismatch");
-        require(data.paybackAmts.length == length, "length-mismatch");
         require(data.withdrawAmts.length == length, "length-mismatch");
-        require(data.depositAmts.length == length, "length-mismatch");
         require(data.borrowRateModes.length == length, "length-mismatch");
         require(data.paybackRateModes.length == length, "length-mismatch");
 
@@ -1152,40 +1227,92 @@ contract RefinanceResolver is MakerHelpers {
         AaveV1CoreInterface aaveCore = AaveV1CoreInterface(getAaveProvider().getLendingPoolCore());
         AaveV2DataProviderInterface aaveData = getAaveV2DataProvider();
 
+        uint[] memory depositAmts;
+        uint[] memory paybackAmts;
+
         if (data.source == 1 && data.target == 2) {
-            _aaveV2Borrow(aaveV2, length, data.debtFee, data.tokens, data.borrowAmts, data.borrowRateModes);
-            _aaveV1Payback(aaveV1, length, data.tokens, data.paybackAmts);
-            _aaveV1Withdraw(aaveCore, length, data.tokens, data.withdrawAmts);
-            _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, data.tokens, data.depositAmts);
+            paybackAmts = _aaveV2Borrow(
+                aaveV2,
+                length,
+                data.debtFee,
+                data.target,
+                data.tokens, 
+                data.borrowAmts,
+                data.borrowRateModes
+            );
+            _aaveV1Payback(aaveV1, length, data.tokens, paybackAmts);
+            depositAmts = _aaveV1Withdraw(aaveV1, aaveCore, length, data.tokens, data.withdrawAmts);
+            _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, data.tokens, depositAmts);
         } else if (data.source == 1 && data.target == 3) {
             _compEnterMarkets(length, data.tokens);
 
-            _compBorrow(length, data.debtFee, data.tokens, data.borrowAmts);
-            _aaveV1Payback(aaveV1, length, data.tokens, data.paybackAmts);
-            _aaveV1Withdraw(aaveCore, length, data.tokens, data.withdrawAmts);
-            _compDeposit(length, data.collateralFee, data.tokens, data.depositAmts);
+            paybackAmts = _compBorrow(
+                length,
+                data.debtFee,
+                data.target,
+                data.tokens,
+                data.borrowAmts,
+                data.borrowRateModes
+            );
+            
+            _aaveV1Payback(aaveV1, length, data.tokens, paybackAmts);
+            depositAmts = _aaveV1Withdraw(aaveV1, aaveCore, length, data.tokens, data.withdrawAmts);
+            _compDeposit(length, data.collateralFee, data.tokens, depositAmts);
         } else if (data.source == 2 && data.target == 1) {
-            _aaveV1Borrow(aaveV1, length, data.debtFee, data.tokens, data.borrowAmts, data.borrowRateModes);
-            _aaveV2Payback(aaveV2, aaveData, length, data.tokens, data.paybackAmts, data.paybackRateModes);
-            _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
-            _aaveV1Deposit(aaveV1, length, data.collateralFee, data.tokens, data.depositAmts);
+            paybackAmts = _aaveV1Borrow(
+                aaveV1,
+                length,
+                data.debtFee,
+                data.target,
+                data.tokens,
+                data.borrowAmts,
+                data.borrowRateModes,
+                data.paybackRateModes
+            );
+            _aaveV2Payback(aaveV2, aaveData, length, data.tokens, paybackAmts, data.paybackRateModes);
+            depositAmts = _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
+            _aaveV1Deposit(aaveV1, length, data.collateralFee, data.tokens, depositAmts);
         } else if (data.source == 2 && data.target == 3) {
             _compEnterMarkets(length, data.tokens);
             
-            _compBorrow(length, data.debtFee, data.tokens, data.borrowAmts);
-            _aaveV2Payback(aaveV2, aaveData, length, data.tokens, data.paybackAmts, data.paybackRateModes);
-            _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
-            _compDeposit(length, data.collateralFee, data.tokens, data.depositAmts);
+            paybackAmts = _compBorrow(
+                length,
+                data.debtFee,
+                data.target,
+                data.tokens,
+                data.borrowAmts,
+                data.borrowRateModes
+            );
+            _aaveV2Payback(aaveV2, aaveData, length, data.tokens, paybackAmts, data.paybackRateModes);
+            depositAmts = _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
+            _compDeposit(length, data.collateralFee, data.tokens, depositAmts);
         } else if (data.source == 3 && data.target == 1) {
-            _aaveV1Borrow(aaveV1, length, data.debtFee, data.tokens, data.borrowAmts, data.borrowRateModes);
-            _compPayback(length, data.tokens, data.paybackAmts);
-            _compWithdraw(length, data.tokens, data.withdrawAmts);
-            _aaveV1Deposit(aaveV1, length, data.collateralFee, data.tokens, data.depositAmts);
+            paybackAmts = _aaveV1Borrow(
+                aaveV1,
+                length,
+                data.debtFee,
+                data.target,
+                data.tokens,
+                data.borrowAmts,
+                data.borrowRateModes,
+                data.paybackRateModes
+            );
+            _compPayback(length, data.tokens, paybackAmts);
+            depositAmts = _compWithdraw(length, data.tokens, data.withdrawAmts);
+            _aaveV1Deposit(aaveV1, length, data.collateralFee, data.tokens, depositAmts);
         } else if (data.source == 3 && data.target == 2) {
-            _aaveV2Borrow(aaveV2, length, data.debtFee, data.tokens, data.borrowAmts, data.borrowRateModes);
-            _compPayback(length, data.tokens, data.paybackAmts);
-            _compWithdraw(length, data.tokens, data.withdrawAmts);
-            _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, data.tokens, data.depositAmts);
+            paybackAmts = _aaveV2Borrow(
+                aaveV2,
+                length,
+                data.debtFee,
+                data.target,
+                data.tokens, 
+                data.borrowAmts,
+                data.borrowRateModes
+            );
+            _compPayback(length, data.tokens, paybackAmts);
+            depositAmts = _compWithdraw(length, data.tokens, data.withdrawAmts);
+            _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, data.tokens, depositAmts);
         } else {
             revert("invalid-options");
         }
@@ -1200,20 +1327,23 @@ contract RefinanceResolver is MakerHelpers {
 
         address dai = getMcdDai();
 
+        uint depositAmt;
+        uint borrowAmt;
+
         if (data.isFrom) {
             if (data.debt > 0) {
-                _makerPayback(data.fromVaultId, data.debt);
+                borrowAmt = _makerPayback(data.fromVaultId, data.debt);
             }
             if (data.collateral > 0) {
-                _makerWithdraw(data.fromVaultId, data.collateral);
+                depositAmt = _makerWithdraw(data.fromVaultId, data.collateral);
             }
 
             if (data.target == 1) {
-                _aaveV1DepositOne(aaveV1, data.collateralFee, data.token, data.collateral);
-                _aaveV1BorrowOne(aaveV1, data.debtFee, dai, data.debt, data.borrowRateMode);
+                _aaveV1DepositOne(aaveV1, data.collateralFee, data.token, depositAmt);
+                _aaveV1BorrowOne(aaveV1, data.debtFee, 2, dai, borrowAmt, data.borrowRateMode, 1);
             } else if (data.target == 2) {
-                _aaveV2DepositOne(aaveV2, aaveData, data.collateralFee, data.token, data.collateral);
-                _aaveV2BorrowOne(aaveV2, data.debtFee, dai, data.debt, data.borrowRateMode);
+                _aaveV2DepositOne(aaveV2, aaveData, data.collateralFee, data.token, depositAmt);
+                _aaveV2BorrowOne(aaveV2, data.debtFee, 1, dai, borrowAmt, data.borrowRateMode);
             } else if (data.target == 3) {
                 address[] memory tokens = new address[](2);
                 tokens[0] = dai;
@@ -1221,8 +1351,8 @@ contract RefinanceResolver is MakerHelpers {
 
                 _compEnterMarkets(2, tokens);
 
-                _compDepositOne(data.collateralFee, data.token, data.collateral);
-                _compBorrowOne(data.debtFee, dai, data.debt);
+                _compDepositOne(data.collateralFee, data.token, depositAmt);
+                _compBorrowOne(data.debtFee, dai, borrowAmt, 1, 1);
             } else {
                 revert("invalid-option");
             }
@@ -1232,23 +1362,23 @@ contract RefinanceResolver is MakerHelpers {
             }
 
             if (data.source == 1) {
-                _aaveV1PaybackOne(aaveV1, dai, data.debt);
-                _aaveV1WithdrawOne(aaveCore, data.token, data.collateral);
+                borrowAmt = _aaveV1PaybackOne(aaveV1, dai, data.debt);
+                depositAmt = _aaveV1WithdrawOne(aaveV1, aaveCore, data.token, data.collateral);
             } else if (data.source == 2) {
-                _aaveV2PaybackOne(aaveV2, aaveData, dai, data.debt, data.paybackRateMode);
-                _aaveV2WithdrawOne(aaveV2, aaveData, data.token, data.collateral);
+                borrowAmt = _aaveV2PaybackOne(aaveV2, aaveData, dai, data.debt, data.paybackRateMode);
+                depositAmt = _aaveV2WithdrawOne(aaveV2, aaveData, data.token, data.collateral);
             } else if (data.source == 3) {
-                _compPaybackOne(dai, data.debt);
-                _compWithdrawOne(data.token, data.collateral);
+                borrowAmt = _compPaybackOne(dai, data.debt);
+                depositAmt = _compWithdrawOne(data.token, data.collateral);
             } else {
                 revert("invalid-option");
             }
 
             if (data.collateral > 0) {
-                _makerDeposit(data.toVaultId, data.collateral, data.collateralFee);
+                _makerDeposit(data.toVaultId, depositAmt, data.collateralFee);
             }
             if (data.debt > 0) {
-                _makerBorrow(data.toVaultId, data.debt, data.debtFee);
+                _makerBorrow(data.toVaultId, borrowAmt, data.debtFee);
             }
         }
     }
