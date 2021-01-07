@@ -1158,6 +1158,8 @@ contract RefinanceResolver is MakerHelpers {
             _aaveV1Withdraw(aaveCore, length, data.tokens, data.withdrawAmts);
             _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, data.tokens, data.depositAmts);
         } else if (data.source == 1 && data.target == 3) {
+            _compEnterMarkets(length, data.tokens);
+
             _compBorrow(length, data.debtFee, data.tokens, data.borrowAmts);
             _aaveV1Payback(aaveV1, length, data.tokens, data.paybackAmts);
             _aaveV1Withdraw(aaveCore, length, data.tokens, data.withdrawAmts);
@@ -1168,6 +1170,8 @@ contract RefinanceResolver is MakerHelpers {
             _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
             _aaveV1Deposit(aaveV1, length, data.collateralFee, data.tokens, data.depositAmts);
         } else if (data.source == 2 && data.target == 3) {
+            _compEnterMarkets(length, data.tokens);
+            
             _compBorrow(length, data.debtFee, data.tokens, data.borrowAmts);
             _aaveV2Payback(aaveV2, aaveData, length, data.tokens, data.paybackAmts, data.paybackRateModes);
             _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
@@ -1197,8 +1201,12 @@ contract RefinanceResolver is MakerHelpers {
         address dai = getMcdDai();
 
         if (data.isFrom) {
-            _makerPayback(data.fromVaultId, data.debt);
-            _makerWithdraw(data.fromVaultId, data.collateral);
+            if (data.debt > 0) {
+                _makerPayback(data.fromVaultId, data.debt);
+            }
+            if (data.collateral > 0) {
+                _makerWithdraw(data.fromVaultId, data.collateral);
+            }
 
             if (data.target == 1) {
                 _aaveV1DepositOne(aaveV1, data.collateralFee, data.token, data.collateral);
@@ -1207,6 +1215,12 @@ contract RefinanceResolver is MakerHelpers {
                 _aaveV2DepositOne(aaveV2, aaveData, data.collateralFee, data.token, data.collateral);
                 _aaveV2BorrowOne(aaveV2, data.debtFee, dai, data.debt, data.borrowRateMode);
             } else if (data.target == 3) {
+                address[] memory tokens = new address[](2);
+                tokens[0] = dai;
+                tokens[1] = data.token;
+
+                _compEnterMarkets(2, tokens);
+
                 _compDepositOne(data.collateralFee, data.token, data.collateral);
                 _compBorrowOne(data.debtFee, dai, data.debt);
             } else {
@@ -1230,8 +1244,12 @@ contract RefinanceResolver is MakerHelpers {
                 revert("invalid-option");
             }
 
-            _makerDeposit(data.toVaultId, data.collateral, data.collateralFee);
-            _makerBorrow(data.toVaultId, data.debt, data.debtFee);
+            if (data.collateral > 0) {
+                _makerDeposit(data.toVaultId, data.collateral, data.collateralFee);
+            }
+            if (data.debt > 0) {
+                _makerBorrow(data.toVaultId, data.debt, data.debtFee);
+            }
         }
     }
 }
