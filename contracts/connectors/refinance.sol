@@ -1,6 +1,9 @@
 pragma solidity ^0.6.0;
 pragma experimental ABIEncoderV2;
 
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 interface TokenInterface {
     function approve(address, uint256) external;
     function transfer(address, uint) external;
@@ -255,6 +258,8 @@ contract DSMath {
 
 contract Helpers is DSMath {
 
+    using SafeERC20 for IERC20;
+
     address payable constant feeCollector = 0xb1DC62EC38E6E3857a887210C38418E4A17Da5B2;
 
     /**
@@ -487,6 +492,14 @@ contract Helpers is DSMath {
             amt = CTokenInterface(cToken).borrowBalanceCurrent(address(this));
         }
     }
+
+    function transferFees(address token, uint feeAmt) internal {
+        if (token == getEthAddr()) {
+            feeCollector.transfer(feeAmt);
+        } else {
+            IERC20(token).safeTransfer(feeCollector, feeAmt);
+        }
+    }
 }
 
 contract CompoundHelpers is Helpers {
@@ -513,11 +526,7 @@ contract CompoundHelpers is Helpers {
             uint _amt = add(amt, feeAmt);
 
             require(CTokenInterface(cToken).borrow(_amt) == 0, "borrow-failed-collateral?");
-            if (token == getEthAddr()) {
-                feeCollector.transfer(feeAmt);
-            } else {
-                TokenInterface(token).transfer(feeCollector, feeAmt);
-            }
+            transferFees(token, feeAmt);
         }
         return amt;
     }
@@ -548,11 +557,10 @@ contract CompoundHelpers is Helpers {
                 TokenInterface tokenContract = TokenInterface(token);
                 tokenContract.approve(cToken, _amt);
                 require(CTokenInterface(cToken).mint(_amt) == 0, "deposit-failed");
-                tokenContract.transfer(feeCollector, feeAmt);
             } else {
                 CETHInterface(cToken).mint.value(_amt)();
-                feeCollector.transfer(feeAmt);
             }
+            transferFees(token, feeAmt);
         }
     }
 
@@ -642,11 +650,7 @@ contract AaveV1Helpers is CompoundHelpers {
             uint _amt = add(amt, feeAmt);
 
             aave.borrow(token, _amt, borrowRateMode, getReferralCode());
-            if (token == getEthAddr()) {
-                feeCollector.transfer(feeAmt);
-            } else {
-                TokenInterface(token).transfer(feeCollector, feeAmt);
-            }
+            transferFees(token, feeAmt);
         }
         return amt;
     }
@@ -690,12 +694,12 @@ contract AaveV1Helpers is CompoundHelpers {
             bool isEth = token == getEthAddr();
             if (isEth) {
                 ethAmt = _amt;
-                feeCollector.transfer(feeAmt);
             } else {
                 TokenInterface tokenContract = TokenInterface(token);
                 tokenContract.approve(address(aave), _amt);
-                tokenContract.transfer(feeCollector, feeAmt);
             }
+
+            transferFees(token, feeAmt);
 
             aave.deposit.value(ethAmt)(token, _amt, getReferralCode());
 
@@ -808,11 +812,7 @@ contract AaveV2Helpers is AaveV1Helpers {
             aave.borrow(_token, _amt, rateMode, getReferralCode(), address(this));
             convertWethToEth(isEth, TokenInterface(_token), amt);
 
-            if (isEth) {
-                feeCollector.transfer(feeAmt);
-            } else {
-                TokenInterface(_token).transfer(feeCollector, feeAmt);
-            }
+            transferFees(token, feeAmt);
         }
         return amt;
     }
@@ -848,11 +848,7 @@ contract AaveV2Helpers is AaveV1Helpers {
             address _token = isEth ? getWethAddr() : token;
             TokenInterface tokenContract = TokenInterface(_token);
 
-            if (isEth) {
-                feeCollector.transfer(feeAmt);
-            } else {
-                tokenContract.transfer(feeCollector, feeAmt);
-            }
+            transferFees(token, feeAmt);
 
             convertEthToWeth(isEth, tokenContract, _amt);
 
@@ -990,7 +986,7 @@ contract MakerHelpers is AaveV2Helpers {
 
         DaiJoinInterface(daiJoin).exit(address(this), _amt);
 
-        TokenInterface(getMcdDai()).transfer(feeCollector, feeAmt);
+        transferFees(getMcdDai(), feeAmt);
     }
 
     function _makerDeposit(uint vault, uint amt, uint fee) internal {
@@ -1006,11 +1002,10 @@ contract MakerHelpers is AaveV2Helpers {
         TokenJoinInterface tokenJoinContract = TokenJoinInterface(colAddr);
         TokenInterface tokenContract = tokenJoinContract.gem();
 
+        transferFees(address(tokenContract), feeAmt);
+
         if (address(tokenContract) == getWethAddr()) {
-            feeCollector.transfer(feeAmt);
             tokenContract.deposit.value(amt)();
-        } else {
-            tokenContract.transfer(feeCollector, feeAmt);
         }
 
         tokenContract.approve(address(colAddr), amt);
