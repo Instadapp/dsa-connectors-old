@@ -633,6 +633,7 @@ contract BasicExtraResolver is BasicResolver {
         TokenJoinInterface tokenJoinContract;
         VatLike vatContract;
         TokenInterface tokenContract;
+        DaiJoinInterface daiJoinContract;
     }
     /**
      * @dev Deposit ETH/ERC20_Token Collateral and Borrow DAI.
@@ -708,6 +709,102 @@ contract BasicExtraResolver is BasicResolver {
         emit LogDeposit(makerData._vault, ilk, _amtDeposit, getIdDeposit, setIdDeposit);
 
         emit LogBorrow(makerData._vault, ilk, _amtBorrow, getIdBorrow, setIdBorrow);
+    }
+
+    /**
+     * @dev Deposit ETH/ERC20_Token Collateral and Borrow DAI.
+     * @param vault Vault ID.
+     * @param paybackAmt token deposit amount to Withdraw.
+     * @param withdrawAmt token borrow amount to Withdraw.
+     * @param getIdPayback Get deposit token amount at this ID from `InstaMemory` Contract.
+     * @param getIdWithdraw Get borrow token amount at this ID from `InstaMemory` Contract.
+     * @param setIdPayback Set deposit token amount at this ID in `InstaMemory` Contract.
+     * @param setIdWithdraw Set borrow token amount at this ID in `InstaMemory` Contract.
+    */
+    function paybackAndWithdraw(
+        uint vault,
+        uint paybackAmt,
+        uint withdrawAmt,
+        uint getIdPayback,
+        uint getIdWithdraw,
+        uint setIdPayback,
+        uint setIdWithdraw
+    ) external payable
+    {
+        ManagerLike managerContract = ManagerLike(getMcdManager());
+        MakerData memory makerData;
+        uint _amtPayback = getUint(setIdPayback, paybackAmt);
+        uint _amtWithdraw = getUint(getIdWithdraw, withdrawAmt);
+
+        makerData._vault = getVault(managerContract, vault);
+        (bytes32 ilk, address urn) = getVaultData(managerContract, makerData._vault);
+
+
+        makerData.colAddr = InstaMapping(getMappingAddr()).gemJoinMapping(ilk);
+        makerData.tokenJoinContract = TokenJoinInterface(makerData.colAddr);
+        makerData.vatContract = VatLike(managerContract.vat());
+        makerData.daiJoin = getMcdDaiJoin();
+
+        makerData.tokenContract = makerData.tokenJoinContract.gem();
+
+        uint _amt18Withdraw;
+        if (_amtWithdraw == uint(-1)) {
+            (_amt18Withdraw,) = makerData.vatContract.urns(ilk, urn);
+            _amtWithdraw = convert18ToDec(makerData.tokenJoinContract.dec(), _amt18Withdraw);
+        } else {
+            _amt18Withdraw = convertTo18(makerData.tokenJoinContract.dec(), _amtWithdraw);
+        }
+
+        int _amtPaybackDart;
+        {
+            (, uint art) = makerData.vatContract.urns(ilk, urn);
+            uint _maxDebt = _getVaultDebt(address(makerData.vatContract), ilk, urn);
+
+            _amtPaybackDart = _amtPayback == uint(-1) ?
+                -int(art) :
+                _getWipeAmt(
+                address(makerData.vatContract),
+                makerData.vatContract.dai(urn),
+                urn,
+                ilk
+            );
+
+            _amtPayback = _amtPayback == uint(-1) ? _maxDebt : _amtPayback;
+
+            require(_maxDebt >= _amtPayback, "paying-excess-debt");
+
+        }
+
+        makerData.daiJoinContract = DaiJoinInterface(makerData.daiJoin);
+        makerData.daiJoinContract.dai().approve(makerData.daiJoin, _amtPayback);
+        makerData.daiJoinContract.join(urn, _amtPayback);
+
+        managerContract.frob(
+            makerData._vault,
+            -toInt(_amt18Withdraw),
+            _amtPaybackDart
+        );
+
+        managerContract.flux(
+            makerData._vault,
+            address(this),
+            _amt18Withdraw
+        );
+
+
+       if (isEth(address(makerData.tokenContract))) {
+            makerData.tokenJoinContract.exit(address(this), _amt18Withdraw);
+            makerData.tokenContract.withdraw(_amt18Withdraw);
+        } else {
+            makerData.tokenJoinContract.exit(address(this), _amtWithdraw);
+        }
+
+        setUint(setIdPayback, _amtPayback);
+        setUint(setIdWithdraw, _amtWithdraw);
+
+        emit LogPayback(makerData._vault, ilk, _amtPayback, getIdPayback, setIdPayback);
+
+        emit LogBorrow(makerData._vault, ilk, _amtWithdraw, getIdWithdraw, setIdWithdraw);
     }
 
     /**
