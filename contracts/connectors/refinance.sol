@@ -944,6 +944,16 @@ contract AaveV2Helpers is AaveV1Helpers {
 
 contract MakerHelpers is AaveV2Helpers {
 
+    struct MakerData {
+        uint _vault;
+        address colAddr;
+        address daiJoin;
+        TokenJoinInterface tokenJoinContract;
+        VatLike vatContract;
+        TokenInterface tokenContract;
+        DaiJoinInterface daiJoinContract;
+    }
+
     function _makerOpen(string memory colType) internal {
         bytes32 ilk = stringToBytes32(colType);
         require(InstaMapping(getMappingAddr()).gemJoinMapping(ilk) != address(0), "wrong-col-type");
@@ -963,120 +973,118 @@ contract MakerHelpers is AaveV2Helpers {
         uint debtFeeAmt = wmul(debtAmt, debtFee);
         uint _debtAmt = add(debtAmt, debtFeeAmt);
 
+        MakerData memory makerData;
+
         ManagerLike managerContract = ManagerLike(getMcdManager());
 
-        uint _vault = getVault(managerContract, vault);
-        (bytes32 ilk, address urn) = getVaultData(managerContract, _vault);
+        makerData._vault = getVault(managerContract, vault);
+        (bytes32 ilk, address urn) = getVaultData(managerContract, makerData._vault);
 
-        address colAddr = InstaMapping(getMappingAddr()).gemJoinMapping(ilk);
-        TokenJoinInterface tokenJoinContract = TokenJoinInterface(colAddr);
-        TokenInterface tokenContract = tokenJoinContract.gem();
-        address daiJoin = getMcdDaiJoin();
-        VatLike vatContract = VatLike(managerContract.vat());
+        makerData.colAddr = InstaMapping(getMappingAddr()).gemJoinMapping(ilk);
+        makerData.tokenJoinContract = TokenJoinInterface(makerData.colAddr);
+        makerData.tokenContract = makerData.tokenJoinContract.gem();
+        makerData.daiJoin = getMcdDaiJoin();
+        makerData.vatContract = VatLike(managerContract.vat());
 
-        transferFees(address(tokenContract), collateralFeeAmt);
+        transferFees(address(makerData.tokenContract), collateralFeeAmt);
 
-        if (address(tokenContract) == getWethAddr()) {
-            tokenContract.deposit.value(_collateralAmt)();
+        if (address(makerData.tokenContract) == getWethAddr()) {
+            makerData.tokenContract.deposit.value(_collateralAmt)();
         }
 
-        tokenContract.approve(address(colAddr), _collateralAmt);
-        tokenJoinContract.join(address(this), _collateralAmt);
+        makerData.tokenContract.approve(address(makerData.colAddr), _collateralAmt);
+        makerData.tokenJoinContract.join(urn, _collateralAmt);
 
-        int intAmt = toInt(convertTo18(tokenJoinContract.dec(), _collateralAmt));
+        int intAmt = toInt(convertTo18(makerData.tokenJoinContract.dec(), _collateralAmt));
 
-        int dart = _getBorrowAmt(address(vatContract), urn, ilk, _debtAmt);
+        int dart = _getBorrowAmt(address(makerData.vatContract), urn, ilk, _debtAmt);
 
         managerContract.frob(
-            _vault,
+            makerData._vault,
             intAmt,
             dart
         );
 
         managerContract.move(
-            _vault,
+            makerData._vault,
             address(this),
             toRad(_debtAmt)
         );
 
-        if (vatContract.can(address(this), address(daiJoin)) == 0) {
-            vatContract.hope(daiJoin);
+        if (makerData.vatContract.can(address(this), address(makerData.daiJoin)) == 0) {
+            makerData.vatContract.hope(makerData.daiJoin);
         }
 
-        DaiJoinInterface(daiJoin).exit(address(this), _debtAmt);
+        DaiJoinInterface(makerData.daiJoin).exit(address(this), _debtAmt);
     }
 
-    function _makerWithdraw(uint vault, uint amt) internal returns (uint) {
+    function _makerPaybackAndWithdraw(
+        uint vault,
+        uint withdrawAmt,
+        uint paybackAmt
+    ) internal returns (uint, uint) {
         ManagerLike managerContract = ManagerLike(getMcdManager());
+        MakerData memory makerData;
 
-        uint _vault = getVault(managerContract, vault);
-        (bytes32 ilk, address urn) = getVaultData(managerContract, _vault);
+        makerData._vault = getVault(managerContract, vault);
+        (bytes32 ilk, address urn) = getVaultData(managerContract, makerData._vault);
 
-        address colAddr = InstaMapping(getMappingAddr()).gemJoinMapping(ilk);
-        TokenJoinInterface tokenJoinContract = TokenJoinInterface(colAddr);
+        makerData.colAddr = InstaMapping(getMappingAddr()).gemJoinMapping(ilk);
+        makerData.tokenJoinContract = TokenJoinInterface(makerData.colAddr);
+        makerData.tokenContract = makerData.tokenJoinContract.gem();
+        makerData.daiJoin = getMcdDaiJoin();
+        makerData.vatContract = VatLike(managerContract.vat());
 
-        uint _amt18;
-        if (amt == uint(-1)) {
-            (_amt18,) = VatLike(managerContract.vat()).urns(ilk, urn);
-            amt = convert18ToDec(tokenJoinContract.dec(), _amt18);
+        uint _withdrawAmt18;
+        if (withdrawAmt == uint(-1)) {
+            (_withdrawAmt18,) = makerData.vatContract.urns(ilk, urn);
+            withdrawAmt = convert18ToDec(makerData.tokenJoinContract.dec(), _withdrawAmt18);
         } else {
-            _amt18 = convertTo18(tokenJoinContract.dec(), amt);
+            _withdrawAmt18 = convertTo18(makerData.tokenJoinContract.dec(), withdrawAmt);
         }
 
+        int _paybackDart;
+        {
+            (, uint art) = makerData.vatContract.urns(ilk, urn);
+            uint _maxDebt = _getVaultDebt(address(makerData.vatContract), ilk, urn);
+            _paybackDart = paybackAmt == uint(-1) ?
+                -int(art) :
+                _getWipeAmt(
+                address(makerData.vatContract),
+                makerData.vatContract.dai(urn),
+                urn,
+                ilk
+            );
+
+            paybackAmt = paybackAmt == uint(-1) ? _maxDebt : paybackAmt;
+
+            require(_maxDebt >= paybackAmt, "paying-excess-debt");
+        }
+
+        makerData.daiJoinContract = DaiJoinInterface(makerData.daiJoin);
+        makerData.daiJoinContract.dai().approve(makerData.daiJoin, paybackAmt);
+        makerData.daiJoinContract.join(urn, paybackAmt);
+
         managerContract.frob(
-            _vault,
-            -toInt(_amt18),
-            0
+            makerData._vault,
+            -toInt(_withdrawAmt18),
+            _paybackDart
         );
 
         managerContract.flux(
-            _vault,
+            makerData._vault,
             address(this),
-            _amt18
+            _withdrawAmt18
         );
 
-        TokenInterface tokenContract = tokenJoinContract.gem();
-
-        if (address(tokenContract) == getWethAddr()) {
-            tokenJoinContract.exit(address(this), amt);
-            tokenContract.withdraw(amt);
+        if (address(makerData.tokenContract) == getWethAddr()) {
+            makerData.tokenJoinContract.exit(address(this), _withdrawAmt18);
+            makerData.tokenContract.withdraw(_withdrawAmt18);
         } else {
-            tokenJoinContract.exit(address(this), amt);
+            makerData.tokenJoinContract.exit(address(this), _withdrawAmt18);
         }
 
-        return amt;
-    }
-
-    function _makerPayback(uint vault, uint amt) internal returns (uint) {
-        ManagerLike managerContract = ManagerLike(getMcdManager());
-
-        uint _vault = getVault(managerContract, vault);
-        (bytes32 ilk, address urn) = getVaultData(managerContract, _vault);
-
-        address vat = managerContract.vat();
-
-        uint _maxDebt = _getVaultDebt(vat, ilk, urn);
-
-        uint _amt = amt == uint(-1) ? _maxDebt : amt;
-
-        require(_maxDebt >= _amt, "paying-excess-debt");
-
-        DaiJoinInterface daiJoinContract = DaiJoinInterface(getMcdDaiJoin());
-        daiJoinContract.dai().approve(getMcdDaiJoin(), _amt);
-        daiJoinContract.join(urn, _amt);
-
-        managerContract.frob(
-            _vault,
-            0,
-            _getWipeAmt(
-                vat,
-                VatLike(vat).dai(urn),
-                urn,
-                ilk
-            )
-        );
-
-        return _amt;
+        return (withdrawAmt, paybackAmt);
     }
 }
 
@@ -1236,12 +1244,11 @@ contract RefinanceResolver is MakerHelpers {
         uint borrowAmt;
 
         if (data.isFrom) {
-            if (data.debt > 0) {
-                borrowAmt = _makerPayback(data.fromVaultId, data.debt);
-            }
-            if (data.collateral > 0) {
-                depositAmt = _makerWithdraw(data.fromVaultId, data.collateral);
-            }
+            (depositAmt, borrowAmt) = _makerPaybackAndWithdraw(
+                data.fromVaultId,
+                data.collateral,
+                data.debt
+            );
 
             if (data.target == 1) {
                 _aaveV1DepositOne(aaveV1, data.collateralFee, data.token, depositAmt);
