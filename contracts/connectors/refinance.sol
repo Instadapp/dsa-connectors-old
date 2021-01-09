@@ -926,7 +926,9 @@ contract AaveV2Helpers is AaveV1Helpers {
 
             _amt = amt == uint(-1) ? getPaybackBalanceV2(aaveData, _token, rateMode) : amt;
 
-            convertEthToWeth(isEth, tokenContract, amt);
+            convertEthToWeth(isEth, tokenContract, _amt);
+
+            tokenContract.approve(address(aave), _amt);
 
             aave.repay(_token, _amt, rateMode, address(this));
         }
