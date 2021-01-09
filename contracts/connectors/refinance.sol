@@ -950,77 +950,60 @@ contract MakerHelpers is AaveV2Helpers {
         ManagerLike(getMcdManager()).open(ilk, address(this));
     }
 
-    function _makerBorrow(uint vault, uint amt, uint fee) internal {
-        uint feeAmt = wmul(amt, fee);
-        uint _amt = add(amt, feeAmt);
+    function _makerDepositAndBorrow(
+        uint vault,
+        uint collateralAmt,
+        uint debtAmt,
+        uint collateralFee,
+        uint debtFee
+    ) internal {
+        uint collateralFeeAmt = wmul(collateralAmt, collateralFee);
+        uint _collateralAmt = sub(collateralAmt, collateralFeeAmt);
+
+        uint debtFeeAmt = wmul(debtAmt, debtFee);
+        uint _debtAmt = add(debtAmt, debtFeeAmt);
 
         ManagerLike managerContract = ManagerLike(getMcdManager());
 
         uint _vault = getVault(managerContract, vault);
         (bytes32 ilk, address urn) = getVaultData(managerContract, _vault);
 
+        address colAddr = InstaMapping(getMappingAddr()).gemJoinMapping(ilk);
+        TokenJoinInterface tokenJoinContract = TokenJoinInterface(colAddr);
+        TokenInterface tokenContract = tokenJoinContract.gem();
         address daiJoin = getMcdDaiJoin();
-
         VatLike vatContract = VatLike(managerContract.vat());
+
+        transferFees(address(tokenContract), collateralFeeAmt);
+
+        if (address(tokenContract) == getWethAddr()) {
+            tokenContract.deposit.value(_collateralAmt)();
+        }
+
+        tokenContract.approve(address(colAddr), _collateralAmt);
+        tokenJoinContract.join(address(this), _collateralAmt);
+
+        int intAmt = toInt(convertTo18(tokenJoinContract.dec(), _collateralAmt));
+
+        int dart = _getBorrowAmt(address(vatContract), urn, ilk, _debtAmt);
 
         managerContract.frob(
             _vault,
-            0,
-            _getBorrowAmt(
-                address(vatContract),
-                urn,
-                ilk,
-                _amt
-            )
+            intAmt,
+            dart
         );
 
         managerContract.move(
             _vault,
             address(this),
-            toRad(_amt)
+            toRad(_debtAmt)
         );
 
         if (vatContract.can(address(this), address(daiJoin)) == 0) {
             vatContract.hope(daiJoin);
         }
 
-        DaiJoinInterface(daiJoin).exit(address(this), _amt);
-
-        transferFees(getMcdDai(), feeAmt);
-    }
-
-    function _makerDeposit(uint vault, uint amt, uint fee) internal {
-        uint feeAmt = wmul(amt, fee);
-        amt = sub(amt, feeAmt);
-
-        ManagerLike managerContract = ManagerLike(getMcdManager());
-
-        vault = getVault(managerContract, vault);
-        (bytes32 ilk, address urn) = getVaultData(managerContract, vault);
-
-        address colAddr = InstaMapping(getMappingAddr()).gemJoinMapping(ilk);
-        TokenJoinInterface tokenJoinContract = TokenJoinInterface(colAddr);
-        TokenInterface tokenContract = tokenJoinContract.gem();
-
-        transferFees(address(tokenContract), feeAmt);
-
-        if (address(tokenContract) == getWethAddr()) {
-            tokenContract.deposit.value(amt)();
-        }
-
-        tokenContract.approve(address(colAddr), amt);
-        tokenJoinContract.join(address(this), amt);
-
-        int intAmt = toInt(convertTo18(tokenJoinContract.dec(), amt));
-
-        VatLike(managerContract.vat()).frob(
-            ilk,
-            urn,
-            address(this),
-            address(this),
-            intAmt,
-            0
-        );
+        DaiJoinInterface(daiJoin).exit(address(this), _debtAmt);
     }
 
     function _makerWithdraw(uint vault, uint amt) internal returns (uint) {
@@ -1296,12 +1279,7 @@ contract RefinanceResolver is MakerHelpers {
                 revert("invalid-option");
             }
 
-            if (data.collateral > 0) {
-                _makerDeposit(data.toVaultId, depositAmt, data.collateralFee);
-            }
-            if (data.debt > 0) {
-                _makerBorrow(data.toVaultId, borrowAmt, data.debtFee);
-            }
+            _makerDepositAndBorrow(data.toVaultId, depositAmt, borrowAmt, data.collateralFee, data.debtFee);
         }
     }
 }
