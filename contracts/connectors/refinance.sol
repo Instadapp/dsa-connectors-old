@@ -682,6 +682,7 @@ contract AaveV1Helpers is CompoundHelpers {
 
     function _aaveV1DepositOne(
         AaveV1Interface aave,
+        AaveV1CoreInterface aaveCore,
         uint fee,
         address token,
         uint amt
@@ -696,7 +697,7 @@ contract AaveV1Helpers is CompoundHelpers {
                 ethAmt = _amt;
             } else {
                 TokenInterface tokenContract = TokenInterface(token);
-                tokenContract.approve(address(aave), _amt);
+                tokenContract.approve(address(aaveCore), _amt);
             }
 
             transferFees(token, feeAmt);
@@ -710,13 +711,14 @@ contract AaveV1Helpers is CompoundHelpers {
 
     function _aaveV1Deposit(
         AaveV1Interface aave,
+        AaveV1CoreInterface aaveCore,
         uint length,
         uint fee,
         address[] memory tokens,
         uint[] memory amts
     ) internal {
         for (uint i = 0; i < length; i++) {
-            _aaveV1DepositOne(aave, fee, tokens[i], amts[i]);
+            _aaveV1DepositOne(aave, aaveCore, fee, tokens[i], amts[i]);
         }
     }
 
@@ -1186,7 +1188,7 @@ contract RefinanceResolver is MakerHelpers {
             );
             _aaveV2Payback(aaveV2, aaveData, length, data.tokens, paybackAmts, data.paybackRateModes);
             depositAmts = _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
-            _aaveV1Deposit(aaveV1, length, data.collateralFee, data.tokens, depositAmts);
+            _aaveV1Deposit(aaveV1, aaveCore, length, data.collateralFee, data.tokens, depositAmts);
         } else if (data.source == 2 && data.target == 3) {
             _compEnterMarkets(length, data.tokens);
             
@@ -1214,7 +1216,7 @@ contract RefinanceResolver is MakerHelpers {
             );
             _compPayback(length, data.tokens, paybackAmts);
             depositAmts = _compWithdraw(length, data.tokens, data.withdrawAmts);
-            _aaveV1Deposit(aaveV1, length, data.collateralFee, data.tokens, depositAmts);
+            _aaveV1Deposit(aaveV1, aaveCore, length, data.collateralFee, data.tokens, depositAmts);
         } else if (data.source == 3 && data.target == 2) {
             paybackAmts = _aaveV2Borrow(
                 aaveV2,
@@ -1253,7 +1255,7 @@ contract RefinanceResolver is MakerHelpers {
             );
 
             if (data.target == 1) {
-                _aaveV1DepositOne(aaveV1, data.collateralFee, data.token, depositAmt);
+                _aaveV1DepositOne(aaveV1, aaveCore, data.collateralFee, data.token, depositAmt);
                 _aaveV1BorrowOne(aaveV1, data.debtFee, 2, dai, borrowAmt, data.borrowRateMode, 1);
             } else if (data.target == 2) {
                 _aaveV2DepositOne(aaveV2, aaveData, data.collateralFee, data.token, depositAmt);
