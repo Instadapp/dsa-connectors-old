@@ -494,10 +494,12 @@ contract Helpers is DSMath {
     }
 
     function transferFees(address token, uint feeAmt) internal {
-        if (token == getEthAddr()) {
-            feeCollector.transfer(feeAmt);
-        } else {
-            IERC20(token).safeTransfer(feeCollector, feeAmt);
+        if (feeAmt > 0) {
+            if (token == getEthAddr()) {
+                feeCollector.transfer(feeAmt);
+            } else {
+                IERC20(token).safeTransfer(feeCollector, feeAmt);
+            }
         }
     }
 }
@@ -992,11 +994,12 @@ contract MakerHelpers is AaveV2Helpers {
         makerData.daiJoin = getMcdDaiJoin();
         makerData.vatContract = VatLike(managerContract.vat());
 
-        transferFees(address(makerData.tokenContract), collateralFeeAmt);
-
         if (address(makerData.tokenContract) == getWethAddr()) {
             makerData.tokenContract.deposit.value(_collateralAmt)();
         }
+
+        transferFees(address(makerData.tokenContract), collateralFeeAmt);
+        transferFees(getMcdDai(), debtFeeAmt);
 
         makerData.tokenContract.approve(address(makerData.colAddr), _collateralAmt);
         makerData.tokenJoinContract.join(urn, _collateralAmt);
