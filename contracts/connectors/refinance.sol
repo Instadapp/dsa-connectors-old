@@ -29,6 +29,8 @@ interface CTokenInterface {
 
     function balanceOf(address owner) external view returns (uint256 balance);
     function transferFrom(address, address, uint) external returns (bool);
+
+    function underlying() external view returns (address);
 }
 
 interface CETHInterface {
@@ -280,6 +282,13 @@ contract Helpers is DSMath {
     }
 
     /**
+     * @dev Return CEth address
+    */
+    function getCethAddr() internal pure returns (address) {
+        return 0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5;
+    }
+
+    /**
      * @dev Return InstaDApp Mapping Address
      */
     function getMappingAddr() internal pure returns (address) {
@@ -488,7 +497,8 @@ contract Helpers is DSMath {
             (uint _amt, uint _fee) = getPaybackBalance(aaveV1, token);
             amt = _amt + _fee;
         } else if (target == Protocol.AaveV2) {
-            amt = getPaybackBalanceV2(aaveData, token, rateMode);
+            address _token = token == getEthAddr() ? getWethAddr() : token;
+            amt = getPaybackBalanceV2(aaveData, _token, rateMode);
         } else if (target == Protocol.Compound) {
             address cToken = InstaMapping(getMappingAddr()).cTokenMapping(token);
             amt = CTokenInterface(cToken).borrowBalanceCurrent(address(this));
@@ -504,32 +514,58 @@ contract Helpers is DSMath {
             }
         }
     }
+
+    function getTokenInterfaces(uint length, address[] memory tokens) internal pure returns (TokenInterface[] memory) {
+        TokenInterface[] memory _tokens = new TokenInterface[](length);
+        for (uint i = 0; i < length; i++) {
+            if (tokens[i] ==  getEthAddr()) {
+                _tokens[i] = TokenInterface(getWethAddr());
+            } else {
+                _tokens[i] = TokenInterface(tokens[i]);
+            }
+        }
+        return _tokens;
+    }
+
+    function getCtokenInterfaces(uint length, address[] memory tokens) internal view returns (CTokenInterface[] memory) {
+        CTokenInterface[] memory _ctokens = new CTokenInterface[](length);
+        for (uint i = 0; i < length; i++) {
+            if (tokens[i] ==  getEthAddr()) {
+                _ctokens[i] = CTokenInterface(getCethAddr());
+            } else {
+                address _cToken = InstaMapping(getMappingAddr()).cTokenMapping(tokens[i]);
+                _ctokens[i] = CTokenInterface(_cToken);
+            }
+        }
+        return _ctokens;
+    }
 }
 
 contract CompoundHelpers is Helpers {
 
-    function _compEnterMarkets(uint length, address[] memory tokens) internal {
+    function _compEnterMarkets(uint length, CTokenInterface[] memory ctokens) internal {
         ComptrollerInterface troller = ComptrollerInterface(getComptrollerAddress());
-        address[] memory cTokens = new address[](length);
+        address[] memory _cTokens = new address[](length);
 
         for (uint i = 0; i < length; i++) {
-            cTokens[i] = InstaMapping(getMappingAddr()).cTokenMapping(tokens[i]);
+            _cTokens[i] = address(ctokens[i]);
         }
-        troller.enterMarkets(cTokens);
+        troller.enterMarkets(_cTokens);
     }
 
-    function _compBorrowOne(uint fee, address token, uint amt, Protocol target, uint rateMode) internal returns (uint) {
+    function _compBorrowOne(uint fee, CTokenInterface ctoken, uint amt, Protocol target, uint rateMode) internal returns (uint) {
         if (amt > 0) {
+
+            address token = address(ctoken) == getCethAddr() ? getEthAddr() : ctoken.underlying();
 
             if (amt == uint(-1)) {
                 amt = getMaxBorrow(target, token, rateMode);
             }
 
-            address cToken = InstaMapping(getMappingAddr()).cTokenMapping(token);
             uint feeAmt = wmul(amt, fee);
             uint _amt = add(amt, feeAmt);
 
-            require(CTokenInterface(cToken).borrow(_amt) == 0, "borrow-failed-collateral?");
+            require(ctoken.borrow(_amt) == 0, "borrow-failed-collateral?");
             transferFees(token, feeAmt);
         }
         return amt;
@@ -539,30 +575,30 @@ contract CompoundHelpers is Helpers {
         uint length,
         uint fee,
         Protocol target,
-        address[] memory tokens,
+        CTokenInterface[] memory ctokens,
         uint[] memory amts,
         uint[] memory rateModes
     ) internal returns (uint[] memory) {
         uint[] memory finalAmts = new uint[](length);
         for (uint i = 0; i < length; i++) {
-            finalAmts[i] = _compBorrowOne(fee, tokens[i], amts[i], target, rateModes[i]);
+            finalAmts[i] = _compBorrowOne(fee, ctokens[i], amts[i], target, rateModes[i]);
         }
         return finalAmts;
     }
 
-    function _compDepositOne(uint fee, address token, uint amt) internal {
+    function _compDepositOne(uint fee, CTokenInterface ctoken, uint amt) internal {
         if (amt > 0) {
-            address cToken = InstaMapping(getMappingAddr()).cTokenMapping(token);
+            address token = address(ctoken) == getCethAddr() ? getEthAddr() : ctoken.underlying();
 
             uint feeAmt = wmul(amt, fee);
             uint _amt = sub(amt, feeAmt);
 
             if (token != getEthAddr()) {
                 TokenInterface tokenContract = TokenInterface(token);
-                tokenContract.approve(cToken, _amt);
-                require(CTokenInterface(cToken).mint(_amt) == 0, "deposit-failed");
+                tokenContract.approve(address(ctoken), _amt);
+                require(ctoken.mint(_amt) == 0, "deposit-failed");
             } else {
-                CETHInterface(cToken).mint.value(_amt)();
+                CETHInterface(getCethAddr()).mint.value(_amt)();
             }
             transferFees(token, feeAmt);
         }
@@ -571,52 +607,50 @@ contract CompoundHelpers is Helpers {
     function _compDeposit(
         uint length,
         uint fee,
-        address[] memory tokens,
+        CTokenInterface[] memory ctokens,
         uint[] memory amts
     ) internal {
         for (uint i = 0; i < length; i++) {
-            _compDepositOne(fee, tokens[i], amts[i]);
+            _compDepositOne(fee, ctokens[i], amts[i]);
         }
     }
 
-    function _compWithdrawOne(address token, uint amt) internal returns (uint) {
+    function _compWithdrawOne(CTokenInterface ctoken, uint amt) internal returns (uint) {
         if (amt > 0) {
-            address cToken = InstaMapping(getMappingAddr()).cTokenMapping(token);
-            CTokenInterface cTokenContract = CTokenInterface(cToken);
             if (amt == uint(-1)) {
-                amt = cTokenContract.balanceOf(address(this));
+                amt = ctoken.balanceOf(address(this));
             }
-            require(cTokenContract.redeemUnderlying(amt) == 0, "withdraw-failed");
+            require(ctoken.redeemUnderlying(amt) == 0, "withdraw-failed");
         }
         return amt;
     }
 
     function _compWithdraw(
         uint length,
-        address[] memory tokens,
+        CTokenInterface[] memory ctokens,
         uint[] memory amts
     ) internal returns(uint[] memory) {
         uint[] memory finalAmts = new uint[](length);
         for (uint i = 0; i < length; i++) {
-            finalAmts[i] = _compWithdrawOne(tokens[i], amts[i]);
+            finalAmts[i] = _compWithdrawOne(ctokens[i], amts[i]);
         }
         return finalAmts;
     }
 
-    function _compPaybackOne(address token, uint amt) internal returns (uint) {
+    function _compPaybackOne(CTokenInterface ctoken, uint amt) internal returns (uint) {
         if (amt > 0) {
-            address cToken = InstaMapping(getMappingAddr()).cTokenMapping(token);
-            CTokenInterface cTokenContract = CTokenInterface(cToken);
+
+            address token = address(ctoken) == getCethAddr() ? getEthAddr() : ctoken.underlying();
 
             if (amt == uint(-1)) {
-                amt = cTokenContract.borrowBalanceCurrent(address(this));
+                amt = ctoken.borrowBalanceCurrent(address(this));
             }
             if (token != getEthAddr()) {
                 TokenInterface tokenContract = TokenInterface(token);
-                tokenContract.approve(cToken, amt);
-                require(cTokenContract.repayBorrow(amt) == 0, "repay-failed.");
+                tokenContract.approve(address(ctoken), amt);
+                require(ctoken.repayBorrow(amt) == 0, "repay-failed.");
             } else {
-                CETHInterface(cToken).repayBorrow.value(amt)();
+                CETHInterface(getCethAddr()).repayBorrow.value(amt)();
             }
         }
         return amt;
@@ -624,11 +658,11 @@ contract CompoundHelpers is Helpers {
 
     function _compPayback(
         uint length,
-        address[] memory tokens,
+        CTokenInterface[] memory ctokens,
         uint[] memory amts
     ) internal {
         for (uint i = 0; i < length; i++) {
-            _compPaybackOne(tokens[i], amts[i]);
+            _compPaybackOne(ctokens[i], amts[i]);
         }
     }
 }
@@ -1102,9 +1136,6 @@ contract MakerHelpers is AaveV2Helpers {
 
 contract RefinanceResolver is MakerHelpers {
 
-    // Aave v1 Id - 1
-    // Aave v2 Id - 2
-    // Compound Id - 3
     struct RefinanceData {
         Protocol source;
         Protocol target;
@@ -1117,9 +1148,6 @@ contract RefinanceResolver is MakerHelpers {
         uint[] paybackRateModes;
     }
 
-    // Aave v1 Id - 1
-    // Aave v2 Id - 2
-    // Compound Id - 3
     struct RefinanceMakerData {
         uint fromVaultId;
         uint toVaultId;
@@ -1136,7 +1164,7 @@ contract RefinanceResolver is MakerHelpers {
         uint paybackRateMode;
     }
 
-    function refinance(RefinanceData calldata data) external payable {
+    function refinance(RefinanceData calldata data) public payable {
 
         require(data.source != data.target, "source-and-target-unequal");
 
@@ -1155,6 +1183,7 @@ contract RefinanceResolver is MakerHelpers {
         uint[] memory depositAmts;
         uint[] memory paybackAmts;
 
+
         if (data.source == Protocol.Aave && data.target == Protocol.AaveV2) {
             paybackAmts = _aaveV2Borrow(
                 aaveV2,
@@ -1169,20 +1198,21 @@ contract RefinanceResolver is MakerHelpers {
             depositAmts = _aaveV1Withdraw(aaveV1, aaveCore, length, data.tokens, data.withdrawAmts);
             _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, data.tokens, depositAmts);
         } else if (data.source == Protocol.Aave && data.target == Protocol.Compound) {
-            _compEnterMarkets(length, data.tokens);
+            CTokenInterface[] memory _ctokens = getCtokenInterfaces(length, data.tokens);
+            _compEnterMarkets(length, _ctokens);
 
             paybackAmts = _compBorrow(
                 length,
                 data.debtFee,
                 data.target,
-                data.tokens,
+                _ctokens,
                 data.borrowAmts,
                 data.borrowRateModes
             );
             
             _aaveV1Payback(aaveV1, aaveCore, length, data.tokens, paybackAmts);
             depositAmts = _aaveV1Withdraw(aaveV1, aaveCore, length, data.tokens, data.withdrawAmts);
-            _compDeposit(length, data.collateralFee, data.tokens, depositAmts);
+            _compDeposit(length, data.collateralFee, _ctokens, depositAmts);
         } else if (data.source == Protocol.AaveV2 && data.target == Protocol.Aave) {
             paybackAmts = _aaveV1Borrow(
                 aaveV1,
@@ -1198,20 +1228,22 @@ contract RefinanceResolver is MakerHelpers {
             depositAmts = _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
             _aaveV1Deposit(aaveV1, aaveCore, length, data.collateralFee, data.tokens, depositAmts);
         } else if (data.source == Protocol.AaveV2 && data.target == Protocol.Compound) {
-            _compEnterMarkets(length, data.tokens);
+            CTokenInterface[] memory _ctokens = getCtokenInterfaces(length, data.tokens);
+            _compEnterMarkets(length, _ctokens);
             
             paybackAmts = _compBorrow(
                 length,
                 data.debtFee,
                 data.target,
-                data.tokens,
+                _ctokens,
                 data.borrowAmts,
                 data.borrowRateModes
             );
             _aaveV2Payback(aaveV2, aaveData, length, data.tokens, paybackAmts, data.paybackRateModes);
             depositAmts = _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
-            _compDeposit(length, data.collateralFee, data.tokens, depositAmts);
+            _compDeposit(length, data.collateralFee, _ctokens, depositAmts);
         } else if (data.source == Protocol.Compound && data.target == Protocol.Aave) {
+            
             paybackAmts = _aaveV1Borrow(
                 aaveV1,
                 length,
@@ -1222,10 +1254,14 @@ contract RefinanceResolver is MakerHelpers {
                 data.borrowRateModes,
                 data.paybackRateModes
             );
-            _compPayback(length, data.tokens, paybackAmts);
-            depositAmts = _compWithdraw(length, data.tokens, data.withdrawAmts);
+            {
+            CTokenInterface[] memory _ctokens = getCtokenInterfaces(length, data.tokens);
+            _compPayback(length, _ctokens, paybackAmts);
+            depositAmts = _compWithdraw(length, _ctokens, data.withdrawAmts);
+            }
             _aaveV1Deposit(aaveV1, aaveCore, length, data.collateralFee, data.tokens, depositAmts);
         } else if (data.source == Protocol.Compound && data.target == Protocol.AaveV2) {
+            CTokenInterface[] memory _ctokens = getCtokenInterfaces(length, data.tokens);
             paybackAmts = _aaveV2Borrow(
                 aaveV2,
                 length,
@@ -1235,8 +1271,8 @@ contract RefinanceResolver is MakerHelpers {
                 data.borrowAmts,
                 data.borrowRateModes
             );
-            _compPayback(length, data.tokens, paybackAmts);
-            depositAmts = _compWithdraw(length, data.tokens, data.withdrawAmts);
+            _compPayback(length, _ctokens, paybackAmts);
+            depositAmts = _compWithdraw(length, _ctokens, data.withdrawAmts);
             _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, data.tokens, depositAmts);
         } else {
             revert("invalid-options");
@@ -1273,10 +1309,12 @@ contract RefinanceResolver is MakerHelpers {
                 tokens[0] = dai;
                 tokens[1] = data.token;
 
-                _compEnterMarkets(2, tokens);
+                CTokenInterface[] memory _ctokens = getCtokenInterfaces(2, tokens);
 
-                _compDepositOne(data.collateralFee, data.token, depositAmt);
-                _compBorrowOne(data.debtFee, dai, borrowAmt, Protocol.Aave, 2);
+                _compEnterMarkets(2, _ctokens);
+
+                _compDepositOne(data.collateralFee, _ctokens[1], depositAmt);
+                _compBorrowOne(data.debtFee, _ctokens[0], borrowAmt, Protocol.Aave, 2);
             } else {
                 revert("invalid-option");
             }
@@ -1292,8 +1330,14 @@ contract RefinanceResolver is MakerHelpers {
                 borrowAmt = _aaveV2PaybackOne(aaveV2, aaveData, dai, data.debt, data.paybackRateMode);
                 depositAmt = _aaveV2WithdrawOne(aaveV2, aaveData, data.token, data.collateral);
             } else if (data.source == Protocol.Compound) {
-                borrowAmt = _compPaybackOne(dai, data.debt);
-                depositAmt = _compWithdrawOne(data.token, data.collateral);
+                address _cDai = InstaMapping(getMappingAddr()).cTokenMapping(dai);
+                address _cToken = InstaMapping(getMappingAddr()).cTokenMapping(data.token);
+
+                CTokenInterface cDai = CTokenInterface(_cDai);
+                CTokenInterface cToken = CTokenInterface(_cToken);
+
+                borrowAmt = _compPaybackOne(cDai, data.debt);
+                depositAmt = _compWithdrawOne(cToken, data.collateral);
             } else {
                 revert("invalid-option");
             }
