@@ -1180,7 +1180,7 @@ contract RefinanceResolver is MakerHelpers {
         uint paybackRateMode;
     }
 
-    function refinance(RefinanceData calldata data) public payable {
+    function refinance(RefinanceData calldata data) external payable {
 
         require(data.source != data.target, "source-and-target-unequal");
 
