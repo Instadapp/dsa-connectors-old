@@ -995,11 +995,10 @@ contract MakerHelpers is AaveV2Helpers {
         makerData.vatContract = VatLike(managerContract.vat());
 
         if (address(makerData.tokenContract) == getWethAddr()) {
-            makerData.tokenContract.deposit.value(_collateralAmt)();
+            makerData.tokenContract.deposit.value(collateralAmt)();
         }
 
         transferFees(address(makerData.tokenContract), collateralFeeAmt);
-        transferFees(getMcdDai(), debtFeeAmt);
 
         makerData.tokenContract.approve(address(makerData.colAddr), _collateralAmt);
         makerData.tokenJoinContract.join(urn, _collateralAmt);
@@ -1025,6 +1024,8 @@ contract MakerHelpers is AaveV2Helpers {
         }
 
         DaiJoinInterface(makerData.daiJoin).exit(address(this), _debtAmt);
+
+        transferFees(getMcdDai(), debtFeeAmt);
     }
 
     function _makerPaybackAndWithdraw(
