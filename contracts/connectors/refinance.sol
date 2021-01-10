@@ -260,6 +260,8 @@ contract Helpers is DSMath {
 
     using SafeERC20 for IERC20;
 
+    enum Protocol { Aave, AaveV2, Compound }
+
     address payable constant feeCollector = 0xb1DC62EC38E6E3857a887210C38418E4A17Da5B2;
 
     /**
@@ -478,16 +480,16 @@ contract Helpers is DSMath {
         }
     }
 
-    function getMaxBorrow(uint target, address token, uint rateMode) internal returns (uint amt) {
+    function getMaxBorrow(Protocol target, address token, uint rateMode) internal returns (uint amt) {
         AaveV1Interface aaveV1 = AaveV1Interface(getAaveProvider().getLendingPool());
         AaveV2DataProviderInterface aaveData = getAaveV2DataProvider();
 
-        if (target == 1) {
+        if (target == Protocol.Aave) {
             (uint _amt, uint _fee) = getPaybackBalance(aaveV1, token);
             amt = _amt + _fee;
-        } else if (target == 2) {
+        } else if (target == Protocol.AaveV2) {
             amt = getPaybackBalanceV2(aaveData, token, rateMode);
-        } else if (target == 3) {
+        } else if (target == Protocol.Compound) {
             address cToken = InstaMapping(getMappingAddr()).cTokenMapping(token);
             amt = CTokenInterface(cToken).borrowBalanceCurrent(address(this));
         }
@@ -516,7 +518,7 @@ contract CompoundHelpers is Helpers {
         troller.enterMarkets(cTokens);
     }
 
-    function _compBorrowOne(uint fee, address token, uint amt, uint target, uint rateMode) internal returns (uint) {
+    function _compBorrowOne(uint fee, address token, uint amt, Protocol target, uint rateMode) internal returns (uint) {
         if (amt > 0) {
 
             if (amt == uint(-1)) {
@@ -536,7 +538,7 @@ contract CompoundHelpers is Helpers {
     function _compBorrow(
         uint length,
         uint fee,
-        uint target,
+        Protocol target,
         address[] memory tokens,
         uint[] memory amts,
         uint[] memory rateModes
@@ -636,7 +638,7 @@ contract AaveV1Helpers is CompoundHelpers {
     function _aaveV1BorrowOne(
         AaveV1Interface aave,
         uint fee,
-        uint target,
+        Protocol target,
         address token,
         uint amt,
         uint borrowRateMode,
@@ -661,7 +663,7 @@ contract AaveV1Helpers is CompoundHelpers {
         AaveV1Interface aave,
         uint length,
         uint fee,
-        uint target,
+        Protocol target,
         address[] memory tokens,
         uint[] memory amts,
         uint[] memory borrowRateModes,
@@ -799,7 +801,7 @@ contract AaveV2Helpers is AaveV1Helpers {
     function _aaveV2BorrowOne(
         AaveV2Interface aave,
         uint fee,
-        uint target,
+        Protocol target,
         address token,
         uint amt,
         uint rateMode
@@ -827,7 +829,7 @@ contract AaveV2Helpers is AaveV1Helpers {
         AaveV2Interface aave,
         uint length,
         uint fee,
-        uint target,
+        Protocol target,
         address[] memory tokens,
         uint[] memory amts,
         uint[] memory rateModes
@@ -1104,8 +1106,8 @@ contract RefinanceResolver is MakerHelpers {
     // Aave v2 Id - 2
     // Compound Id - 3
     struct RefinanceData {
-        uint source;
-        uint target;
+        Protocol source;
+        Protocol target;
         uint collateralFee;
         uint debtFee;
         address[] tokens;
@@ -1121,8 +1123,8 @@ contract RefinanceResolver is MakerHelpers {
     struct RefinanceMakerData {
         uint fromVaultId;
         uint toVaultId;
-        uint source;
-        uint target;
+        Protocol source;
+        Protocol target;
         uint collateralFee;
         uint debtFee;
         bool isFrom;
@@ -1153,7 +1155,7 @@ contract RefinanceResolver is MakerHelpers {
         uint[] memory depositAmts;
         uint[] memory paybackAmts;
 
-        if (data.source == 1 && data.target == 2) {
+        if (data.source == Protocol.Aave && data.target == Protocol.AaveV2) {
             paybackAmts = _aaveV2Borrow(
                 aaveV2,
                 length,
@@ -1166,7 +1168,7 @@ contract RefinanceResolver is MakerHelpers {
             _aaveV1Payback(aaveV1, aaveCore, length, data.tokens, paybackAmts);
             depositAmts = _aaveV1Withdraw(aaveV1, aaveCore, length, data.tokens, data.withdrawAmts);
             _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, data.tokens, depositAmts);
-        } else if (data.source == 1 && data.target == 3) {
+        } else if (data.source == Protocol.Aave && data.target == Protocol.Compound) {
             _compEnterMarkets(length, data.tokens);
 
             paybackAmts = _compBorrow(
@@ -1181,7 +1183,7 @@ contract RefinanceResolver is MakerHelpers {
             _aaveV1Payback(aaveV1, aaveCore, length, data.tokens, paybackAmts);
             depositAmts = _aaveV1Withdraw(aaveV1, aaveCore, length, data.tokens, data.withdrawAmts);
             _compDeposit(length, data.collateralFee, data.tokens, depositAmts);
-        } else if (data.source == 2 && data.target == 1) {
+        } else if (data.source == Protocol.AaveV2 && data.target == Protocol.Aave) {
             paybackAmts = _aaveV1Borrow(
                 aaveV1,
                 length,
@@ -1195,7 +1197,7 @@ contract RefinanceResolver is MakerHelpers {
             _aaveV2Payback(aaveV2, aaveData, length, data.tokens, paybackAmts, data.paybackRateModes);
             depositAmts = _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
             _aaveV1Deposit(aaveV1, aaveCore, length, data.collateralFee, data.tokens, depositAmts);
-        } else if (data.source == 2 && data.target == 3) {
+        } else if (data.source == Protocol.AaveV2 && data.target == Protocol.Compound) {
             _compEnterMarkets(length, data.tokens);
             
             paybackAmts = _compBorrow(
@@ -1209,7 +1211,7 @@ contract RefinanceResolver is MakerHelpers {
             _aaveV2Payback(aaveV2, aaveData, length, data.tokens, paybackAmts, data.paybackRateModes);
             depositAmts = _aaveV2Withdraw(aaveV2, aaveData, length, data.tokens, data.withdrawAmts);
             _compDeposit(length, data.collateralFee, data.tokens, depositAmts);
-        } else if (data.source == 3 && data.target == 1) {
+        } else if (data.source == Protocol.Compound && data.target == Protocol.Aave) {
             paybackAmts = _aaveV1Borrow(
                 aaveV1,
                 length,
@@ -1223,7 +1225,7 @@ contract RefinanceResolver is MakerHelpers {
             _compPayback(length, data.tokens, paybackAmts);
             depositAmts = _compWithdraw(length, data.tokens, data.withdrawAmts);
             _aaveV1Deposit(aaveV1, aaveCore, length, data.collateralFee, data.tokens, depositAmts);
-        } else if (data.source == 3 && data.target == 2) {
+        } else if (data.source == Protocol.Compound && data.target == Protocol.AaveV2) {
             paybackAmts = _aaveV2Borrow(
                 aaveV2,
                 length,
@@ -1260,13 +1262,13 @@ contract RefinanceResolver is MakerHelpers {
                 data.debt
             );
 
-            if (data.target == 1) {
+            if (data.target == Protocol.Aave) {
                 _aaveV1DepositOne(aaveV1, aaveCore, data.collateralFee, data.token, depositAmt);
-                _aaveV1BorrowOne(aaveV1, data.debtFee, 2, dai, borrowAmt, data.borrowRateMode, 1);
-            } else if (data.target == 2) {
+                _aaveV1BorrowOne(aaveV1, data.debtFee, Protocol.AaveV2, dai, borrowAmt, data.borrowRateMode, 2);
+            } else if (data.target == Protocol.AaveV2) {
                 _aaveV2DepositOne(aaveV2, aaveData, data.collateralFee, data.token, depositAmt);
-                _aaveV2BorrowOne(aaveV2, data.debtFee, 1, dai, borrowAmt, data.borrowRateMode);
-            } else if (data.target == 3) {
+                _aaveV2BorrowOne(aaveV2, data.debtFee, Protocol.AaveV2, dai, borrowAmt, data.borrowRateMode);
+            } else if (data.target == Protocol.Compound) {
                 address[] memory tokens = new address[](2);
                 tokens[0] = dai;
                 tokens[1] = data.token;
@@ -1274,7 +1276,7 @@ contract RefinanceResolver is MakerHelpers {
                 _compEnterMarkets(2, tokens);
 
                 _compDepositOne(data.collateralFee, data.token, depositAmt);
-                _compBorrowOne(data.debtFee, dai, borrowAmt, 1, 1);
+                _compBorrowOne(data.debtFee, dai, borrowAmt, Protocol.Aave, 2);
             } else {
                 revert("invalid-option");
             }
@@ -1283,13 +1285,13 @@ contract RefinanceResolver is MakerHelpers {
                 _makerOpen(data.colType);
             }
 
-            if (data.source == 1) {
+            if (data.source == Protocol.Aave) {
                 borrowAmt = _aaveV1PaybackOne(aaveV1, aaveCore, dai, data.debt);
                 depositAmt = _aaveV1WithdrawOne(aaveV1, aaveCore, data.token, data.collateral);
-            } else if (data.source == 2) {
+            } else if (data.source == Protocol.AaveV2) {
                 borrowAmt = _aaveV2PaybackOne(aaveV2, aaveData, dai, data.debt, data.paybackRateMode);
                 depositAmt = _aaveV2WithdrawOne(aaveV2, aaveData, data.token, data.collateral);
-            } else if (data.source == 3) {
+            } else if (data.source == Protocol.Compound) {
                 borrowAmt = _compPaybackOne(dai, data.debt);
                 depositAmt = _compWithdrawOne(data.token, data.collateral);
             } else {
