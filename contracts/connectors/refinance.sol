@@ -1325,7 +1325,7 @@ contract RefinanceResolver is MakerHelpers {
         AaveV2DataProviderInterface aaveData = getAaveV2DataProvider();
 
         TokenInterface dai = TokenInterface(getMcdDai());
-        TokenInterface token = TokenInterface(data.token);
+        TokenInterface token = TokenInterface(data.token == getEthAddr() ? getWethAddr() : data.token);
 
         uint depositAmt;
         uint borrowAmt;
@@ -1352,8 +1352,8 @@ contract RefinanceResolver is MakerHelpers {
 
                 _compEnterMarkets(2, _ctokens);
 
-                _compDepositOne(data.collateralFee, _ctokens[1], dai, depositAmt);
-                _compBorrowOne(data.debtFee, _ctokens[0], TokenInterface(data.token), borrowAmt, Protocol.Aave, 2);
+                _compDepositOne(data.collateralFee, _ctokens[1], token, depositAmt);
+                _compBorrowOne(data.debtFee, _ctokens[0], dai, borrowAmt, Protocol.Aave, 2);
             } else {
                 revert("invalid-option");
             }
