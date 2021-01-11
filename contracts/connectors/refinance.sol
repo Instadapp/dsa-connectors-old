@@ -559,15 +559,17 @@ contract CompoundHelpers is Helpers {
         uint rateMode
     ) internal returns (uint) {
         if (amt > 0) {
+            address _token = address(token) == getWethAddr() ? getEthAddr() : address(token);
+
             if (amt == uint(-1)) {
-                amt = getMaxBorrow(target, address(token), rateMode);
+                amt = getMaxBorrow(target, _token, rateMode);
             }
 
             uint feeAmt = wmul(amt, fee);
             uint _amt = add(amt, feeAmt);
 
             require(ctoken.borrow(_amt) == 0, "borrow-failed-collateral?");
-            transferFees(address(token), feeAmt);
+            transferFees(_token, feeAmt);
         }
         return amt;
     }
@@ -591,16 +593,18 @@ contract CompoundHelpers is Helpers {
 
     function _compDepositOne(uint fee, CTokenInterface ctoken, TokenInterface token, uint amt) internal {
         if (amt > 0) {
+            address _token = address(token) == getWethAddr() ? getEthAddr() : address(token);
+
             uint feeAmt = wmul(amt, fee);
             uint _amt = sub(amt, feeAmt);
 
-            if (address(token) != getEthAddr()) {
+            if (_token != getEthAddr()) {
                 token.approve(address(ctoken), _amt);
                 require(ctoken.mint(_amt) == 0, "deposit-failed");
             } else {
                 CETHInterface(address(ctoken)).mint.value(_amt)();
             }
-            transferFees(address(token), feeAmt);
+            transferFees(_token, feeAmt);
         }
     }
 
@@ -643,7 +647,7 @@ contract CompoundHelpers is Helpers {
             if (amt == uint(-1)) {
                 amt = ctoken.borrowBalanceCurrent(address(this));
             }
-            if (address(token) != getEthAddr()) {
+            if (address(token) != getWethAddr()) {
                 token.approve(address(ctoken), amt);
                 require(ctoken.repayBorrow(amt) == 0, "repay-failed.");
             } else {
