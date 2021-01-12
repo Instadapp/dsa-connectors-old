@@ -17,25 +17,20 @@ interface TokenInterface {
 // Compound Helpers
 interface CTokenInterface {
     function mint(uint mintAmount) external returns (uint);
-    function redeem(uint redeemTokens) external returns (uint);
     function borrow(uint borrowAmount) external returns (uint);
     function repayBorrow(uint repayAmount) external returns (uint);
-    function repayBorrowBehalf(address borrower, uint repayAmount) external returns (uint); // For ERC20
-    function liquidateBorrow(address borrower, uint repayAmount, address cTokenCollateral) external returns (uint);
 
     function borrowBalanceCurrent(address account) external returns (uint);
     function redeemUnderlying(uint redeemAmount) external returns (uint);
-    function exchangeRateCurrent() external returns (uint);
 
     function balanceOf(address owner) external view returns (uint256 balance);
-    function transferFrom(address, address, uint) external returns (bool);
 }
 
 interface CETHInterface {
     function mint() external payable;
     function repayBorrow() external payable;
-    function repayBorrowBehalf(address borrower) external payable;
-    function liquidateBorrow(address borrower, address cTokenCollateral) external payable;
+    // function repayBorrowBehalf(address borrower) external payable;
+    // function liquidateBorrow(address borrower, address cTokenCollateral) external payable;
 }
 
 interface InstaMapping {
@@ -45,9 +40,9 @@ interface InstaMapping {
 
 interface ComptrollerInterface {
     function enterMarkets(address[] calldata cTokens) external returns (uint[] memory);
-    function exitMarket(address cTokenAddress) external returns (uint);
-    function getAssetsIn(address account) external view returns (address[] memory);
-    function getAccountLiquidity(address account) external view returns (uint, uint, uint);
+    // function exitMarket(address cTokenAddress) external returns (uint);
+    // function getAssetsIn(address account) external view returns (address[] memory);
+    // function getAccountLiquidity(address account) external view returns (uint, uint, uint);
 }
 // End Compound Helpers
 
@@ -128,11 +123,6 @@ interface AaveV2LendingPoolProviderInterface {
 
 // Aave Protocol Data Provider
 interface AaveV2DataProviderInterface {
-    function getReserveTokensAddresses(address _asset) external view returns (
-        address aTokenAddress,
-        address stableDebtTokenAddress,
-        address variableDebtTokenAddress
-    );
     function getUserReserveData(address _asset, address _user) external view returns (
         uint256 currentATokenBalance,
         uint256 currentStableDebt,
@@ -143,18 +133,6 @@ interface AaveV2DataProviderInterface {
         uint256 liquidityRate,
         uint40 stableRateLastUpdated,
         bool usageAsCollateralEnabled
-    );
-    function getReserveConfigurationData(address asset) external view returns (
-        uint256 decimals,
-        uint256 ltv,
-        uint256 liquidationThreshold,
-        uint256 liquidationBonus,
-        uint256 reserveFactor,
-        bool usageAsCollateralEnabled,
-        bool borrowingEnabled,
-        bool stableBorrowRateEnabled,
-        bool isActive,
-        bool isFrozen
     );
 }
 // End Aave v2 Helpers
@@ -176,7 +154,7 @@ interface ManagerLike {
 }
 
 interface VatLike {
-    function can(address, address) external view returns (uint);
+    // function can(address, address) external view returns (uint);
     function ilks(bytes32) external view returns (uint, uint, uint, uint, uint);
     function dai(address) external view returns (uint);
     function urns(bytes32, address) external view returns (uint, uint);
@@ -260,7 +238,11 @@ contract Helpers is DSMath {
 
     using SafeERC20 for IERC20;
 
-    enum Protocol { Aave, AaveV2, Compound }
+    enum Protocol {
+        Aave,
+        AaveV2,
+        Compound
+    }
 
     address payable constant feeCollector = 0xb1DC62EC38E6E3857a887210C38418E4A17Da5B2;
 
@@ -738,9 +720,10 @@ contract AaveV1Helpers is CompoundHelpers {
             uint feeAmt = wmul(amt, fee);
             uint _amt = sub(amt, feeAmt);
 
-            address _token = address(token) == getWethAddr() ? getEthAddr() : address(token);
+            bool isETH = address(token) == getWethAddr();
 
-            bool isEth = _token == getEthAddr();
+            address _token = isETH ? getEthAddr() : address(token);
+
             if (isEth) {
                 ethAmt = _amt;
             } else {
@@ -809,14 +792,15 @@ contract AaveV1Helpers is CompoundHelpers {
         if (amt > 0) {
             uint ethAmt;
 
-            address _token = address(token) == getWethAddr() ? getEthAddr() : address(token);
+            bool isEth = address(token) == getWethAddr();
+
+            address _token = isEth ? getEthAddr() : address(token);
 
             if (amt == uint(-1)) {
                 (uint _amt, uint _fee) = getPaybackBalance(aave, _token);
                 amt = _amt + _fee;
             }
 
-            bool isEth = _token == getEthAddr();
             if (isEth) {
                 ethAmt = amt;
             } else {
@@ -1386,6 +1370,6 @@ contract RefinanceResolver is MakerHelpers {
     }
 }
 
-contract ConnectRefinace is RefinanceResolver {
+contract ConnectRefinance is RefinanceResolver {
     string public name = "Refinance-v1";
 }
