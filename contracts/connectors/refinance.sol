@@ -891,15 +891,15 @@ contract AaveV2Helpers is AaveV1Helpers {
         uint rateMode
     ) internal returns (uint) {
         if (amt > 0) {
-            address _token = address(token) == getWethAddr() ? getEthAddr() : address(token);
+            bool isEth = address(token) == getWethAddr();
+            
+            address _token = isEth ? getEthAddr() : address(token);
 
             if (amt == uint(-1)) {
                 amt = getMaxBorrow(target, _token, ctoken, rateMode);
             }
 
             (uint feeAmt, uint _amt) = calculateFee(amt, fee, true);
-
-            bool isEth = address(token) == getWethAddr();
 
             aave.borrow(address(token), _amt, rateMode, getReferralCode(), address(this));
             convertWethToEth(isEth, token, amt);
