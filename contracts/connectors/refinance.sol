@@ -1370,7 +1370,7 @@ contract RefinanceResolver is MakerHelpers {
                 CTokenInterface cToken = CTokenInterface(_cToken);
 
                 borrowAmt = _compPaybackOne(cDai, dai, data.debt);
-                depositAmt = _compWithdrawOne(cToken, TokenInterface(data.token), data.collateral);
+                depositAmt = _compWithdrawOne(cToken, token, data.collateral);
             } else {
                 revert("invalid-option");
             }
