@@ -720,9 +720,9 @@ contract AaveV1Helpers is CompoundHelpers {
             uint feeAmt = wmul(amt, fee);
             uint _amt = sub(amt, feeAmt);
 
-            bool isETH = address(token) == getWethAddr();
+            bool isEth = address(token) == getWethAddr();
 
-            address _token = isETH ? getEthAddr() : address(token);
+            address _token = isEth ? getEthAddr() : address(token);
 
             if (isEth) {
                 ethAmt = _amt;
