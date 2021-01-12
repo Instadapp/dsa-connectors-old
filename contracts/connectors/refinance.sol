@@ -154,7 +154,7 @@ interface ManagerLike {
 }
 
 interface VatLike {
-    // function can(address, address) external view returns (uint);
+    function can(address, address) external view returns (uint);
     function ilks(bytes32) external view returns (uint, uint, uint, uint, uint);
     function dai(address) external view returns (uint);
     function urns(bytes32, address) external view returns (uint, uint);
@@ -259,6 +259,13 @@ contract Helpers is DSMath {
     function getWethAddr() internal pure returns (address) {
         return 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // Mainnet WETH Address
         // return 0xd0A1E359811322d97991E03f863a0C30C2cF029C; // Kovan WETH Address
+    }
+
+    /**
+     * @dev Connector Details.
+    */
+    function connectorID() public pure returns(uint _type, uint _id) {
+        (_type, _id) = (1, 72);
     }
 
     /**
