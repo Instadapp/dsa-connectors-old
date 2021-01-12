@@ -30,8 +30,6 @@ interface CTokenInterface {
 interface CETHInterface {
     function mint() external payable;
     function repayBorrow() external payable;
-    // function repayBorrowBehalf(address borrower) external payable;
-    // function liquidateBorrow(address borrower, address cTokenCollateral) external payable;
 }
 
 interface InstaMapping {
@@ -41,9 +39,6 @@ interface InstaMapping {
 
 interface ComptrollerInterface {
     function enterMarkets(address[] calldata cTokens) external returns (uint[] memory);
-    // function exitMarket(address cTokenAddress) external returns (uint);
-    // function getAssetsIn(address account) external view returns (address[] memory);
-    // function getAccountLiquidity(address account) external view returns (uint, uint, uint);
 }
 // End Compound Helpers
 
@@ -108,14 +103,6 @@ interface AaveV2Interface {
     ) external;
     function repay(address _asset, uint256 _amount, uint256 _rateMode, address _onBehalfOf) external;
     function setUserUseReserveAsCollateral(address _asset, bool _useAsCollateral) external;
-    function getUserAccountData(address user) external view returns (
-        uint256 totalCollateralETH,
-        uint256 totalDebtETH,
-        uint256 availableBorrowsETH,
-        uint256 currentLiquidationThreshold,
-        uint256 ltv,
-        uint256 healthFactor
-    );
 }
 
 interface AaveV2LendingPoolProviderInterface {
@@ -266,7 +253,7 @@ contract Helpers is DSMath {
      * @dev Connector Details.
     */
     function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 72);
+        (_type, _id) = (1, 73);
     }
 
     /**
