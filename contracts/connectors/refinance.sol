@@ -1,4 +1,4 @@
-pragma solidity ^0.6.0;
+pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 /**
@@ -296,6 +296,30 @@ contract Helpers is DSMath {
 
     using SafeERC20 for IERC20;
 
+    struct RefinanceData {
+        Protocol source;
+        Protocol target;
+        uint collateralFee;
+        uint debtFee;
+        address[] tokens;
+        uint[] borrowAmts;
+        uint[] withdrawAmts;
+        uint[] borrowRateModes;
+        uint[] paybackRateModes;
+    }
+
+    struct CommonData {
+        AaveV2Interface aaveV2;
+        AaveV1Interface aaveV1;
+        AaveV1CoreInterface aaveCore;
+        AaveV2DataProviderInterface aaveData;
+        uint length;
+        uint[] depositAmts;
+        uint[] paybackAmts;
+        TokenInterface[] tokens;
+        CTokenInterface[] ctokens;
+    }
+
     enum Protocol {
         Aave,
         AaveV2,
@@ -405,7 +429,7 @@ contract Helpers is DSMath {
     }
 
     function convertEthToWeth(bool isEth, TokenInterface token, uint amount) internal {
-        if(isEth) token.deposit.value(amount)();
+        if(isEth) token.deposit{value: amount}();
     }
 
     function convertWethToEth(bool isEth, TokenInterface token, uint amount) internal {
@@ -468,16 +492,6 @@ contract Helpers is DSMath {
 
 contract CompoundHelpers is Helpers {
 
-    struct CompoundBorrowData {
-        uint length;
-        uint fee;
-        Protocol target;
-        CTokenInterface[] ctokens;
-        TokenInterface[] tokens;
-        uint[] amts;
-        uint[] rateModes;
-    }
-
     function _compEnterMarkets(uint length, CTokenInterface[] memory ctokens) internal {
         ComptrollerInterface troller = ComptrollerInterface(getComptrollerAddress());
         address[] memory _cTokens = new address[](length);
@@ -512,17 +526,18 @@ contract CompoundHelpers is Helpers {
     }
 
     function _compBorrow(
-        CompoundBorrowData memory data
+        RefinanceData memory data,
+        CommonData memory commonData
     ) internal returns (uint[] memory) {
-        uint[] memory finalAmts = new uint[](data.length);
-        for (uint i = 0; i < data.length; i++) {
+        uint[] memory finalAmts = new uint[](commonData.length);
+        for (uint i = 0; i < commonData.length; i++) {
             finalAmts[i] = _compBorrowOne(
-                data.fee, 
-                data.ctokens[i], 
-                data.tokens[i], 
-                data.amts[i], 
-                data.target, 
-                data.rateModes[i]
+                data.debtFee, 
+                commonData.ctokens[i], 
+                commonData.tokens[i], 
+                data.borrowAmts[i], 
+                data.source, 
+                data.borrowRateModes[i]
             );
         }
         return finalAmts;
@@ -538,21 +553,18 @@ contract CompoundHelpers is Helpers {
                 token.approve(address(ctoken), _amt);
                 require(ctoken.mint(_amt) == 0, "deposit-failed");
             } else {
-                CETHInterface(address(ctoken)).mint.value(_amt)();
+                CETHInterface(address(ctoken)).mint{value: _amt}();
             }
             transferFees(_token, feeAmt);
         }
     }
 
     function _compDeposit(
-        uint length,
-        uint fee,
-        CTokenInterface[] memory ctokens,
-        TokenInterface[] memory tokens,
-        uint[] memory amts
+        RefinanceData memory data,
+        CommonData memory commonData
     ) internal {
-        for (uint i = 0; i < length; i++) {
-            _compDepositOne(fee, ctokens[i], tokens[i], amts[i]);
+        for (uint i = 0; i < commonData.length; i++) {
+            _compDepositOne(data.collateralFee, commonData.ctokens[i], commonData.tokens[i], commonData.depositAmts[i]);
         }
     }
 
@@ -572,14 +584,12 @@ contract CompoundHelpers is Helpers {
     }
 
     function _compWithdraw(
-        uint length,
-        CTokenInterface[] memory ctokens,
-        TokenInterface[] memory tokens,
-        uint[] memory amts
+        RefinanceData memory data,
+        CommonData memory commonData
     ) internal returns(uint[] memory) {
-        uint[] memory finalAmts = new uint[](length);
-        for (uint i = 0; i < length; i++) {
-            finalAmts[i] = _compWithdrawOne(ctokens[i], tokens[i], amts[i]);
+        uint[] memory finalAmts = new uint[](commonData.length);
+        for (uint i = 0; i < commonData.length; i++) {
+            finalAmts[i] = _compWithdrawOne(commonData.ctokens[i], commonData.tokens[i], data.withdrawAmts[i]);
         }
         return finalAmts;
     }
@@ -593,46 +603,22 @@ contract CompoundHelpers is Helpers {
                 token.approve(address(ctoken), amt);
                 require(ctoken.repayBorrow(amt) == 0, "repay-failed.");
             } else {
-                CETHInterface(address(ctoken)).repayBorrow.value(amt)();
+                CETHInterface(address(ctoken)).repayBorrow{value: amt}();
             }
         }
         return amt;
     }
 
     function _compPayback(
-        uint length,
-        CTokenInterface[] memory ctokens,
-        TokenInterface[] memory tokens,
-        uint[] memory amts
+        CommonData memory commonData
     ) internal {
-        for (uint i = 0; i < length; i++) {
-            _compPaybackOne(ctokens[i], tokens[i], amts[i]);
+        for (uint i = 0; i < commonData.length; i++) {
+            _compPaybackOne(commonData.ctokens[i], commonData.tokens[i], commonData.paybackAmts[i]);
         }
     }
 }
 
 contract AaveV1Helpers is CompoundHelpers {
-
-    struct AaveV1BorrowData {
-        AaveV1Interface aave;
-        uint length;
-        uint fee;
-        Protocol target;
-        TokenInterface[] tokens;
-        CTokenInterface[] ctokens;
-        uint[] amts;
-        uint[] borrowRateModes;
-        uint[] paybackRateModes;
-    }
-
-    struct AaveV1DepositData {
-        AaveV1Interface aave;
-        AaveV1CoreInterface aaveCore;
-        uint length;
-        uint fee;
-        TokenInterface[] tokens;
-        uint[] amts;
-    }
 
     function _aaveV1BorrowOne(
         AaveV1Interface aave,
@@ -661,17 +647,18 @@ contract AaveV1Helpers is CompoundHelpers {
     }
 
     function _aaveV1Borrow(
-        AaveV1BorrowData memory data
+        RefinanceData memory data,
+        CommonData memory commonData
     ) internal returns (uint[] memory) {
-        uint[] memory finalAmts = new uint[](data.length);
-        for (uint i = 0; i < data.length; i++) {
+        uint[] memory finalAmts = new uint[](commonData.length);
+        for (uint i = 0; i < commonData.length; i++) {
             finalAmts[i] = _aaveV1BorrowOne(
-                data.aave,
-                data.fee,
-                data.target,
-                data.tokens[i],
-                data.ctokens[i],
-                data.amts[i],
+                commonData.aaveV1,
+                data.debtFee,
+                data.source,
+                commonData.tokens[i],
+                commonData.ctokens[i],
+                data.borrowAmts[i],
                 data.borrowRateModes[i],
                 data.paybackRateModes[i]
             );
@@ -702,7 +689,7 @@ contract AaveV1Helpers is CompoundHelpers {
 
             transferFees(_token, feeAmt);
 
-            aave.deposit.value(ethAmt)(_token, _amt, getReferralCode());
+            aave.deposit{value: ethAmt}(_token, _amt, getReferralCode());
 
             if (!getIsColl(aave, _token))
                 aave.setUserUseReserveAsCollateral(_token, true);
@@ -710,15 +697,16 @@ contract AaveV1Helpers is CompoundHelpers {
     }
 
     function _aaveV1Deposit(
-        AaveV1DepositData memory data
+        RefinanceData memory data,
+        CommonData memory commonData
     ) internal {
-        for (uint i = 0; i < data.length; i++) {
+        for (uint i = 0; i < commonData.length; i++) {
             _aaveV1DepositOne(
-                data.aave,
-                data.aaveCore,
-                data.fee,
-                data.tokens[i],
-                data.amts[i]
+                commonData.aaveV1,
+                commonData.aaveCore,
+                data.collateralFee,
+                commonData.tokens[i],
+                commonData.depositAmts[i]
             );
         }
     }
@@ -741,15 +729,17 @@ contract AaveV1Helpers is CompoundHelpers {
     }
 
     function _aaveV1Withdraw(
-        AaveV1Interface aave,
-        AaveV1CoreInterface aaveCore,
-        uint length,
-        TokenInterface[] memory tokens,
-        uint[] memory amts
+        RefinanceData memory data,
+        CommonData memory commonData
     ) internal returns (uint[] memory) {
-        uint[] memory finalAmts = new uint[](length);
-        for (uint i = 0; i < length; i++) {
-            finalAmts[i] = _aaveV1WithdrawOne(aave, aaveCore, tokens[i], amts[i]);
+        uint[] memory finalAmts = new uint[](commonData.length);
+        for (uint i = 0; i < commonData.length; i++) {
+            finalAmts[i] = _aaveV1WithdrawOne(
+                commonData.aaveV1,
+                commonData.aaveCore,
+                commonData.tokens[i],
+                data.withdrawAmts[i]
+            );
         }
         return finalAmts;
     }
@@ -778,53 +768,26 @@ contract AaveV1Helpers is CompoundHelpers {
                 token.approve(address(aaveCore), amt);
             }
 
-            aave.repay.value(ethAmt)(_token, amt, payable(address(this)));
+            aave.repay{value: ethAmt}(_token, amt, payable(address(this)));
         }
         return amt;
     }
 
     function _aaveV1Payback(
-        AaveV1Interface aave,
-        AaveV1CoreInterface aaveCore,
-        uint length,
-        TokenInterface[] memory tokens,
-        uint[] memory amts
+        CommonData memory commonData
     ) internal {
-        for (uint i = 0; i < length; i++) {
-            _aaveV1PaybackOne(aave, aaveCore, tokens[i], amts[i]);
+        for (uint i = 0; i < commonData.length; i++) {
+            _aaveV1PaybackOne(
+                commonData.aaveV1,
+                commonData.aaveCore,
+                commonData.tokens[i],
+                commonData.paybackAmts[i]
+            );
         }
     }
 }
 
 contract AaveV2Helpers is AaveV1Helpers {
-
-    struct AaveV2BorrowData {
-        AaveV2Interface aave;
-        uint length;
-        uint fee;
-        Protocol target;
-        TokenInterface[] tokens;
-        CTokenInterface[] ctokens;
-        uint[] amts;
-        uint[] rateModes;
-    }
-
-    struct AaveV2PaybackData {
-        AaveV2Interface aave;
-        AaveV2DataProviderInterface aaveData;
-        uint length;
-        TokenInterface[] tokens;
-        uint[] amts;
-        uint[] rateModes;
-    }
-
-    struct AaveV2WithdrawData {
-        AaveV2Interface aave;
-        AaveV2DataProviderInterface aaveData;
-        uint length;
-        TokenInterface[] tokens;
-        uint[] amts;
-    }
 
     function _aaveV2BorrowOne(
         AaveV2Interface aave,
@@ -855,18 +818,19 @@ contract AaveV2Helpers is AaveV1Helpers {
     }
 
     function _aaveV2Borrow(
-        AaveV2BorrowData memory data
+        RefinanceData memory data,
+        CommonData memory commonData
     ) internal returns (uint[] memory) {
-        uint[] memory finalAmts = new uint[](data.length);
-        for (uint i = 0; i < data.length; i++) {
+        uint[] memory finalAmts = new uint[](commonData.length);
+        for (uint i = 0; i < commonData.length; i++) {
             finalAmts[i] = _aaveV2BorrowOne(
-                data.aave,
-                data.fee,
-                data.target,
-                data.tokens[i],
-                data.ctokens[i],
-                data.amts[i],
-                data.rateModes[i]
+                commonData.aaveV2,
+                data.debtFee,
+                data.source,
+                commonData.tokens[i],
+                commonData.ctokens[i],
+                data.borrowAmts[i],
+                data.borrowRateModes[i]
             );
         }
         return finalAmts;
@@ -900,15 +864,17 @@ contract AaveV2Helpers is AaveV1Helpers {
     }
 
     function _aaveV2Deposit(
-        AaveV2Interface aave,
-        AaveV2DataProviderInterface aaveData,
-        uint length,
-        uint fee,
-        TokenInterface[] memory tokens,
-        uint[] memory amts
+        RefinanceData memory data,
+        CommonData memory commonData
     ) internal {
-        for (uint i = 0; i < length; i++) {
-            _aaveV2DepositOne(aave, aaveData, fee, tokens[i], amts[i]);
+        for (uint i = 0; i < commonData.length; i++) {
+            _aaveV2DepositOne(
+                commonData.aaveV2,
+                commonData.aaveData,
+                data.collateralFee,
+                commonData.tokens[i],
+                commonData.depositAmts[i]
+            );
         }
     }
 
@@ -921,24 +887,25 @@ contract AaveV2Helpers is AaveV1Helpers {
         if (amt > 0) {
             bool isEth = address(token) == getWethAddr();
 
-            aave.withdraw(address(token), amt, address(this));
-
             _amt = amt == uint(-1) ? getWithdrawBalanceV2(aaveData, address(token)) : amt;
+
+            aave.withdraw(address(token), amt, address(this));
 
             convertWethToEth(isEth, token, _amt);
         }
     }
 
     function _aaveV2Withdraw(
-        AaveV2WithdrawData memory data
+        RefinanceData memory data,
+        CommonData memory commonData
     ) internal returns (uint[] memory) {
-        uint[] memory finalAmts = new uint[](data.length);
-        for (uint i = 0; i < data.length; i++) {
+        uint[] memory finalAmts = new uint[](commonData.length);
+        for (uint i = 0; i < commonData.length; i++) {
             finalAmts[i] = _aaveV2WithdrawOne(
-                data.aave,
-                data.aaveData,
-                data.tokens[i],
-                data.amts[i]
+                commonData.aaveV2,
+                commonData.aaveData,
+                commonData.tokens[i],
+                data.withdrawAmts[i]
             );
         }
         return finalAmts;
@@ -965,15 +932,16 @@ contract AaveV2Helpers is AaveV1Helpers {
     }
 
     function _aaveV2Payback(
-        AaveV2PaybackData memory data
+        RefinanceData memory data,
+        CommonData memory commonData
     ) internal {
-        for (uint i = 0; i < data.length; i++) {
+        for (uint i = 0; i < commonData.length; i++) {
             _aaveV2PaybackOne(
-                data.aave,
-                data.aaveData,
-                data.tokens[i],
-                data.amts[i],
-                data.rateModes[i]
+                commonData.aaveV2,
+                commonData.aaveData,
+                commonData.tokens[i],
+                commonData.paybackAmts[i],
+                data.paybackRateModes[i]
             );
         }
     }
@@ -981,147 +949,59 @@ contract AaveV2Helpers is AaveV1Helpers {
 
 contract RefinanceResolver is AaveV2Helpers {
 
-    struct RefinanceData {
-        Protocol source;
-        Protocol target;
-        uint collateralFee;
-        uint debtFee;
-        address[] tokens;
-        uint[] borrowAmts;
-        uint[] withdrawAmts;
-        uint[] borrowRateModes;
-        uint[] paybackRateModes;
-    }
-
-    struct CommonData {
-        AaveV2Interface aaveV2;
-        AaveV1Interface aaveV1;
-        AaveV1CoreInterface aaveCore;
-        AaveV2DataProviderInterface aaveData;
-        uint length;
-        TokenInterface[] tokens;
-        CTokenInterface[] _ctokens;
-    }
-
     function refinance(RefinanceData calldata data) external payable {
         CommonData memory commonData;
         require(data.source != data.target, "source-and-target-unequal");
 
-        uint length = data.tokens.length; // TODO: move to common struct
+        commonData.length = data.tokens.length;
 
-        require(data.borrowAmts.length == length, "length-mismatch");
-        require(data.withdrawAmts.length == length, "length-mismatch");
-        require(data.borrowRateModes.length == length, "length-mismatch");
-        require(data.paybackRateModes.length == length, "length-mismatch");
+        require(data.borrowAmts.length == commonData.length, "length-mismatch");
+        require(data.withdrawAmts.length == commonData.length, "length-mismatch");
+        require(data.borrowRateModes.length == commonData.length, "length-mismatch");
+        require(data.paybackRateModes.length == commonData.length, "length-mismatch");
 
-        AaveV2Interface aaveV2 = AaveV2Interface(getAaveV2Provider().getLendingPool()); // TODO: move to common struct
-        AaveV1Interface aaveV1 = AaveV1Interface(getAaveProvider().getLendingPool()); // TODO: move to common struct
-        AaveV1CoreInterface aaveCore = AaveV1CoreInterface(getAaveProvider().getLendingPoolCore()); // TODO: move to common struct
-        AaveV2DataProviderInterface aaveData = getAaveV2DataProvider(); // TODO: move to common struct
+        commonData.aaveV2 = AaveV2Interface(getAaveV2Provider().getLendingPool());
+        commonData.aaveV1 = AaveV1Interface(getAaveProvider().getLendingPool());
+        commonData.aaveCore = AaveV1CoreInterface(getAaveProvider().getLendingPoolCore());
+        commonData.aaveData = getAaveV2DataProvider();
 
-        uint[] memory depositAmts; // TODO: move to common struct
-        uint[] memory paybackAmts; // TODO: move to common struct
-
-        TokenInterface[] memory tokens = getTokenInterfaces(length, data.tokens); // TODO: move to common struct
-        CTokenInterface[] memory _ctokens = getCtokenInterfaces(length, data.tokens); // TODO: move to common struct
-
-        AaveV2BorrowData memory _aaveV2BorrowData;
-        if (data.target == Protocol.AaveV2) {
-            _aaveV2BorrowData.aave = aaveV2;
-            _aaveV2BorrowData.length = length;
-            _aaveV2BorrowData.fee = data.debtFee;
-            _aaveV2BorrowData.target = data.source;
-            _aaveV2BorrowData.tokens = tokens;
-            _aaveV2BorrowData.ctokens = _ctokens;
-            _aaveV2BorrowData.amts = data.borrowAmts;
-            _aaveV2BorrowData.rateModes = data.borrowRateModes;
-        }
-
-        CompoundBorrowData memory _compoundBorrowData;
-        if (data.target == Protocol.Compound) {
-            _compoundBorrowData.length = length;
-            _compoundBorrowData.fee = data.debtFee;
-            _compoundBorrowData.target = data.source;
-            _compoundBorrowData.ctokens = _ctokens;
-            _compoundBorrowData.tokens = tokens;
-            _compoundBorrowData.amts = data.borrowAmts;
-            _compoundBorrowData.rateModes = data.borrowRateModes;
-        }
-        
-        AaveV1BorrowData memory _aaveV1BorrowData;
-        AaveV1DepositData memory _aaveV1DepositData;
-                
-        if (data.target == Protocol.Aave) {
-            _aaveV1BorrowData.aave = aaveV1;
-            _aaveV1BorrowData.length = length;
-            _aaveV1BorrowData.fee = data.debtFee;
-            _aaveV1BorrowData.target = data.source;
-            _aaveV1BorrowData.tokens = tokens;
-            _aaveV1BorrowData.ctokens = _ctokens;
-            _aaveV1BorrowData.amts = data.borrowAmts;
-            _aaveV1BorrowData.borrowRateModes = data.borrowRateModes;
-            _aaveV1BorrowData.paybackRateModes = data.paybackRateModes;
-        
-            _aaveV1DepositData.aave = aaveV1;
-            _aaveV1DepositData.aaveCore = aaveCore;
-            _aaveV1DepositData.length = length;
-            _aaveV1DepositData.fee = data.collateralFee;
-            _aaveV1DepositData.tokens = tokens;
-            _aaveV1DepositData.amts = depositAmts;
-        }
-
-        AaveV2PaybackData memory _aaveV2PaybackData;
-        AaveV2WithdrawData memory _aaveV2WithdrawData;
-        if (data.source == Protocol.AaveV2) {
-            _aaveV2PaybackData.aave = aaveV2;
-            _aaveV2PaybackData.aaveData = aaveData;
-            _aaveV2PaybackData.length = length;
-            _aaveV2PaybackData.tokens = tokens;
-            _aaveV2PaybackData.amts = paybackAmts;
-            _aaveV2PaybackData.rateModes = data.paybackRateModes;
-
-            _aaveV2WithdrawData.aave = aaveV2;
-            _aaveV2WithdrawData.aaveData = aaveData;
-            _aaveV2WithdrawData.length = length;
-            _aaveV2WithdrawData.tokens = tokens;
-            _aaveV2WithdrawData.amts = data.withdrawAmts;
-        }
+        commonData.tokens = getTokenInterfaces(commonData.length, data.tokens);
+        commonData.ctokens = getCtokenInterfaces(commonData.length, data.tokens);
 
         if (data.source == Protocol.Aave && data.target == Protocol.AaveV2) {
-            paybackAmts = _aaveV2Borrow(_aaveV2BorrowData); // TODO: pass common struct + RefinanceData calldata data and refactor in the common function
-            _aaveV1Payback(aaveV1, aaveCore, length, tokens, paybackAmts);
-            depositAmts = _aaveV1Withdraw(aaveV1, aaveCore, length, tokens, data.withdrawAmts);
-            _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, tokens, depositAmts);
+            commonData.paybackAmts = _aaveV2Borrow(data, commonData); // TODO: pass common struct + RefinanceData calldata data and refactor in the common function
+            _aaveV1Payback(commonData);
+            commonData.depositAmts = _aaveV1Withdraw(data, commonData);
+            _aaveV2Deposit(data, commonData);
         } else if (data.source == Protocol.Aave && data.target == Protocol.Compound) {
-            _compEnterMarkets(length, _ctokens);
+            _compEnterMarkets(commonData.length, commonData.ctokens);
 
-            paybackAmts = _compBorrow(_compoundBorrowData);
-            _aaveV1Payback(aaveV1, aaveCore, length, tokens, paybackAmts);
-            depositAmts = _aaveV1Withdraw(aaveV1, aaveCore, length, tokens, data.withdrawAmts);
-            _compDeposit(length, data.collateralFee, _ctokens, tokens, depositAmts);
+            commonData.paybackAmts = _compBorrow(data, commonData);
+            _aaveV1Payback(commonData);
+            commonData.depositAmts = _aaveV1Withdraw(data, commonData);
+            _compDeposit(data, commonData);
         } else if (data.source == Protocol.AaveV2 && data.target == Protocol.Aave) {
-            paybackAmts = _aaveV1Borrow(_aaveV1BorrowData);
-            _aaveV2Payback(_aaveV2PaybackData);
-            depositAmts = _aaveV2Withdraw(_aaveV2WithdrawData);
-
-            _aaveV1Deposit(_aaveV1DepositData);
+            commonData.paybackAmts = _aaveV1Borrow(data, commonData);
+            _aaveV2Payback(data, commonData);
+            commonData.depositAmts = _aaveV2Withdraw(data, commonData);
+            _aaveV1Deposit(data, commonData);
         } else if (data.source == Protocol.AaveV2 && data.target == Protocol.Compound) {
-            _compEnterMarkets(length, _ctokens);
+            _compEnterMarkets(commonData.length, commonData.ctokens);
 
-            paybackAmts = _compBorrow(_compoundBorrowData);
-            _aaveV2Payback(_aaveV2PaybackData);
-            depositAmts = _aaveV2Withdraw(_aaveV2WithdrawData);
-            _compDeposit(length, data.collateralFee, _ctokens, tokens, depositAmts);
+            commonData.paybackAmts = _compBorrow(data, commonData);
+            _aaveV2Payback(data, commonData);
+            commonData.depositAmts = _aaveV2Withdraw(data, commonData);
+            _compDeposit(data, commonData);
         } else if (data.source == Protocol.Compound && data.target == Protocol.Aave) {
-            paybackAmts = _aaveV1Borrow(_aaveV1BorrowData);
-            _compPayback(length, _ctokens, tokens, paybackAmts);
-            depositAmts = _compWithdraw(length, _ctokens, tokens, data.withdrawAmts);
-            _aaveV1Deposit(_aaveV1DepositData);
+            commonData.paybackAmts = _aaveV1Borrow(data, commonData);
+            _compPayback(commonData);
+            commonData.depositAmts = _compWithdraw(data, commonData);
+            _aaveV1Deposit(data, commonData);
         } else if (data.source == Protocol.Compound && data.target == Protocol.AaveV2) {
-            paybackAmts = _aaveV2Borrow(_aaveV2BorrowData);
-            _compPayback(length, _ctokens, tokens, paybackAmts);
-            depositAmts = _compWithdraw(length, _ctokens, tokens, data.withdrawAmts);
-            _aaveV2Deposit(aaveV2, aaveData, length, data.collateralFee, tokens, depositAmts);
+            commonData.paybackAmts = _aaveV2Borrow(data, commonData);
+            _compPayback(commonData);
+            commonData.depositAmts = _compWithdraw(data, commonData);
+            _aaveV2Deposit(data, commonData);
         } else {
             revert("invalid-options");
         }
