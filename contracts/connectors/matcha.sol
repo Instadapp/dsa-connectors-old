@@ -47,12 +47,7 @@ contract Matcha {
 
   
 
-    // Transfer tokens held by this contrat to the sender/owner.
-    function withdrawToken(TokenInterface token, uint256 amount)
-        external
-    {
-        require(token.transfer(address(this), amount));
-    }
+    
 
     // Transfer ETH held by this contrat to the sender/owner.
     function withdrawETH(uint256 amount)
