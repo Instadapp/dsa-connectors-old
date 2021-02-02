@@ -43,26 +43,8 @@ interface IWETH is IERC20 {
 
 contract Matcha {
 
-    IWETH WETH = getWETHAddress();
 
-  
-
-    
-
-    // Transfer ETH held by this contrat to the sender/owner.
-    function withdrawETH(uint256 amount)
-        external
-    {
-        (address(this)).transfer(amount);
-    }
-
-    function depositETH()
-        external
-        payable
-    {
-        WETH.deposit{value: msg.value}();
-    }
-    event BoughtTokens(
+    event LogSwap(
         address indexed sellAddr,
         address indexed buyAddr,
         uint256 buyAmt,
@@ -83,7 +65,6 @@ contract Matcha {
         TokenInterface sellAddr,
         TokenInterface buyAddr,
         address spender,
-        address payable swapTarget,
         bytes calldata swapCallData,
         uint ethAmt,    
         uint setId
@@ -93,16 +74,19 @@ contract Matcha {
 
         uint buyAmt;
 
+         if (address(_sellAddr) == getEthAddr()) {
+           TokenInterface(_sellAddr).approve(getWETHAddress(), ethAmt);
+        } 
+
         // Give `spender` an infinite allowance to spend this contract's `sellToken`.
         // Note that for some tokens (e.g., USDT, KNC), you must first reset any existing
         // allowance to 0 before being able to update it.
-        require(sellAddr.approve(spender, uint(-1)));
+        require(sellAddr.approve(spender, ethAmt);
         // Call the encoded swap function call on the contract at `swapTarget`,
         // passing along any ETH attached to this function call to cover protocol fees.
-        (bool success,) = swapTarget.call.value(ethAmt)(swapCallData);
-        require(success, 'SWAP_CALL_FAILED');
-        // Refund any unspent protocol fees to the sender.
-        address(this).transfer(address(this).balance);
+        (bool success,) = address(getMatchaAddress()).call.value(ethAmt)(swapCallData);
+        
+        if (!success) revert("Mathca-swap-failed");
 
         // Use our current buyToken balance to determine how much we've bought.
         uint finalBal = getTokenBal(buyAddr);
@@ -111,7 +95,7 @@ contract Matcha {
 
         setUint(setId, buyAmt);
 
-        emit BoughtTokens(sellAddr, buyAddr, boughtAmount, setId);
+        emit LogSwap(sellAddr, buyAddr, boughtAmount, setId);
     }
 
     
