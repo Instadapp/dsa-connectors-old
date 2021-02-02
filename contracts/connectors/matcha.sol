@@ -122,3 +122,7 @@ contract Matcha {
 
     
 }
+
+contract ConnectOne is Matcha {
+    string public name = "Matcha-v1";
+}
