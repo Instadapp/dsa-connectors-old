@@ -45,8 +45,7 @@ contract Matcha {
 
     IWETH WETH = getWETHAddress();
 
-    // Payable fallback to allow this contract to receive protocol fee refunds.
-    receive() external payable {}
+  
 
     // Transfer tokens held by this contrat to the sender/owner.
     function withdrawToken(TokenInterface token, uint256 amount)
