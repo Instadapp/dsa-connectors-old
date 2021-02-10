@@ -11,7 +11,7 @@ contract MatchaHelpers is Stores, DSMath {
      * @dev Return Matcha Address
      */
     function getMatchaAddress() internal pure returns (address) {
-        return 0x61935CbDd02287B511119DDb11Aeb42F1593b7Ef;
+        return 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
     }
 
     function convert18ToDec(uint256 _dec, uint256 _amt) internal pure returns (uint256 amt) {
