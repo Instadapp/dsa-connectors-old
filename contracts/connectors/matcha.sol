@@ -42,6 +42,17 @@ contract MatchaHelpers is Stores, DSMath {
     ) internal {
         if (isEth) token.deposit.value(amount)();
     }
+
+    function convertWethToEth(
+        bool isEth,
+        TokenInterface token,
+        uint256 amount
+    ) internal {
+        if (isEth) {
+            token.approve(address(token), amount);
+            token.withdraw(amount);
+        }
+    }
 }
 
 contract MatchaResolver is MatchaHelpers {
@@ -89,17 +100,24 @@ contract MatchaEventResolver is MatchaResolver {
 contract MatchaResolverHelpers is MatchaEventResolver {
     function _swap(MatchaData memory matchaData, uint256 setId) internal {
         TokenInterface _sellAddr = matchaData.sellToken;
+        TokenInterface _buyAddr = matchaData.buyToken;
 
         uint256 ethAmt;
-        bool isEth = address(_sellAddr) == getEthAddr();
-        if (isEth) {
+        TokenInterface tokenContract = TokenInterface(getWETHAddress());
+
+        if (address(_sellAddr) == getEthAddr()) {
             ethAmt = matchaData._sellAmt;
-            convertEthToWeth(isEth, TokenInterface(getWETHAddress()), ethAmt);
+            convertEthToWeth(true, tokenContract, ethAmt);
         } else {
             TokenInterface(_sellAddr).approve(getMatchaAddress(), matchaData._sellAmt);
         }
 
         matchaData._buyAmt = matchaSwap(matchaData, ethAmt);
+
+        if (address(_buyAddr) == getEthAddr()) {
+            convertWethToEth(true, tokenContract, matchaData._buyAmt);
+        }
+
         setUint(setId, matchaData._buyAmt);
 
         emitLogSwap(matchaData, setId);
