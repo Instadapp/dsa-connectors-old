@@ -94,7 +94,7 @@ contract MatchaResolverHelpers is MatchaEventResolver {
 
 contract Matcha is MatchaResolverHelpers {
     /**
-     * @dev Sell ETH/ERC20_Token using matcha.
+     * @dev Swap ETH/ERC20_Token using matcha.
      * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param sellAddr selling token amount.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
      * @param sellAmt selling token amount.
