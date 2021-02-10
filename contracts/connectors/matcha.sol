@@ -14,6 +14,10 @@ contract MatchaHelpers is Stores, DSMath {
         return 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
     }
 
+    function getWETHAddress() internal pure returns (address) {
+        return 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    }
+
     function convert18ToDec(uint256 _dec, uint256 _amt) internal pure returns (uint256 amt) {
         amt = (_amt / 10**(18 - _dec));
     }
@@ -30,6 +34,14 @@ contract MatchaHelpers is Stores, DSMath {
         buyDec = address(buyAddr) == getEthAddr() ? 18 : buyAddr.decimals();
         sellDec = address(sellAddr) == getEthAddr() ? 18 : sellAddr.decimals();
     }
+
+    function convertEthToWeth(
+        bool isEth,
+        TokenInterface token,
+        uint256 amount
+    ) internal {
+        if (isEth) token.deposit.value(amount)();
+    }
 }
 
 contract MatchaResolver is MatchaHelpers {
@@ -42,7 +54,7 @@ contract MatchaResolver is MatchaHelpers {
         bytes callData;
     }
 
-    function matchaSwap(MatchaData memory matchaData, uint256 ethAmt) internal returns (uint256 buyAmt) {
+    function matchaSwap(MatchaData memory matchaData, uint256 wethAmt) internal returns (uint256 buyAmt) {
         TokenInterface buyToken = matchaData.buyToken;
         (uint256 _buyDec, uint256 _sellDec) = getTokensDec(buyToken, matchaData.sellToken);
         uint256 _sellAmt18 = convertTo18(_sellDec, matchaData._sellAmt);
@@ -50,7 +62,7 @@ contract MatchaResolver is MatchaHelpers {
 
         uint256 initalBal = getTokenBal(buyToken);
 
-        (bool success, ) = address(getMatchaAddress()).call.value(ethAmt)(matchaData.callData);
+        (bool success, ) = address(getMatchaAddress()).call.value(wethAmt)(matchaData.callData);
         if (!success) revert("matcha-swap-failed");
 
         uint256 finalBal = getTokenBal(buyToken);
@@ -79,8 +91,10 @@ contract MatchaResolverHelpers is MatchaEventResolver {
         TokenInterface _sellAddr = matchaData.sellToken;
 
         uint256 ethAmt;
-        if (address(_sellAddr) == getEthAddr()) {
+        bool isEth = address(_sellAddr) == getEthAddr();
+        if (isEth) {
             ethAmt = matchaData._sellAmt;
+            convertEthToWeth(isEth, TokenInterface(getWETHAddress()), ethAmt);
         } else {
             TokenInterface(_sellAddr).approve(getMatchaAddress(), matchaData._sellAmt);
         }
