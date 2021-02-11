@@ -514,7 +514,7 @@ contract CompoundHelpers is Helpers {
             address _token = address(token) == getWethAddr() ? getEthAddr() : address(token);
 
             if (amt == uint(-1)) {
-                amt = getMaxBorrow(target, address(token), ctoken, rateMode);
+                amt = getMaxBorrow(target, _token, ctoken, rateMode);
             }
 
             (uint feeAmt, uint _amt) = calculateFee(amt, fee, true);
@@ -635,7 +635,7 @@ contract AaveV1Helpers is CompoundHelpers {
             address _token = address(token) == getWethAddr() ? getEthAddr() : address(token);
 
             if (amt == uint(-1)) {
-                amt = getMaxBorrow(target, address(token), ctoken, paybackRateMode);
+                amt = getMaxBorrow(target, _token, ctoken, paybackRateMode);
             }
 
             (uint feeAmt, uint _amt) = calculateFee(amt, fee, true);
