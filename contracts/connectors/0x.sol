@@ -6,11 +6,11 @@ import {TokenInterface, MemoryInterface, EventInterface} from "../common/interfa
 import {Stores} from "../common/stores.sol";
 import {DSMath} from "../common/math.sol";
 
-contract MatchaHelpers is Stores, DSMath {
+contract Helpers is Stores, DSMath {
     /**
-     * @dev Return Matcha Address
+     * @dev Return 0x Address
      */
-    function getMatchaAddress() internal pure returns (address) {
+    function get0xAddress() internal pure returns (address) {
         return 0xDef1C0ded9bec7F1a1670819833240f027b25EfF;
     }
 
@@ -31,10 +31,7 @@ contract MatchaHelpers is Stores, DSMath {
         sellDec = address(sellAddr) == getEthAddr() ? 18 : sellAddr.decimals();
     }
 
-}
-
-contract MatchaResolver is MatchaHelpers {
-    struct MatchaData {
+    struct SwapData {
         TokenInterface sellToken;
         TokenInterface buyToken;
         uint256 _sellAmt;
@@ -43,16 +40,32 @@ contract MatchaResolver is MatchaHelpers {
         bytes callData;
     }
 
-    function matchaSwap(MatchaData memory matchaData, uint256 wethAmt) internal returns (uint256 buyAmt) {
-        TokenInterface buyToken = matchaData.buyToken;
-        (uint256 _buyDec, uint256 _sellDec) = getTokensDec(buyToken, matchaData.sellToken);
-        uint256 _sellAmt18 = convertTo18(_sellDec, matchaData._sellAmt);
-        uint256 _slippageAmt = convert18ToDec(_buyDec, wmul(matchaData.unitAmt, _sellAmt18));
+}
+
+contract EventResolver is Helpers {
+    event LogSwap(address indexed buyToken, address indexed sellToken, uint256 buyAmt, uint256 sellAmt, uint256 getId, uint256 setId);
+
+    function emitLogSwap(SwapData memory swapData, uint256 setId) internal {
+        bytes32 _eventCode;
+        bytes memory _eventParam;
+        emit LogSwap(address(swapData.buyToken), address(swapData.sellToken), swapData._buyAmt, swapData._sellAmt, 0, setId);
+        _eventCode = keccak256("LogSwap(address,address,uint256,uint256,uint256,uint256)");
+        _eventParam = abi.encode(address(swapData.buyToken), address(swapData.sellToken), swapData._buyAmt, swapData._sellAmt, 0, setId);
+        emitEvent(_eventCode, _eventParam);
+    }
+}
+
+contract Resolver is EventResolver {
+    function _swapHelper(SwapData memory swapData, uint256 wethAmt) internal returns (uint256 buyAmt) {
+        TokenInterface buyToken = swapData.buyToken;
+        (uint256 _buyDec, uint256 _sellDec) = getTokensDec(buyToken, swapData.sellToken);
+        uint256 _sellAmt18 = convertTo18(_sellDec, swapData._sellAmt);
+        uint256 _slippageAmt = convert18ToDec(_buyDec, wmul(swapData.unitAmt, _sellAmt18));
 
         uint256 initalBal = getTokenBal(buyToken);
 
-        (bool success, ) = address(getMatchaAddress()).call.value(wethAmt)(matchaData.callData);
-        if (!success) revert("matcha-swap-failed");
+        (bool success, ) = address(get0xAddress()).call.value(wethAmt)(swapData.callData);
+        if (!success) revert("0x-swap-failed");
 
         uint256 finalBal = getTokenBal(buyToken);
 
@@ -60,42 +73,27 @@ contract MatchaResolver is MatchaHelpers {
 
         require(_slippageAmt <= buyAmt, "Too much slippage");
     }
-}
 
-contract MatchaEventResolver is MatchaResolver {
-    event LogSwap(address indexed buyToken, address indexed sellToken, uint256 buyAmt, uint256 sellAmt, uint256 getId, uint256 setId);
-
-    function emitLogSwap(MatchaData memory matchaData, uint256 setId) internal {
-        bytes32 _eventCode;
-        bytes memory _eventParam;
-        emit LogSwap(address(matchaData.buyToken), address(matchaData.sellToken), matchaData._buyAmt, matchaData._sellAmt, 0, setId);
-        _eventCode = keccak256("LogSwap(address,address,uint256,uint256,uint256,uint256)");
-        _eventParam = abi.encode(address(matchaData.buyToken), address(matchaData.sellToken), matchaData._buyAmt, matchaData._sellAmt, 0, setId);
-        emitEvent(_eventCode, _eventParam);
-    }
-}
-
-contract MatchaResolverHelpers is MatchaEventResolver {
-    function _swap(MatchaData memory matchaData, uint256 setId) internal {
-        TokenInterface _sellAddr = matchaData.sellToken;
+    function _swap(SwapData memory swapData, uint256 setId) internal {
+        TokenInterface _sellAddr = swapData.sellToken;
 
         uint256 ethAmt;
 
         if (address(_sellAddr) == getEthAddr()) {
-            ethAmt = matchaData._sellAmt;
+            ethAmt = swapData._sellAmt;
         } else {
-            TokenInterface(_sellAddr).approve(getMatchaAddress(), matchaData._sellAmt);
+            TokenInterface(_sellAddr).approve(get0xAddress(), swapData._sellAmt);
         }
 
-        matchaData._buyAmt = matchaSwap(matchaData, ethAmt);
+        swapData._buyAmt = _swapHelper(swapData, ethAmt);
 
-        setUint(setId, matchaData._buyAmt);
+        setUint(setId, swapData._buyAmt);
 
-        emitLogSwap(matchaData, setId);
+        emitLogSwap(swapData, setId);
     }
 }
 
-contract Matcha is MatchaResolverHelpers {
+contract Connector is Resolver {
     /**
      * @dev Swap ETH/ERC20_Token using 0x.
      * @param buyAddr buying token address.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
@@ -113,8 +111,8 @@ contract Matcha is MatchaResolverHelpers {
         bytes calldata callData,
         uint256 setId
     ) external payable {
-        MatchaData memory matchaData =
-            MatchaData({
+        SwapData memory swapData =
+            SwapData({
                 buyToken: TokenInterface(buyAddr),
                 sellToken: TokenInterface(sellAddr),
                 unitAmt: unitAmt,
@@ -123,10 +121,10 @@ contract Matcha is MatchaResolverHelpers {
                 _buyAmt: 0
             });
 
-        _swap(matchaData, setId);
+        _swap(swapData, setId);
     }
 }
 
-contract ConnectMatcha is MatchaResolver {
-    string public name = "Matcha-v1";
+contract Connect0x is Connector {
+    string public name = "0x-v1";
 }
