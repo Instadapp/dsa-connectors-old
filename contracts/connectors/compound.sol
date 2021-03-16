@@ -405,5 +405,5 @@ contract ExtraResolver is BasicResolver {
 
 
 contract ConnectCompound is ExtraResolver {
-    string public name = "Compound-v1.3";
+    string public name = "Compound-v1.4";
 }
