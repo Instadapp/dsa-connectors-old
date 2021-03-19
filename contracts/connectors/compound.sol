@@ -139,8 +139,7 @@ contract CompoundHelpers is Helpers {
      * @dev Return InstaDApp Mapping Addresses
      */
     function getMappingAddr() internal pure returns (address) {
-        // Update this
-        return 0xe81F70Cc7C0D46e12d70efc60607F16bbD617E88; // InstaMapping Address
+        return 0xA8F9D4aA7319C54C04404765117ddBf9448E2082; // InstaMapping Address
     }
 
     /**
