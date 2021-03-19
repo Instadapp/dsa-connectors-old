@@ -180,6 +180,7 @@ contract BasicResolver is CompoundHelpers {
     function deposit(string calldata tokenId, uint amt, uint getId, uint setId) external payable{
         uint _amt = getUint(getId, amt);
         (address token, address cToken) = InstaMappingV2(getMappingAddr()).getMapping(tokenId);
+        require(token != address(0) && cToken != address(0), "ctoken mapping not found");
         enterMarket(cToken);
         if (token == getAddressETH()) {
             _amt = _amt == uint(-1) ? address(this).balance : _amt;
@@ -205,6 +206,7 @@ contract BasicResolver is CompoundHelpers {
     function withdraw(string calldata tokenId, uint amt, uint getId, uint setId) external payable{
         uint _amt = getUint(getId, amt);
         (address token, address cToken) = InstaMappingV2(getMappingAddr()).getMapping(tokenId);
+        require(token != address(0) && cToken != address(0), "ctoken mapping not found");
         CTokenInterface cTokenContract = CTokenInterface(cToken);
         if (_amt == uint(-1)) {
             TokenInterface tokenContract = TokenInterface(token);
@@ -230,6 +232,7 @@ contract BasicResolver is CompoundHelpers {
     function borrow(string calldata tokenId, uint amt, uint getId, uint setId) external payable {
         uint _amt = getUint(getId, amt);
         (address token, address cToken) = InstaMappingV2(getMappingAddr()).getMapping(tokenId);
+        require(token != address(0) && cToken != address(0), "ctoken mapping not found");
         enterMarket(cToken);
         require(CTokenInterface(cToken).borrow(_amt) == 0, "borrow-failed");
         setUint(setId, _amt);
@@ -247,6 +250,7 @@ contract BasicResolver is CompoundHelpers {
     function payback(string calldata tokenId, uint amt, uint getId, uint setId) external payable {
         uint _amt = getUint(getId, amt);
         (address token, address cToken) = InstaMappingV2(getMappingAddr()).getMapping(tokenId);
+        require(token != address(0) && cToken != address(0), "ctoken mapping not found");
         CTokenInterface cTokenContract = CTokenInterface(cToken);
         _amt = _amt == uint(-1) ? cTokenContract.borrowBalanceCurrent(address(this)) : _amt;
 
@@ -311,6 +315,7 @@ contract ExtraResolver is BasicResolver {
     function depositCToken(string calldata tokenId, uint amt, uint getId, uint setId) external payable{
         uint _amt = getUint(getId, amt);
         (address token, address cToken) = InstaMappingV2(getMappingAddr()).getMapping(tokenId);
+        require(token != address(0) && cToken != address(0), "ctoken mapping not found");
         enterMarket(cToken);
 
         CTokenInterface ctokenContract = CTokenInterface(cToken);
@@ -343,6 +348,7 @@ contract ExtraResolver is BasicResolver {
     function withdrawCToken(string calldata tokenId, uint cTokenAmt, uint getId, uint setId) external payable {
         uint _cAmt = getUint(getId, cTokenAmt);
         (address token, address cToken) = InstaMappingV2(getMappingAddr()).getMapping(tokenId);
+        require(token != address(0) && cToken != address(0), "ctoken mapping not found");
         CTokenInterface cTokenContract = CTokenInterface(cToken);
         TokenInterface tokenContract = TokenInterface(token);
         _cAmt = _cAmt == uint(-1) ? cTokenContract.balanceOf(address(this)) : _cAmt;
@@ -385,7 +391,9 @@ contract ExtraResolver is BasicResolver {
         LiquidateData memory data;
 
         (data.tokenToPay, data.cTokenPay) = InstaMappingV2(getMappingAddr()).getMapping(tokenIdToPay);
+        require(data.tokenToPay != address(0) && data.cTokenPay != address(0), "ctoken mapping not found");
         (data.tokenInReturn, data.cTokenColl) = InstaMappingV2(getMappingAddr()).getMapping(tokenIdInReturn);
+        require(data.tokenInReturn != address(0) && data.cTokenColl != address(0), "ctoken mapping not found");
         CTokenInterface cTokenContract = CTokenInterface(data.cTokenPay);
 
         {
