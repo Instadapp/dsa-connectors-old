@@ -18,6 +18,7 @@ interface AaveInterface {
     ) external;
     function repay(address _asset, uint256 _amount, uint256 _rateMode, address _onBehalfOf) external;
     function setUserUseReserveAsCollateral(address _asset, bool _useAsCollateral) external;
+    function swapBorrowRateMode(address asset, uint256 rateMode) external;
 }
 
 interface AaveLendingPoolProviderInterface {
@@ -115,6 +116,7 @@ contract BasicResolver is AaveHelpers {
     event LogBorrow(address indexed token, uint256 tokenAmt, uint256 indexed rateMode, uint256 getId, uint256 setId);
     event LogPayback(address indexed token, uint256 tokenAmt, uint256 indexed rateMode, uint256 getId, uint256 setId);
     event LogEnableCollateral(address[] tokens);
+    event LogSwapRateMode(address indexed token, uint256 rateMode);
 
     /**
      * @dev Deposit ETH/ERC20_Token.
@@ -259,8 +261,26 @@ contract BasicResolver is AaveHelpers {
 
         emit LogEnableCollateral(tokens);
     }
+
+    /**
+     * @dev Swap borrow rate mode between stable and variable
+     * @param token The address of the token to swap borrow rate.(For ETH: 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
+     * @param rateMode Desired borrow rate mode. (Stable = 1, Variable = 2)
+    */
+    function swapBorrowRateMode(address token, uint rateMode) external payable {
+        AaveInterface aave = AaveInterface(getAaveProvider().getLendingPool());
+        AaveDataProviderInterface aaveData = getAaveDataProvider();
+
+        uint currentRateMode = rateMode == 1 ? 2 : 1;
+
+        if (getPaybackBalance(aaveData, token, currentRateMode) > 0) {
+            aave.swapBorrowRateMode(token, rateMode);
+        }
+
+        emit LogSwapRateMode(token, rateMode);
+    }
 }
 
 contract ConnectAaveV2 is BasicResolver {
-    string public name = "AaveV2-v1.1";
+    string public name = "AaveV2-v1.2";
 }
