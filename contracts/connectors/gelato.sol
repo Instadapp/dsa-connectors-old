@@ -1,22 +1,25 @@
-pragma solidity ^0.6.0;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.7.4;
 pragma experimental ABIEncoderV2;
 
-import { DSMath } from '../common/math.sol';
+// https://etherscan.io/address/0x25ad59adbe00c2d80c86d01e2e05e1294da84823#code
+
+// solhint-disable
 
 // Gelato Data Types
 struct Provider {
-    address addr;  //  if msg.sender == provider => self-Provider
-    address module;  //  e.g. DSA Provider Module
+    address addr; //  if msg.sender == provider => self-Provider
+    address module; //  e.g. DSA Provider Module
 }
 
 struct Condition {
-    address inst;  // can be AddressZero for self-conditional Actions
-    bytes data;  // can be bytes32(0) for self-conditional Actions
+    address inst; // can be AddressZero for self-conditional Actions
+    bytes data; // can be bytes32(0) for self-conditional Actions
 }
 
-enum Operation { Call, Delegatecall }
+enum Operation {Call, Delegatecall}
 
-enum DataFlow { None, In, Out, InAndOut }
+enum DataFlow {None, In, Out, InAndOut}
 
 struct Action {
     address addr;
@@ -28,10 +31,10 @@ struct Action {
 }
 
 struct Task {
-    Condition[] conditions;  // optional
+    Condition[] conditions; // optional
     Action[] actions;
-    uint256 selfProviderGasLimit;  // optional: 0 defaults to gelatoMaxGas
-    uint256 selfProviderGasPriceCeil;  // optional: 0 defaults to NO_CEIL
+    uint256 selfProviderGasLimit; // optional: 0 defaults to gelatoMaxGas
+    uint256 selfProviderGasPriceCeil; // optional: 0 defaults to NO_CEIL
 }
 
 struct TaskReceipt {
@@ -41,155 +44,195 @@ struct TaskReceipt {
     uint256 index;
     Task[] tasks;
     uint256 expiryDate;
-    uint256 cycleId;  // auto-filled by GelatoCore. 0 for non-cyclic/chained tasks
+    uint256 cycleId; // auto-filled by GelatoCore. 0 for non-cyclic/chained tasks
     uint256 submissionsLeft;
 }
 
 struct TaskSpec {
-    address[] conditions;   // Address: optional AddressZero for self-conditional actions
+    address[] conditions; // Address: optional AddressZero for self-conditional actions
     Action[] actions;
     uint256 gasPriceCeil;
 }
 
 // Gelato Interface
 interface IGelatoInterface {
-
     /**
      * @dev API to submit a single Task.
-    */
+     */
     function submitTask(
         Provider calldata _provider,
         Task calldata _task,
         uint256 _expiryDate
-    )
-        external;
-
+    ) external;
 
     /**
      * @dev A Gelato Task Cycle consists of 1 or more Tasks that automatically submit
      * the next one, after they have been executed, where the total number of tasks can
      * be only be an even number
-    */
+     */
     function submitTaskCycle(
         Provider calldata _provider,
         Task[] calldata _tasks,
         uint256 _expiryDate,
         uint256 _cycles
-    )
-        external;
-
+    ) external;
 
     /**
      * @dev A Gelato Task Chain consists of 1 or more Tasks that automatically submit
      * the next one, after they have been executed, where the total number of tasks can
      * be an odd number
-    */
+     */
     function submitTaskChain(
         Provider calldata _provider,
         Task[] calldata _tasks,
         uint256 _expiryDate,
         uint256 _sumOfRequestedTaskSubmits
-    )
-        external;
+    ) external;
 
     /**
      * @dev Cancel multiple tasks at once
-    */
+     */
     function multiCancelTasks(TaskReceipt[] calldata _taskReceipts) external;
 
     /**
      * @dev Whitelist new executor, TaskSpec(s) and Module(s) in one tx
-    */
+     */
     function multiProvide(
         address _executor,
         TaskSpec[] calldata _taskSpecs,
         address[] calldata _modules
-    )
-        external
-        payable;
-
+    ) external payable;
 
     /**
      * @dev De-Whitelist TaskSpec(s), Module(s) and withdraw funds from gelato in one tx
-    */
+     */
     function multiUnprovide(
         uint256 _withdrawAmount,
         TaskSpec[] calldata _taskSpecs,
         address[] calldata _modules
-    )
-        external;
+    ) external;
 }
-
 
 interface MemoryInterface {
-    function setUint(uint _id, uint _val) external;
-    function getUint(uint _id) external returns (uint);
+    function setUint(uint256 _id, uint256 _val) external;
+
+    function getUint(uint256 _id) external returns (uint256);
 }
 
-contract Helpers {
+abstract contract Helpers {
+    uint256 internal immutable _id;
+
+    constructor(uint256 id) {
+        _id = id;
+    }
 
     /**
      * @dev Return Memory Variable Address
-    */
+     */
     function getMemoryAddr() internal pure returns (address) {
         return 0x8a5419CfC711B2343c17a6ABf4B2bAFaBb06957F; // InstaMemory Address
     }
 
     /**
      * @dev Set Uint value in InstaMemory Contract.
-    */
-    function setUint(uint setId, uint val) internal {
+     */
+    function setUint(uint256 setId, uint256 val) internal {
         if (setId != 0) MemoryInterface(getMemoryAddr()).setUint(setId, val);
     }
 
     /**
      * @dev Get Uint value from InstaMemory Contract.
-    */
-    function getUint(uint getId, uint val) internal returns (uint returnVal) {
-        returnVal = getId == 0 ? val : MemoryInterface(getMemoryAddr()).getUint(getId);
+     */
+    function getUint(uint256 getId, uint256 val)
+        internal
+        returns (uint256 returnVal)
+    {
+        returnVal = getId == 0
+            ? val
+            : MemoryInterface(getMemoryAddr()).getUint(getId);
     }
 
     /**
      * @dev Connector Details
-    */
-    function connectorID() public pure returns(uint _type, uint _id) {
-        (_type, _id) = (1, 42);
+     */
+    function connectorID() public view returns (uint256 _type, uint256 id) {
+        (_type, id) = (1, _id);
     }
 }
 
-contract GelatoHelpers is Helpers, DSMath {
+contract DSMath {
+    function add(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require((z = x + y) >= x, "math-not-safe");
+    }
 
+    function sub(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require((z = x - y) <= x, "sub-overflow");
+    }
+}
+
+abstract contract GelatoHelpers is Helpers, DSMath {
     /**
      * @dev Return Gelato Core Address
-    */
+     */
     function getGelatoCoreAddr() internal pure returns (address) {
-        return 0x1d681d76ce96E4d70a88A00EBbcfc1E47808d0b8; // Gelato Core address
+        return 0x025030BdAa159f281cAe63873E68313a703725A5; // Gelato Core address
     }
 
     /**
      * @dev Return Instapp DSA Provider Module Address
-    */
+     */
     function getInstadappProviderModuleAddr() internal pure returns (address) {
         return 0x0C25452d20cdFeEd2983fa9b9b9Cf4E81D6f2fE2; // ProviderModuleDSA Address
     }
-
 }
 
+abstract contract GelatoResolver is GelatoHelpers {
+    event LogMultiProvide(
+        address indexed executor,
+        TaskSpec[] indexed taskspecs,
+        address[] indexed modules,
+        uint256 ethToDeposit,
+        uint256 getId,
+        uint256 setId
+    );
 
-contract GelatoResolver is GelatoHelpers {
+    event LogSubmitTask(
+        Provider indexed provider,
+        Task indexed task,
+        uint256 indexed expiryDate,
+        uint256 getId,
+        uint256 setId
+    );
 
-    event LogMultiProvide(address indexed executor, TaskSpec[] indexed taskspecs, address[] indexed modules, uint256 ethToDeposit, uint256 getId, uint256 setId);
+    event LogSubmitTaskCycle(
+        Provider indexed provider,
+        Task[] indexed tasks,
+        uint256 indexed expiryDate,
+        uint256 getId,
+        uint256 setId
+    );
 
-    event LogSubmitTask(Provider indexed provider, Task indexed task, uint256 indexed expiryDate, uint256 getId, uint256 setId);
+    event LogSubmitTaskChain(
+        Provider indexed provider,
+        Task[] indexed tasks,
+        uint256 indexed expiryDate,
+        uint256 getId,
+        uint256 setId
+    );
 
-    event LogSubmitTaskCycle(Provider indexed provider, Task[] indexed tasks, uint256 indexed expiryDate, uint256 getId, uint256 setId);
+    event LogMultiUnprovide(
+        TaskSpec[] indexed taskspecs,
+        address[] indexed modules,
+        uint256 ethToWithdraw,
+        uint256 getId,
+        uint256 setId
+    );
 
-    event LogSubmitTaskChain(Provider indexed provider, Task[] indexed tasks, uint256 indexed expiryDate, uint256 getId, uint256 setId);
-
-    event LogMultiUnprovide(TaskSpec[] indexed taskspecs, address[] indexed modules, uint256 ethToWithdraw, uint256 getId, uint256 setId);
-
-    event LogMultiCancelTasks(TaskReceipt[] indexed taskReceipt, uint256 getId, uint256 setId);
-
+    event LogMultiCancelTasks(
+        TaskReceipt[] indexed taskReceipt,
+        uint256 getId,
+        uint256 setId
+    );
 
     // ===== Gelato ENTRY APIs ======
 
@@ -200,7 +243,7 @@ contract GelatoResolver is GelatoHelpers {
      * @param _taskSpecs enables external providers to whitelist TaskSpecs on gelato
      * @param _modules address of ProviderModuleDSA
      * @param _ethToDeposit amount of eth to deposit on Gelato, only for self-providers
-    */
+     */
     function multiProvide(
         address _executor,
         TaskSpec[] calldata _taskSpecs,
@@ -208,12 +251,11 @@ contract GelatoResolver is GelatoHelpers {
         uint256 _ethToDeposit,
         uint256 _getId,
         uint256 _setId
-    )
-        external
-        payable
-    {
+    ) external payable {
         uint256 ethToDeposit = getUint(_getId, _ethToDeposit);
-        ethToDeposit = ethToDeposit == uint(-1) ? address(this).balance : ethToDeposit;
+        ethToDeposit = ethToDeposit == uint256(-1)
+            ? address(this).balance
+            : ethToDeposit;
 
         IGelatoInterface(getGelatoCoreAddr()).multiProvide{value: ethToDeposit}(
             _executor,
@@ -223,7 +265,14 @@ contract GelatoResolver is GelatoHelpers {
 
         setUint(_setId, ethToDeposit);
 
-        emit LogMultiProvide(_executor, _taskSpecs, _modules, ethToDeposit, _getId, _setId);
+        emit LogMultiProvide(
+            _executor,
+            _taskSpecs,
+            _modules,
+            ethToDeposit,
+            _getId,
+            _setId
+        );
     }
 
     /**
@@ -232,16 +281,17 @@ contract GelatoResolver is GelatoHelpers {
      * who will pay for the transaction execution
      * @param _task Task specifying the condition and the action connectors
      * @param _expiryDate Default 0, othweise timestamp after which the task expires
-    */
+     */
     function submitTask(
         Provider calldata _provider,
         Task calldata _task,
         uint256 _expiryDate
-    )
-        external
-        payable
-    {
-        IGelatoInterface(getGelatoCoreAddr()).submitTask(_provider, _task, _expiryDate);
+    ) external payable {
+        IGelatoInterface(getGelatoCoreAddr()).submitTask(
+            _provider,
+            _task,
+            _expiryDate
+        );
 
         emit LogSubmitTask(_provider, _task, _expiryDate, 0, 0);
     }
@@ -253,16 +303,13 @@ contract GelatoResolver is GelatoHelpers {
      * @param _tasks A sequence of Tasks, can be a single or multiples
      * @param _expiryDate Default 0, othweise timestamp after which the task expires
      * @param _cycles How often the Task List should be executed, e.g. 5 times
-    */
+     */
     function submitTaskCycle(
         Provider calldata _provider,
         Task[] calldata _tasks,
         uint256 _expiryDate,
         uint256 _cycles
-    )
-        external
-        payable
-    {
+    ) external payable {
         IGelatoInterface(getGelatoCoreAddr()).submitTaskCycle(
             _provider,
             _tasks,
@@ -281,16 +328,13 @@ contract GelatoResolver is GelatoHelpers {
      * @param _expiryDate Default 0, othweise timestamp after which the task expires
      * @param _sumOfRequestedTaskSubmits The TOTAL number of Task auto-submits
      * that should have occured once the cycle is complete
-    */
+     */
     function submitTaskChain(
         Provider calldata _provider,
         Task[] calldata _tasks,
         uint256 _expiryDate,
         uint256 _sumOfRequestedTaskSubmits
-    )
-        external
-        payable
-    {
+    ) external payable {
         IGelatoInterface(getGelatoCoreAddr()).submitTaskChain(
             _provider,
             _tasks,
@@ -309,17 +353,14 @@ contract GelatoResolver is GelatoHelpers {
      * @param _withdrawAmount Amount of ETH to withdraw from Gelato
      * @param _taskSpecs List of Task Specs to de-whitelist, default empty []
      * @param _modules List of Provider Modules to de-whitelist, default empty []
-    */
+     */
     function multiUnprovide(
         uint256 _withdrawAmount,
         TaskSpec[] calldata _taskSpecs,
         address[] calldata _modules,
         uint256 _getId,
         uint256 _setId
-    )
-        external
-        payable
-    {
+    ) external payable {
         uint256 withdrawAmount = getUint(_getId, _withdrawAmount);
         uint256 balanceBefore = address(this).balance;
 
@@ -329,17 +370,24 @@ contract GelatoResolver is GelatoHelpers {
             _modules
         );
 
-        uint256 actualWithdrawAmount = sub(address(this).balance, balanceBefore);
+        uint256 actualWithdrawAmount =
+            sub(address(this).balance, balanceBefore);
 
         setUint(_setId, actualWithdrawAmount);
 
-        emit LogMultiUnprovide(_taskSpecs, _modules, actualWithdrawAmount, _getId, _setId);
+        emit LogMultiUnprovide(
+            _taskSpecs,
+            _modules,
+            actualWithdrawAmount,
+            _getId,
+            _setId
+        );
     }
 
     /**
      * @dev Cancels outstanding Tasks
      * @param _taskReceipts List of Task Receipts to cancel
-    */
+     */
     function multiCancelTasks(TaskReceipt[] calldata _taskReceipts)
         external
         payable
@@ -350,7 +398,8 @@ contract GelatoResolver is GelatoHelpers {
     }
 }
 
-
 contract ConnectGelato is GelatoResolver {
-    string public name = "Gelato-v1.0";
+    string public name = "ConnectGelato-v2.0";
+
+    constructor(uint256 _id) Helpers(_id) {}
 }
